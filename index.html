@@ -6800,12 +6800,12 @@
         carreta: { x: 548, y: 150, r: 68, label: 'Almacén del pulpero' },
         fogon: { x: 320, y: 262, r: 44, label: 'Fogón: aguantar la noche' },
         fragua: { x: 132, y: 318, r: 68, label: 'Fragua' },
-        corral: { x: 486, y: 310, r: 112, label: 'Corral' },
+        corral: { x: 514, y: 306, r: 104, label: 'Corral' },
         tranquera: { x: 320, y: 366, r: 40, label: 'Tranquera: recorrer el campo' },
         perro: { x: 378, y: 300, r: 34, label: 'Acariciar al perro' }
       };
-      const PU_SOLID = [[294, 376, 4], [346, 376, 4], [320, 120, 60], [118, 168, 18], [548, 132, 40], [320, 256, 22], [132, 302, 32], [90, 330, 14], [380, 302, 12], [214, 206, 14], [352, 278, 6], [162, 190, 8]];
-      const CORRAL = { x: 392, y: 250, w: 188, h: 118 };
+      const PU_SOLID = [[262, 180, 3], [196, 300, 3], [420, 222, 3], [364, 372, 3], [294, 376, 4], [346, 376, 4], [320, 120, 60], [118, 168, 18], [548, 132, 40], [320, 256, 22], [132, 302, 32], [90, 330, 14], [380, 302, 12], [214, 206, 14], [352, 278, 6], [162, 190, 8]];
+      const CORRAL = { x: 440, y: 236, w: 148, h: 142 };
       function enterPuesto() {
         viaPuesto = false; initAudio();
         hide('startOv');
@@ -7340,6 +7340,73 @@
         return PU_MTN = c;
       }
       /* ---- decoración que no cambia: coirón, calafates y ñires del borde, repartidos también fuera del puesto ---- */
+      /* ---- claro de tierra pisada alrededor del fogón con senderos a cada estación.
+         Se hornea una vez a la densidad de los sprites (PXS) con bordes tramados, no con alfa suave. ---- */
+      const PU_PATHS = [ // [x1, y1, x2, y2, curva, medio ancho]
+        [320, 262, 146, 212, 18, 11], [320, 262, 320, 172, 0, 11], [320, 262, 526, 182, -16, 11],
+        [320, 262, 166, 330, -14, 11], [320, 262, 434, 318, 10, 9], [320, 262, 320, 430, 6, 13]];
+      let PU_CLEAR = null;
+      function puClearing() {
+        if (PU_CLEAR) return PU_CLEAR;
+        const X0 = -40, Y0 = PU_TOP, w = Math.ceil((PUW + 80) / PXS), h = Math.ceil((PUH - PU_TOP + 24) / PXS);
+        const segs = [];
+        for (const [x1, y1, x2, y2, bend, hw] of PU_PATHS) {
+          const dx = x2 - x1, dy = y2 - y1, L = Math.hypot(dx, dy) || 1, mx = (x1 + x2) / 2 - dy / L * bend, my = (y1 + y2) / 2 + dx / L * bend;
+          let px = x1, py = y1;
+          for (let i = 1; i <= 10; i++) { const t = i / 10, u = 1 - t, qx = u * u * x1 + 2 * u * t * mx + t * t * x2, qy = u * u * y1 + 2 * u * t * my + t * t * y2; segs.push([px, py, qx, qy, hw * (1 - .15 * t)]); px = qx; py = qy; }
+        }
+        const segD = (x, y, a) => { const [x1, y1, x2, y2] = a, vx = x2 - x1, vy = y2 - y1, l2 = vx * vx + vy * vy || 1, t = clamp(((x - x1) * vx + (y - y1) * vy) / l2, 0, 1); return Math.hypot(x - x1 - vx * t, y - y1 - vy * t); };
+        const c = document.createElement('canvas'); c.width = w; c.height = h;
+        const g = c.getContext('2d'), img = g.createImageData(w, h), d = img.data;
+        const DIRT = [[52, 42, 30], [62, 50, 35], [74, 60, 42]], EDGE = [44, 44, 30], ASH = [58, 54, 50];
+        for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+          const wx = X0 + (i + .5) * PXS, wy = Y0 + (j + .5) * PXS;
+          let dd = (Math.hypot((wx - 320) / 112, (wy - 268) / 56) - 1) * 56;
+          for (const sg of segs) { const v = segD(wx, wy, sg) - sg[4]; if (v < dd) dd = v; }
+          dd += (vnoise(wx, wy, 18, 5) - .5) * 10 + (vnoise(wx, wy, 6, 9) - .5) * 5;
+          if (dd > 4) continue;
+          const k = (j * w + i) * 4, hsh = hash(i * 7 + 3, j * 13 + 1);
+          let col;
+          if (dd > 0) { if (hsh > .5 - dd * .08) continue; col = EDGE; }
+          else {
+            const n = vnoise(wx, wy, 22, 2) * .7 + vnoise(wx, wy, 7, 4) * .3;
+            col = DIRT[n < .38 ? 0 : n < .66 ? 1 : 2];
+            const r = Math.hypot((wx - 320) / 1.6, wy - 266);
+            if (r < 34 && hash(i * 5, j * 3) < .55 - r / 80) col = ASH;          // ceniza alrededor del fogón
+            if (hsh < .012) col = [124, 118, 104];                              // piedritas
+            else if (hsh > .992) col = [70, 74, 40];                            // matas pisadas
+          }
+          d[k] = col[0]; d[k + 1] = col[1]; d[k + 2] = col[2]; d[k + 3] = 255;
+        }
+        g.putImageData(img, 0, 0);
+        return PU_CLEAR = { c, x: X0, y: Y0 };
+      }
+      /* ---- ciprés de la cordillera: columna angosta de follaje oscuro, con el lado de la luna más claro ---- */
+      function sprCipres(v) {
+        return puSpr('cip' + v, 100, b => {
+          const hgt = 58 + (v % 3) * 10, sd = v * 17, cols = ['#1a2c22', '#24392a', '#315038', '#46684a'];
+          b.ellD(0, 46, 13, 3.5, [0, 0, 0], 2, .32, 0);
+          b.rect(-1.6, 38, 3.2, 9, '#4a3424');
+          const n = Math.round(hgt / 4.2);
+          for (let i = 0; i < n; i++) {
+            const t = i / n, yy = 40 - i * 4.2, r = (10 + (v % 2) * 2) * Math.pow(1 - t, .75) + 1.2, ox = (hash(i, sd) - .5) * 2.4;
+            b.ell(ox, yy, r, 4.4, cols[i % 2]); b.ell(ox - r * .35, yy - 1, r * .55, 3, cols[2]);
+            if (hash(i + 9, sd) < .5) b.ell(ox - r * .55, yy - 1.5, r * .25, 1.6, cols[3]);
+          }
+          b.tex(cols[0], (x, y) => hash(x * 3 + sd, y * 5) < .14 ? [16, 24, 20] : null);
+          b.tex(cols[1], (x, y) => hash(x * 5, y * 3 + sd) < .12 ? [20, 32, 24] : null);
+        });
+      }
+      /* ---- poste con farol colgado: marca cada estación con un charco de luz cálida ---- */
+      const PU_POSTS = [[262, 180], [196, 300], [420, 222], [364, 372]];
+      function sprPoste() {
+        return puSpr('poste', 64, b => {
+          b.ellD(1, 2, 7, 2.2, [0, 0, 0], 2, .3, 0);
+          b.rect(-1.8, -34, 3.6, 36, '#5e4028'); b.rect(-1.8, -35, 3.6, 1.6, '#8a6a44');
+          b.rect(-1.8, -34, 12.5, 2.2, '#6a4a2c'); b.line([[0, -25], [7, -32.5]], 1.4, '#5e4028');
+          b.tex('#5e4028', (x, y) => (x % 2 === 0 && hash(x, y >> 2) < .4) ? [78, 52, 30] : null);
+        });
+      }
       function puDecor() {
         if (PU.decor) return PU.decor;
         const D = { tufts: [], shrubs: [], trees: [] }, H0 = PU_TOP + 14;
@@ -7349,6 +7416,14 @@
         const core = [[420, 98, 4], [610, 110, 5], [606, 200, 6], [20, 272, 7], [612, 370, 8], [24, 380, 9]];
         for (const t of core) D.trees.push({ x: t[0], y: t[1], v: t[2] });
         for (let k = 0; k < 44; k++) { const side = k % 2 ? -1 : 1, x = side < 0 ? -40 - hash(k, 31) * 560 : 680 + hash(k, 31) * 560, y = PU_TOP + 30 + hash(k, 33) * (PUH - PU_TOP - 10); D.trees.push({ x, y, v: (k % 9) + 1 }); }
+        // borde cerrado: cipreses en los costados y atrás (dejando ver la cordillera) y matas bajas al frente
+        D.cips = [];
+        const cip = (x, y, v) => D.cips.push({ x, y, v });
+        for (let k = 0; k < 15; k++) { cip(-16 + hash(k, 61) * 42, 104 + k * 21 + hash(k, 62) * 10, k % 6); cip(614 + hash(k, 63) * 40, 118 + k * 20 + hash(k, 64) * 10, (k + 3) % 6); }
+        for (let k = 0; k < 26; k++) { cip(-40 - hash(k, 65) * 380, PU_TOP + 20 + hash(k, 66) * (PUH - PU_TOP), k % 6); cip(680 + hash(k, 67) * 380, PU_TOP + 20 + hash(k, 68) * (PUH - PU_TOP), (k + 2) % 6); }
+        for (const [x, y, v] of [[34, 98, 1], [58, 92, 4], [196, 96, 2], [222, 90, 5], [448, 94, 0], [478, 100, 3], [596, 94, 2], [640, 100, 5]]) cip(x, y, v);
+        for (let x = -30; x < 680; x += 30) { if (Math.abs(x - 320) < 58) continue; const hx = hash(x, 71); D.shrubs.push({ x: x + hx * 14, y: 400 + hash(x, 72) * 10, v: (x / 30 | 0) % 3 }); }
+        for (const [x, y, v] of [[6, 404, 2], [36, 412, 5], [610, 406, 1], [640, 414, 4]]) cip(x, y, v);
         return PU.decor = D;
       }
       const puTuft = (v, lean) => puSpr('tuft' + v + '_' + lean, 30, b => {
@@ -7445,8 +7520,7 @@
         cx.save(); cx.beginPath(); cx.rect(X0, PU_TOP, X1 - X0, PUH - PU_TOP + 20); cx.clip();
         cx.fillStyle = MAPS.estepa.bg; cx.fillRect(X0, PU_TOP, X1 - X0, PUH);
         drawGround(C.camX, PUH / 2); // en coordenadas de mundo: el suelo acompaña a la cámara como todo lo demás
-        cx.fillStyle = 'rgba(120,96,60,.26)'; cx.beginPath(); cx.ellipse(320, 262, 74, 36, 0, 0, TAU); cx.fill();
-        cx.beginPath(); cx.moveTo(296, PUH + 30); cx.quadraticCurveTo(308, 330, 320, 292); cx.quadraticCurveTo(332, 330, 344, PUH + 30); cx.fill();
+        { const CL = puClearing(); cx.imageSmoothingEnabled = false; cx.drawImage(CL.c, CL.x, CL.y, CL.c.width * PXS, CL.c.height * PXS); cx.imageSmoothingEnabled = true; }
         cx.restore();
         cx.fillStyle = 'rgba(8,12,18,.55)'; cx.fillRect(X0, PU_TOP - 1, X1 - X0, 3);
         cx.imageSmoothingEnabled = false;
@@ -7455,6 +7529,8 @@
         const c = CORRAL, lvC = SAVE.puesto.corral, lvF = SAVE.puesto.fragua, D = puDecor(), L = [], add = (y, fn) => L.push([y, fn]), vis = x => x > X0 - 70 && x < X1 + 70;
         for (const tr of D.trees) if (vis(tr.x)) add(tr.y + 30, () => dimg(sprNireChico(tr.v), tr.x, tr.y));
         for (const s of D.shrubs) if (vis(s.x)) add(s.y + 10, () => dimg(puShrub(s.v), s.x, s.y));
+        for (const cp of D.cips) if (vis(cp.x)) add(cp.y, () => dimg(sprCipres(cp.v), cp.x, cp.y - 40));
+        for (const [x, y] of PU_POSTS) add(y, () => { dimg(sprPoste(), x, y); drawFarol(x + 9, y - 28, t); });
         for (const tf of D.tufts) if (vis(tf.x)) add(tf.y + 8, () => { const w = P.wind + Math.sin(t * 2.2 + tf.ph + tf.x * .02) * .35, lean = clamp(Math.round(w * 1.6), -2, 2); dimg(puTuft(tf.v, lean), tf.x, tf.y); });
         const own = Object.keys(SAVE.nire).length;
         add(PU_INT.nire.y, () => drawNireScene(t, own));
@@ -7512,12 +7588,13 @@
         if (SAVE.puesto.rancho >= 2) light(358, 132, 62, .6);
         if (SAVE.puesto.rancho >= 3) light(372, 120, 50, .55);
         light(506, 120, 50, .6); light(NIRE_X + 44, NIRE_GY - 4, 62, .65);
+        for (const [x, y] of PU_POSTS) light(x + 9, y - 26, 72 * (1 + Math.sin(t * 3.1 + x) * .04), .7);
         const nl = nireCanLearn(); if (nl) light(NIRE_X, NIRE_Y - 20, 95, .35 + Math.sin(t * 2) * .08);
         m2.globalAlpha = 1; m2.setTransform(1, 0, 0, 1, 0, 0);
         cx.save(); cx.setTransform(DPR, 0, 0, DPR, 0, 0); cx.drawImage(puMask, 0, 0, W, H); cx.restore();
         cx.save(); cx.globalCompositeOperation = 'lighter';
         const warm = (x, y, r, a, col) => { const X = sx(x), Y = sy(y), R = r * z; if (X < -R || X > W + R) return; cx.globalAlpha = a; cx.drawImage(puWarmSpr(col || '255,140,60'), X - R, Y - R, R * 2, R * 2); };
-        warm(320, 262, 125 * fl, .17); if (lvF >= 1) warm(132, 284, 62 * (1 + Math.sin(t * 6) * .08), .15); warm(506, 120, 28, .12, '255,200,110'); warm(NIRE_X + 44, NIRE_GY - 6, 30, .14, '255,190,100'); if (nl) warm(NIRE_X, NIRE_Y - 30, 70, .09 + Math.sin(t * 2) * .03, '255,210,120');
+        warm(320, 262, 125 * fl, .17); if (lvF >= 1) warm(132, 284, 62 * (1 + Math.sin(t * 6) * .08), .15); warm(506, 120, 28, .12, '255,200,110'); for (const [x, y] of PU_POSTS) warm(x + 9, y - 26, 34, .13, '255,190,100'); warm(NIRE_X + 44, NIRE_GY - 6, 30, .14, '255,190,100'); if (nl) warm(NIRE_X, NIRE_Y - 30, 70, .09 + Math.sin(t * 2) * .03, '255,210,120');
         cx.globalAlpha = 1;
         cx.restore();
         // cartel del lugar cercano, sobre el personaje
