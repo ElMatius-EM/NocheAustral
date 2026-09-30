@@ -6401,7 +6401,7 @@
         salida: { x: 320, y: 398, r: 34, label: 'Volver al menú' },
         perro: { x: 378, y: 300, r: 34, label: 'Acariciar al perro' }
       };
-      const PU_SOLID = [[320, 120, 60], [118, 168, 18], [548, 132, 40], [320, 256, 22], [132, 302, 32], [90, 330, 14], [380, 302, 12], [214, 206, 14]];
+      const PU_SOLID = [[320, 120, 60], [118, 168, 18], [548, 132, 40], [320, 256, 22], [132, 302, 32], [90, 330, 14], [380, 302, 12], [214, 206, 14], [352, 278, 6]];
       const CORRAL = { x: 392, y: 250, w: 188, h: 118 };
       function enterPuesto() {
         initAudio();
@@ -6472,32 +6472,111 @@
       /* ---------------- sprites de la escena ---------------- */
       const PUS = {};
       const puSpr = (key, size, draw) => PUS[key] || (PUS[key] = pixSprite(size, 1, draw));
-      function sprNire(bucket) {
-        return puSpr('nire' + bucket, 190, b => {
-          b.ellD(4, 62, 40, 10, [0, 0, 0], 2, .3, 0);
-          b.line([[0, 64], [-5, 40], [5, 22], [-2, 4]], 13, '#4a3a2e', 0, 1, 8);
-          b.line([[-2, 10], [-30, -10], [-44, -30]], 6, '#4a3a2e', 0, 1, 3);
-          b.line([[2, 4], [28, -16], [40, -38]], 6, '#4a3a2e', 0, 1, 3);
-          b.line([[0, 0], [-6, -34], [0, -54]], 5, '#4a3a2e', 0, 1, 3);
-          b.tex('#4a3a2e', (x, y) => hash(x * 7, y * 3) < .2 ? [60, 48, 38] : null);
-          // copa: más hojas cuanto más aprendiste en la rama
-          const n = 5 + bucket * 6, cols = ['#8a3222', '#b8482a', '#d8743a', '#e89a48'];
-          for (let i = 0; i < n; i++) {
-            const a = hash(i, 7) * TAU, r = 18 + hash(i, 11) * 44, x = Math.cos(a) * r * 1.05, y = -26 + Math.sin(a) * r * .55 - hash(i, 3) * 10;
-            b.ell(x, y, 9 + hash(i, 5) * 7, 7 + hash(i, 9) * 4, cols[i % 4]);
+      /* ---- árboles: tronco retorcido con raíces, ramas que asoman entre la copa y racimos de hojas en capas
+         (sombra, medio, luz y brillo). full controla cuántos racimos tiene la copa. ---- */
+      const PAL_OTONO = ['#5e1e16', '#9a3420', '#cc5a26', '#f08a3a'], PAL_ORO = ['#7a3414', '#b8601e', '#e0922e', '#f8c458'], PAL_VERDE = ['#23381e', '#3a5a2a', '#5a8038', '#86ac4c'];
+      function treeDraw(b, o) {
+        const s = o.s, sd = o.seed, R = (i, k) => hash(i * 13 + sd, k * 7 + sd * 3), gy = 64 * s;
+        const bark = '#5a4232', barkD = rgb('#3a2a20'), barkL = rgb('#8a6a4c');
+        b.ellD(4 * s, gy, 46 * s, 8 * s, [0, 0, 0], 2, .3, 0); b.ell(4 * s, gy, 38 * s, 6 * s, [0, 0, 0], 2, .25);
+        // raíces que se abren sobre el suelo
+        for (const [side, len, k] of [[-1, 30, 0], [1, 27, 1], [-1, 15, 2], [1, 17, 3]]) b.line([[side * 3 * s, gy - 9 * s], [side * len * .55 * s, gy - 2.5 * s], [side * len * s, gy + (k % 2) * 1.5 * s]], 5 * s, bark, 0, 1, 1.2 * s);
+        // tronco con giro y ramas principales
+        const tr = [[0, gy - 2 * s], [-4 * s, gy - 20 * s], [4 * s, gy - 38 * s], [1 * s, gy - 54 * s], [-2 * s, gy - 66 * s]];
+        b.line(tr, 17 * s, bark, 0, 1, 8 * s);
+        const limbs = [
+          [[0, gy - 48 * s], [-17 * s, gy - 64 * s], [-36 * s, gy - 78 * s], [-50 * s, gy - 86 * s]],
+          [[3 * s, gy - 42 * s], [21 * s, gy - 58 * s], [36 * s, gy - 76 * s], [48 * s, gy - 92 * s]],
+          [[-1 * s, gy - 62 * s], [-7 * s, gy - 88 * s], [0, gy - 110 * s]],
+          [[2 * s, gy - 58 * s], [15 * s, gy - 82 * s], [22 * s, gy - 102 * s]]];
+        for (const L of limbs) b.line(L, 7 * s, bark, 0, 1, 2.2 * s);
+        b.tex(bark, (x, y) => hash(x * 5, y >> 2) < .2 ? barkD : hash(x * 3 + 1, y >> 1) < .12 ? barkL : null);
+        // copa
+        const anchors = [];
+        for (const L of limbs) { anchors.push(L[L.length - 1]); anchors.push(L[L.length - 2]); }
+        anchors.push([0, gy - 116 * s], [-24 * s, gy - 100 * s], [26 * s, gy - 104 * s]);
+        const n = Math.round(5 + o.full * 17), cl = [];
+        for (let i = 0; i < n; i++) { const A = anchors[(i * 5) % anchors.length]; cl.push({ x: A[0] + (R(i, 1) - .5) * 30 * s, y: A[1] + (R(i, 2) - .5) * 16 * s - 6 * s, r: (10 + R(i, 3) * 8) * s, p: o.pals[i % o.pals.length] }); }
+        cl.sort((a, b_) => a.y - b_.y);
+        const blob = c => {
+          const P = c.p;
+          for (let k = 0; k < 12; k++) { const a = k / 12 * TAU + R(k, c.x | 0); b.ell(c.x + 1.5 * s + Math.cos(a) * c.r, c.y + 2.5 * s + Math.sin(a) * c.r * .74, 2.8 * s, 2.2 * s, P[0]); }
+          b.ell(c.x + 1.5 * s, c.y + 2.5 * s, c.r * 1.02, c.r * .78, P[0]);
+          b.ell(c.x, c.y, c.r * .9, c.r * .68, P[1]);
+          for (let k = 0; k < 8; k++) { const a = -2.6 + k * .45; b.ell(c.x + Math.cos(a) * c.r * .72, c.y + Math.sin(a) * c.r * .55, 2.4 * s, 2 * s, P[2]); }
+          b.ell(c.x - c.r * .22, c.y - c.r * .22, c.r * .52, c.r * .38, P[2]);
+          b.ell(c.x - c.r * .34, c.y - c.r * .3, c.r * .2, c.r * .15, P[3], 1);
+        };
+        const half = Math.ceil(cl.length * .55);
+        cl.slice(0, half).forEach(blob);
+        // ramitas que asoman entre los racimos
+        for (let i = 0; i < limbs.length; i++) { const L = limbs[i], e = L[L.length - 1]; b.line([L[L.length - 2], e, [e[0] + (R(i, 9) - .5) * 14 * s, e[1] - 8 * s]], 2.4 * s, bark, 0, 1, 1 * s); }
+        cl.slice(half).forEach(blob);
+        for (const P of o.pals) { b.tex(P[1], (x, y) => hash(x * 7 + sd, y * 5) < .12 ? rgb(P[2]) : hash(x * 3, y * 9 + sd) < .08 ? rgb(P[0]) : null); b.tex(P[2], (x, y) => hash(x * 5, y * 7 + sd) < .1 ? rgb(P[3]) : null); }
+      }
+      function sprNire(bucket) { return puSpr('nire2_' + bucket, 200, b => treeDraw(b, { s: 1, seed: 7, full: .12 + bucket * .22, pals: [PAL_OTONO, PAL_ORO] })); }
+      function sprNireChico(v) { return puSpr('nch2_' + v, 120, b => treeDraw(b, { s: .52, seed: v * 11, full: .55 + (v % 3) * .15, pals: v % 2 ? [PAL_OTONO, PAL_ORO] : [PAL_VERDE] })); }
+      /* ---- fogón: piedras en anillo, leños cruzados con cortes a la vista y fuego en capas ---- */
+      function fireStones(front) {
+        return puSpr('fst' + (front ? 1 : 0), 76, b => {
+          for (let i = 0; i < 11; i++) {
+            const a = i / 11 * TAU + .15, y = Math.sin(a); if (front !== (y > 0)) continue;
+            const x = Math.cos(a) * 23, yy = y * 11 + 4, r = 4.6 + hash(i, 3) * 1.6;
+            b.ell(x, yy, r, r * .75, i % 3 ? '#6a7078' : '#5d635e'); b.ell(x - 1, yy - 1.2, r * .5, r * .32, '#8e949c', 1); b.dot(x + 1.5, yy + 1, '#3e4448', 1);
           }
-          for (const c of cols) b.tex(c, (x, y) => hash(x * 5, y * 7) < .14 ? dk(c, .25) : hash(x * 3, y * 11) < .05 ? lt(c, .25) : null);
+          if (!front) {
+            b.ell(0, 6, 15, 4.5, '#2a140c'); b.ell(0, 5.5, 11, 3, '#b8401a', 2); b.ell(-2, 5, 5, 1.4, '#ff9a3c', 2);
+            const log = (p0, p1, col) => { b.line([p0, p1], 5.6, col, 0, 1, 5); b.ell(p0[0], p0[1], 2.8, 2.8, '#c89060'); b.dot(p0[0], p0[1], '#8a5a34', 1); };
+            log([-17, 9], [11, -2], '#6a3a24'); log([17, 9], [-11, -2], '#5a3020');
+            b.tex('#6a3a24', (x, y) => (x + y) % 3 === 0 ? [84, 46, 28] : null); b.tex('#5a3020', (x, y) => (x - y) % 3 === 0 ? [72, 40, 24] : null);
+            for (const [x, y] of [[-6, 4], [5, 3], [0, 6], [-10, 6], [9, 6]]) b.dot(x, y, '#ff8a2a', 2);
+          }
         });
       }
-      function sprNireChico(v) {
-        return puSpr('nch' + v, 110, b => {
-          b.ellD(2, 40, 22, 6, [0, 0, 0], 2, .3, 0);
-          b.line([[0, 42], [3, 16], [-2, 0]], 7, '#3e3228', 0, 1, 4);
-          const cols = v % 2 ? ['#6a2a1e', '#8a3a24', '#a85030'] : ['#4a5a34', '#5e6e3e', '#788848'];
-          for (let i = 0; i < 9; i++) { const a = hash(i, v + 3) * TAU, r = 8 + hash(i, v) * 22; b.ell(Math.cos(a) * r, -14 + Math.sin(a) * r * .6, 8, 6, cols[i % 3]); }
-          for (const c of cols) b.tex(c, (x, y) => hash(x * 5 + v, y * 7) < .15 ? dk(c, .25) : null);
+      function fireFrame(i) {
+        return puSpr('fire' + i, 64, b => {
+          const layers = [['#c8321e', 1], ['#f07a1e', .72], ['#ffc83a', .46], ['#fff2a8', .22]];
+          for (const [col, k] of layers) {
+            for (let t = 0; t < 5; t++) {
+              const x = (t - 2) * 5.2 * (.6 + k * .4), h = (13 + hash(t, i * 3 + 1) * 13) * (1 - Math.abs(t - 2) * .18) * k + (k < 1 ? 3 : 0), sw = Math.sin(i * 1.05 + t * 1.7) * 2.2 * k;
+              const w = 5.4 * (.5 + k * .5);
+              b.poly([[x - w, 10], [x - w * .7 + sw * .3, 10 - h * .45], [x + sw, 10 - h], [x + w * .7 + sw * .3, 10 - h * .45], [x + w, 10]], col, 2);
+            }
+          }
+          for (let k = 0; k < 3; k++) { const x = (hash(k, i + 9) - .5) * 16, y = -14 - hash(k + 3, i) * 12; b.rect(x, y, 1.6, 1.6, k % 2 ? '#f07a1e' : '#c8321e', 2); }
         });
       }
+      function sprPava() {
+        return puSpr('pava3', 30, b => {
+          const k = .72, P = (x, y) => [x * k, y * k];
+          b.ell(1 * k, 9.5 * k, 12 * k, 3.2 * k, '#5d635e'); b.ell(0, 8.6 * k, 10 * k, 2.3 * k, '#6f7670');
+          b.line([P(-6, 3), P(-11, -2), P(-13.5, -6.5)], 2.6 * k, '#9aa0ac', 0, 1, 1.5 * k);
+          b.ell(0, 2 * k, 9 * k, 7 * k, '#b4bac6'); b.rect(-9 * k, 2 * k, 18 * k, 5 * k, '#b4bac6'); b.rect(-9.4 * k, 6.4 * k, 18.8 * k, 1.6 * k, '#868c98');
+          b.line([P(-4, -2.5), P(-5, 6)], .8 * k, '#98a0ac', 1); b.line([P(4, -2.5), P(5, 6)], .8 * k, '#98a0ac', 1);
+          b.line([P(-6.4, -1), P(-6.8, 4.5)], 1.2 * k, '#eef2f8', 1);
+          b.ell(0, -4.4 * k, 5 * k, 1.9 * k, '#cdd2dc'); b.ell(0, -6.6 * k, 1.7 * k, 1.5 * k, '#5a5e68');
+          b.line(qb(P(-6.5, -4), P(0, -17), P(6.5, -4), 10), 1.9 * k, '#5a5e68');
+          b.line([P(-2.8, -11.4), P(2.8, -11.4)], 2.2 * k, '#8a3a3a');
+        });
+      }
+      function sprMate() {
+        return puSpr('mate2', 16, b => {
+          b.ellD(0, 4.2, 3.6, 1.1, [0, 0, 0], 2, .3, 0);
+          b.ell(0, 1.4, 3.2, 3, '#7a3424');
+          b.ell(0, -1.3, 2.4, .9, '#c8ccd4'); b.dot(0, -1.4, '#5e7a34', 1);
+          b.line([[.5, -1.3], [2.2, -4.8]], .7, '#d8dce4', 1);
+        });
+      }
+      function drawFogon(t) {
+        const P = PU;
+        cx.save(); cx.translate(320, 262);
+        dimg(fireStones(false), 0, 0);
+        dimg(fireFrame(((t * 9) | 0) % 6), 0, -6);
+        dimg(fireStones(true), 0, 0);
+        for (const e of P.embers) { cx.globalAlpha = clamp(e.l / e.m, 0, 1); cx.fillStyle = e.l > 1 ? '#ffd070' : '#ff7a2a'; cx.fillRect(Math.round(e.x), Math.round(e.y - 6), 1.5, 1.5); }
+        cx.globalAlpha = 1; cx.restore();
+      }
+
       function sprCarpa() {
         return puSpr('carpa', 140, b => {
           b.ellD(0, 30, 56, 12, [0, 0, 0], 2, .3, 0);
@@ -6542,45 +6621,184 @@
           b.rect(-20, -26, 40, 11, '#2a1d14', 1); b.rect(-18, -24, 36, 7, '#c9a45c', 1);
         });
       }
+      /* ---- fragua: ladrillos sueltos con mortero, campana y chimenea, brasero con carbón, fuelle de cuero ---- */
+      function brickTex(b, col, sd) {
+        const base = rgb(col), mort = dk(col, .45);
+        b.tex(col, (x, y) => {
+          const row = y >> 1, off = (row & 1) * 2; if ((y & 1) === 0 && hash(x, row + sd) < .9) return mort; if (((x + off) % 5) === 0) return mort;
+          const k = hash(((x + off) / 5) | 0, row + sd * 7); return k < .25 ? dk(col, .15) : k > .8 ? lt(col, .12) : null;
+        });
+      }
       function sprFragua(lv) {
-        return puSpr('fragua' + lv, 120, b => {
-          b.ellD(0, 30, 44, 9, [0, 0, 0], 2, .3, 0);
+        return puSpr('fragua3_' + lv, 124, b => {
+          b.ellD(0, 31, 46, 8, [0, 0, 0], 2, .3, 0); b.ell(0, 31, 38, 6, [0, 0, 0], 2, .25);
           if (lv < 1) {
-            for (const [x, y] of [[-18, 20], [-6, 24], [8, 20], [-12, 12], [2, 14], [16, 26], [-2, 6]]) { b.rect(x - 6, y - 3, 12, 6, '#8a4a32'); }
-            b.line([[30, 26], [30, -4]], 2.4, '#5a3a22'); b.rect(22, -12, 18, 10, '#6a4a2c');
+            for (const [x, y] of [[-18, 22], [-6, 26], [8, 22], [-12, 15], [2, 17], [16, 27], [-2, 9]]) b.rect(x - 6, y - 3, 12, 6, '#8a4a32');
+            brickTex(b, '#8a4a32', 3);
+            b.line([[30, 28], [30, -2]], 2.6, '#5a3a22'); b.rect(21, -12, 20, 11, '#6a4a2c'); b.line([[24, -7], [38, -7]], 1, '#3a2a1a', 1);
             return;
           }
-          b.rect(-12, -52, 22, 44, '#7a4030'); b.tex('#7a4030', (x, y) => (y % 4 === 0 || (x + (y >> 2) * 3) % 7 === 0) ? [98, 52, 38] : null);
-          b.rect(-28, -10, 56, 36, '#8a4a32'); b.tex('#8a4a32', (x, y) => (y % 4 === 0 || (x + (y >> 2) * 3) % 7 === 0) ? [108, 58, 40] : null);
-          b.ell(0, -10, 22, 7, '#2a1a14'); b.ell(0, -10, 16, 4.5, '#ff8a2a', 1); b.ell(-3, -11, 6, 2, '#ffe070', 1);
-          b.poly([[30, 4], [44, -4], [44, 12]], '#6a4a2c');
-          if (lv >= 2) { b.ell(-40, 18, 9, 11, '#5a6272'); b.ell(-40, 10, 8, 3, '#8ab0c8', 1); b.line([[36, -40], [36, -14]], 1.4, '#3a2a1a', 1); for (const x of [30, 36, 42]) b.line([[x, -38], [x, -26]], 1.2, '#9aa4b4', 1); }
+          // chimenea y campana
+          b.rect(-10, -56, 18, 40, '#7a4030'); b.rect(-12, -58, 22, 4, '#5a2e22');
+          b.poly([[-26, -12], [24, -12], [14, -24], [-16, -24]], '#6e3a2a');
+          brickTex(b, '#7a4030', 5); brickTex(b, '#6e3a2a', 9);
+          // cuerpo
+          b.rect(-28, -10, 54, 36, '#8a4a32'); brickTex(b, '#8a4a32', 1);
+          b.rect(-30, -12, 58, 4, '#5d635e'); b.tex('#5d635e', (x, y) => hash(x * 3, y) < .3 ? [80, 86, 82] : null);
+          // brasero con carbón encendido
+          b.ell(-1, -9, 20, 5.5, '#1e1210');
+          for (let i = 0; i < 22; i++) { const a = hash(i, 4) * TAU, r = hash(i, 6) * .9; b.dot(-1 + Math.cos(a) * 17 * r, -9 + Math.sin(a) * 4.5 * r, i % 4 === 0 ? '#fff0a0' : i % 2 ? '#ff8a2a' : '#c8401a', 2); }
+          // boca del fuego
+          b.rect(-8, 4, 14, 10, '#1e1210'); b.rect(-6, 8, 10, 5, '#c8401a', 2); b.rect(-4, 10, 6, 2, '#ffb040', 2);
+          // fuelle de cuero con mangos
+          b.poly([[28, 2], [44, -6], [46, 8], [30, 12]], '#8a5a34'); b.tex('#8a5a34', (x, y) => (x % 3 === 0) ? [110, 74, 44] : null);
+          b.line([[44, -6], [52, -9]], 1.6, '#5a3a22'); b.line([[46, 8], [54, 9]], 1.6, '#5a3a22'); b.line([[28, 6], [24, 4]], 1.6, '#3e4448');
+          if (lv >= 2) {
+            // balde de agua y estante de herramientas
+            b.ell(-40, 16, 9, 11, '#6a4a2c'); b.tex('#6a4a2c', (x, y) => (x % 3 === 0) ? [84, 58, 34] : null);
+            b.line([[-49, 11], [-31, 11]], 1.2, '#5a6272'); b.line([[-49, 21], [-31, 21]], 1.2, '#5a6272'); b.ell(-40, 6, 8, 2.6, '#6a9ab8'); b.dot(-42, 5.6, '#c8e0f0', 1);
+            b.rect(30, -44, 22, 3, '#6a4a2c');
+            b.line([[34, -41], [34, -26]], 1.2, '#5a6272'); b.line([[33, -26], [36, -24]], 1.2, '#5a6272');
+            b.line([[41, -41], [41, -28]], 1.4, '#6a4a2c'); b.rect(39, -30, 5, 3, '#5a6272');
+            b.line([[48, -41], [47, -27]], 1, '#5a6272'); b.line([[49, -41], [50, -27]], 1, '#5a6272');
+          }
         });
       }
       function sprYunque() {
-        return puSpr('yunque', 50, b => {
-          b.ellD(0, 14, 16, 4, [0, 0, 0], 2, .3, 0);
-          b.rect(-5, 0, 10, 12, '#5a3a22');
-          b.poly([[-14, -6], [10, -6], [18, -3], [10, 0], [-14, 0]], '#4a4e58'); b.line([[-14, -6], [14, -6]], 1, '#8a94a4', 1);
+        return puSpr('yunque2', 54, b => {
+          b.ellD(0, 17, 17, 4, [0, 0, 0], 2, .3, 0);
+          b.ell(0, 14, 9, 4, '#6a4a2c'); b.rect(-9, 4, 18, 10, '#6a4a2c'); b.ell(0, 4, 9, 3.4, '#a07a50'); b.ell(0, 4, 5, 1.8, '#8a6440', 1); b.dot(0, 4, '#6a4a2c', 1);
+          b.tex('#6a4a2c', (x, y) => (x % 3 === 0) ? [84, 58, 34] : null);
+          b.rect(-4, -2, 8, 6, '#3e4250');
+          b.poly([[-12, -8], [8, -8], [18, -5], [10, -2], [-12, -2]], '#4a4e58'); b.rect(-14, -9, 4, 7, '#4a4e58');
+          b.line([[-12, -8], [12, -8]], 1, '#9aa4b4', 1); b.dot(-6, -6, '#2a2e36', 1);
         });
       }
-      function sprTronco() {
-        return puSpr('tronco', 60, b => { b.ellD(0, 6, 22, 5, [0, 0, 0], 2, .3, 0); b.rect(-20, -5, 40, 10, '#5a3a22'); b.tex('#5a3a22', (x, y) => (y % 3 === 0) ? [74, 48, 28] : null); b.ell(20, 0, 3, 5, '#b08050'); b.dot(20, 0, '#7a5236', 1); });
+      function sprTronco(a) {
+        const k = Math.round(a * 10);
+        return puSpr('tronco2_' + k, 64, b => {
+          const c = Math.cos(a), s = Math.sin(a), P = (x, y) => [x * c - y * s, x * s + y * c];
+          b.ellD(0, 7, 24, 5, [0, 0, 0], 2, .3, 0);
+          b.line([P(-19, 0), P(19, 0)], 9, '#5a3a22');
+          b.tex('#5a3a22', (x, y) => (y % 3 === 0) ? [74, 48, 28] : hash(x, y * 3) < .1 ? [110, 76, 46] : null);
+          const e = P(19, 0); b.ell(e[0], e[1], 3.2, 4.4, '#c89060'); b.ell(e[0], e[1], 1.6, 2.2, '#a07048', 1); b.dot(e[0], e[1], '#7a5236', 1);
+          const m = P(-4, -4.5); b.ell(m[0], m[1], 2, 1.2, '#6a4a2c');
+        });
       }
-
-      /* trofeos: íconos chicos dibujados en vivo sobre la tabla del rancho */
-      function drawTrophy(id, x, y) {
-        const R = (px, py, w, h, c) => { cx.fillStyle = c; cx.fillRect(x + px, y + py, w, h); };
+      /* ---- corral ---- */
+      function sprFenceH(w) {
+        return puSpr('fh' + w, w + 16, b => {
+          const n = Math.round(w / 24), x0 = -w / 2;
+          b.line([[x0, -12], [x0 + w, -12]], 2.4, '#8a6a44'); b.line([[x0, -5], [x0 + w, -5]], 2.4, '#8a6a44');
+          b.tex('#8a6a44', (x, y) => hash(x >> 2, y) < .25 ? [110, 86, 58] : null);
+          for (let i = 0; i <= n; i++) { const px = x0 + i * w / n; b.rect(px - 2.4, -19, 4.8, 21, '#6a4a2c'); b.rect(px - 2.4, -20, 4.8, 2, '#8a6a44'); }
+          b.tex('#6a4a2c', (x, y) => (x % 2 === 0 && hash(x, y >> 2) < .4) ? [84, 58, 34] : null);
+        });
+      }
+      function sprFenceV(h) {
+        return puSpr('fv' + h, h + 30, b => {
+          const y0 = -h / 2;
+          b.line([[0, y0 - 12], [0, y0 + h - 12]], 2.4, '#8a6a44'); b.line([[0, y0 - 5], [0, y0 + h - 5]], 2.4, '#8a6a44');
+          for (let i = 1; i < 4; i++) { const py = y0 + i * h / 4; b.rect(-2.4, py - 19, 4.8, 21, '#6a4a2c'); b.rect(-2.4, py - 20, 4.8, 2, '#8a6a44'); }
+          b.tex('#6a4a2c', (x, y) => (x % 2 === 0 && hash(x, y >> 2) < .4) ? [84, 58, 34] : null);
+        });
+      }
+      function sprBebedero() {
+        return puSpr('bebedero', 56, b => {
+          b.ellD(0, 8, 24, 4, [0, 0, 0], 2, .3, 0);
+          b.rect(-22, -6, 44, 13, '#6a4a2c'); b.tex('#6a4a2c', (x, y) => (y % 3 === 0) ? [84, 58, 34] : null);
+          b.rect(-19, -4, 38, 5, '#3a6a8a'); b.line([[-14, -2.5], [-6, -2.5]], .8, '#9ac8e8', 1); b.line([[4, -1.5], [12, -1.5]], .8, '#9ac8e8', 1);
+          b.rect(-22, -7, 44, 2, '#8a6a44');
+        });
+      }
+      function sprCorralVacio() {
+        return puSpr('corral0', 120, b => {
+          for (let i = 0; i < 5; i++) { const cx_ = -40 + i * 20, cy_ = 26 + (i % 2) * 6, a = .3 + i * .2, c = Math.cos(a) * 14, s = Math.sin(a) * 14; b.line([[cx_ - c, cy_ - s], [cx_ + c, cy_ + s]], 4.6, '#6a4a2c'); }
+          b.tex('#6a4a2c', (x, y) => hash(x, y * 3) < .2 ? [84, 58, 34] : null);
+          b.line([[0, -12], [0, 24]], 3, '#5a3a22'); b.rect(-17, -20, 34, 15, '#8a6a44'); b.tex('#8a6a44', (x, y) => (y % 3 === 0) ? [110, 86, 58] : null);
+          b.line([[-11, -15], [11, -15]], 1, '#3a2a1a', 1); b.line([[-11, -10], [7, -10]], 1, '#3a2a1a', 1);
+        });
+      }
+      /* ---- cuero estaqueado (dos cuadros para que lo mueva el viento) ---- */
+      function sprCuero(f) {
+        return puSpr('cuero2_' + f, 64, b => {
+          const sw = f ? 1.2 : 0;
+          b.ellD(0, 27, 22, 5, [0, 0, 0], 2, .3, 0);
+          for (const px of [-18, 18]) b.rect(px - 2.2, -24, 4.4, 50, '#6a4a2c');
+          b.rect(-20, -26, 40, 4, '#6a4a2c'); b.tex('#6a4a2c', (x, y) => (x % 2 === 0 && hash(x, y >> 2) < .4) ? [84, 58, 34] : null);
+          b.poly([[-13, -16], [13, -16], [11 + sw, 7], [3, 12], [-3, 12], [-11 + sw, 7]], '#b0703e');
+          b.tex('#b0703e', (x, y) => hash(x * 3, y * 5) < .14 ? [140, 86, 46] : hash((x >> 1) * 7, (y >> 1) * 3) < .08 ? [200, 140, 90] : null);
+          b.rect(-8, -10, 5, 3, '#8a5430', 1); b.rect(3, -2, 6, 3, '#8a5430', 1); b.rect(-4, 5, 4, 2, '#8a5430', 1);
+          for (const [a, c, d, e] of [[-13, -16, -17, -22], [13, -16, 17, -22], [-11, 7, -17, 10], [11, 7, 17, 10]]) b.line([[a + (a < 0 ? 0 : 0), c], [d, e]], .8, '#d8c8a0', 1);
+        });
+      }
+      /* ---- farol colgado: tres cuadros de vaivén ---- */
+      function sprFarol(k) {
+        return puSpr('farol' + k, 22, b => {
+          const dx = k * 1.6;
+          b.line([[0, -9], [dx * .6, -2]], .8, '#3a2a1a', 1);
+          b.rect(dx - 3.6, -1, 7.2, 2, '#3a2a1a'); b.rect(dx - 3, 1, 6, 7, '#3a2a1a'); b.rect(dx - 2.2, 2, 4.4, 5, '#ffcf6a', 2); b.rect(dx - 1, 3, 2, 2.6, '#fff4c8', 2); b.rect(dx - 3.6, 8, 7.2, 1.6, '#3a2a1a');
+        });
+      }
+      /* ---- perro ovejero echado: cabeza gacha o levantada y cola en tres posiciones ---- */
+      const puPerro = (up, tail) => puSpr('perro2_' + (up ? 1 : 0) + tail, 48, b => {
+        const K = '#1e1c22', Wt = '#e8e2d4', ty = [-2, -5, -8][tail];
+        b.ellD(0, 9, 16, 3.5, [0, 0, 0], 2, .3, 0);
+        b.line([[10, 3], [14, ty * .5], [17, ty]], 2.4, K, 0, 1, 1.4); b.dot(17, ty, Wt, 1);
+        b.ell(1, 3, 11, 5, K); b.ell(-3, 5, 6, 3, Wt);
+        b.ell(8, 6, 4, 2, K); b.ell(-7, 7, 3, 1.6, Wt);
+        const hy = up ? -4 : 1;
+        b.ell(-10, hy, 5, 4.2, K); b.ell(-13.5, hy + 1.6, 2.8, 2, Wt); b.dot(-15.8, hy + 1, '#0c0806', 1);
+        b.poly([[-9, hy - 3.5], [-7.5, hy - 8], [-6, hy - 3.5]], K); b.dot(-11, hy - .6, '#e0b75a', 1);
+        b.tex(K, (x, y) => hash(x * 5, y * 3) < .08 ? [48, 44, 52] : null);
+      });
+      function drawPerro(t) {
+        const P = PU, near = Math.hypot(P.x - 378, P.y - 300) < 90, pet = P.pet > 0;
+        const tail = near || pet ? ((t * (pet ? 14 : 9)) | 0) % 3 : (Math.sin(t * 2) > .7 ? 1 : 0);
+        const br = Math.sin(t * 1.8) > 0 ? 0 : 1;
+        dimg(puPerro(near || pet, tail), 378, 300 + br * .6);
+        if (!near && !pet && Math.sin(t * .9) > .96) { cx.fillStyle = 'rgba(236,230,210,.7)'; cx.fillRect(364, 282 - (t * 8 % 10), 2, 2); cx.fillRect(366, 280 - (t * 8 % 10), 2, 2); }
+      }
+      function drawCuero(t) { dimg(sprCuero(Math.sin(t * 1.3) > 0 ? 1 : 0), 214, 196); }
+      function drawFarol(x, y, t) { const s = Math.sin(t * 1.7 + x); dimg(sprFarol(s > .35 ? 1 : s < -.35 ? -1 : 0), x, y + 4); }
+      /* ---- trofeos: una sola imagen pixel art con lo que tengas colgado ---- */
+      function trophyPix(b, id, x, y) {
+        const R = (px, py, w, h, c) => b.rect(x + px, y + py, w, h, c, 1);
         if (id === 'lobizon') { R(-5, -4, 10, 8, '#6e4a2f'); R(-6, -2, 2, 4, '#6e4a2f'); R(4, -2, 2, 4, '#6e4a2f'); R(-2, -5, 4, 2, '#a07a55'); }
         else if (id === 'caleuche') { R(-1, -6, 2, 2, '#2a2a2a'); R(-3, -4, 6, 7, '#2a3a4e'); R(-2, -3, 4, 5, '#9fe8ff'); R(-3, 3, 6, 1, '#2a3a4e'); }
-        else if (id === 'mini_bruja') { R(-1, -6, 2, 8, '#6a4a2c'); R(-3, 2, 6, 4, '#c8a060'); R(-2, 5, 1, 1, '#8a6a40'); R(1, 5, 1, 1, '#8a6a40'); }
+        else if (id === 'mini_bruja') { R(-1, -6, 2, 8, '#6a4a2c'); R(-3, 2, 6, 4, '#c8a060'); }
         else if (id === 'mini_basilisco') { R(-3, -4, 6, 8, '#e8e0c8'); R(-2, -5, 4, 1, '#e8e0c8'); R(-1, -2, 2, 2, '#8fb36a'); }
         else if (id === 'amanecer') { R(-3, -3, 6, 6, '#ffd070'); R(-5, -1, 2, 2, '#ffb040'); R(3, -1, 2, 2, '#ffb040'); R(-1, -5, 2, 2, '#ffb040'); R(-1, 3, 2, 2, '#ffb040'); }
         else if (id === 'herradura') { R(-4, -4, 2, 8, '#9aa4b4'); R(2, -4, 2, 8, '#9aa4b4'); R(-4, 3, 8, 2, '#9aa4b4'); }
         else if (id === 'mandinga') { R(-3, 2, 3, 3, '#8a1424'); R(-2, -1, 3, 3, '#8a1424'); R(0, -4, 2, 3, '#b8322f'); R(1, -6, 1, 2, '#ffd23c'); }
       }
+      function drawTrophyBoard() {
+        const got = TROFEOS.filter(tr => hasTrophy(tr.id)).map(tr => tr.id);
+        const spr = puSpr('tabla_' + got.join('.'), 80, b => {
+          b.rect(-28, -10, 56, 20, '#6a4a2c'); b.tex('#6a4a2c', (x, y) => (y % 4 === 0) ? [84, 58, 34] : null); b.rect(-28, -10, 56, 2, '#8a6a44');
+          got.slice(0, 5).forEach((id, i) => trophyPix(b, id, -20 + i * 10, 0));
+          got.slice(5).forEach((id, i) => trophyPix(b, id, -40 - i * 11, 14));
+        });
+        dimg(spr, 274, 138);
+      }
+      function drawTrophyPost() {
+        const got = TROFEOS.filter(tr => hasTrophy(tr.id)).map(tr => tr.id); if (!got.length) return;
+        const spr = puSpr('estaca_' + got.join('.'), 80, b => {
+          b.rect(-1.6, -24, 3.2, 50, '#5a3a22');
+          got.forEach((id, i) => trophyPix(b, id, i % 2 ? 7 : -7, -16 + i * 8));
+        });
+        dimg(spr, 254, 142);
+      }
+      /* ---- facón colgado en la pared de la fragua ---- */
+      function sprKnifeWall(kn) {
+        return puSpr('kw_' + kn.hoja + kn.cabo, 40, b => {
+          const a = -1.2, c = Math.cos(a), s = Math.sin(a), P = d => [d * c, d * s];
+          const CAB = { hueso: '#e8e0c8', guampa: '#3a2e28', plata: '#d8dce4' }[kn.cabo], L = kn.hoja === 'caronera' ? 15 : kn.hoja === 'riel' ? 12 : 11;
+          b.line([P(-8), P(0)], 2.6, CAB); b.line([P(0), P(1.2)], 3, '#c9a45c');
+          b.line([P(1.2), P(1.2 + L)], kn.hoja === 'riel' ? 2.4 : 1.9, kn.hoja === 'riel' ? '#8a94a4' : '#c8d0dc', 0, 1, .6);
+        });
+      }
 
-      /* ---------------- dibujo de la escena ---------------- */
       let puMask = null;
       /* ---- cámara: la escena llena la pantalla a lo alto; en pantallas anchas se ve más paisaje a los costados,
          en el celular vertical la cámara sigue al personaje de lado a lado ---- */
@@ -6670,51 +6888,13 @@
         for (const c of cols) b.tex(c, (x, y) => hash(x * 5 + v, y * 3) < .18 ? [30, 40, 26] : null);
         for (let i = 0; i < 7; i++) { const a = hash(i + 20, v) * TAU, r = hash(i + 40, v) * 9; b.dot(Math.cos(a) * r, 2 + Math.sin(a) * r * .5, '#3a3a78', 1); }
       });
-      const puPerro = up => puSpr('perro' + (up ? 1 : 0), 44, b => {
-        const K = '#1e1c22', Wt = '#e8e2d4';
-        b.ellD(0, 9, 15, 3.5, [0, 0, 0], 2, .3, 0);
-        b.ell(1, 3, 11, 5, K); b.ell(-3, 5, 6, 3, Wt);
-        b.ell(8, 6, 4, 2, K); b.ell(-7, 7, 3, 1.6, Wt);
-        const hy = up ? -4 : 1;
-        b.ell(-10, hy, 5, 4.2, K); b.ell(-13.5, hy + 1.6, 2.8, 2, Wt); b.dot(-15.8, hy + 1, '#0c0806', 1);
-        b.poly([[-9, hy - 3.5], [-7.5, hy - 8], [-6, hy - 3.5]], K); b.dot(-11, hy - .6, '#e0b75a', 1);
-      });
-      function drawPerro(t) {
-        const P = PU, near = Math.hypot(P.x - 378, P.y - 300) < 90, pet = P.pet > 0;
-        cx.save(); cx.translate(378, 300);
-        const wag = near || pet ? Math.sin(t * (pet ? 22 : 14)) : Math.sin(t * 2) * .3;
-        cx.strokeStyle = OL; cx.lineWidth = 3.5; cx.lineCap = 'round'; cx.beginPath(); cx.moveTo(11, 3); cx.lineTo(16, -2 + wag * 3); cx.stroke();
-        cx.strokeStyle = '#1e1c22'; cx.lineWidth = 2; cx.stroke(); cx.fillStyle = '#e8e2d4'; cx.fillRect(15 + wag * .3, -3 + wag * 3, 2, 2); cx.lineCap = 'butt';
-        const breathe = 1 + Math.sin(t * 1.8) * .02;
-        cx.scale(1, breathe); dimg(puPerro(near || pet), 0, 0);
-        cx.restore();
-        if (!near && !pet && Math.sin(t * .9) > .96) { cx.fillStyle = 'rgba(236,230,210,.7)'; cx.font = '600 8px ' + getComputedStyle(document.body).fontFamily; cx.fillText('z', 364, 284 - (t * 8 % 10)); }
-      }
-      function drawCuero(t) {
-        // cuero estaqueado secándose junto al rancho
-        const x = 214, y = 196, sw = Math.sin(t * 1.3) * .6;
-        cx.fillStyle = 'rgba(0,0,0,.25)'; cx.beginPath(); cx.ellipse(x, y + 26, 22, 5, 0, 0, TAU); cx.fill();
-        for (const px of [-18, 18]) { cx.fillStyle = OL; cx.fillRect(x + px - 2, y - 22, 5, 48); cx.fillStyle = '#6a4a2c'; cx.fillRect(x + px - 1, y - 21, 3, 46); }
-        cx.fillStyle = OL; cx.fillRect(x - 20, y - 24, 40, 4); cx.fillStyle = '#6a4a2c'; cx.fillRect(x - 19, y - 23, 38, 2);
-        cx.fillStyle = OL; cx.beginPath(); cx.moveTo(x - 15, y - 18); cx.lineTo(x + 15, y - 18); cx.lineTo(x + 13 + sw, y + 8); cx.lineTo(x + 4, y + 14); cx.lineTo(x - 4, y + 14); cx.lineTo(x - 13 + sw, y + 8); cx.closePath(); cx.fill();
-        cx.fillStyle = '#b0703e'; cx.beginPath(); cx.moveTo(x - 13, y - 16); cx.lineTo(x + 13, y - 16); cx.lineTo(x + 11 + sw, y + 7); cx.lineTo(x + 3, y + 12); cx.lineTo(x - 3, y + 12); cx.lineTo(x - 11 + sw, y + 7); cx.closePath(); cx.fill();
-        cx.fillStyle = '#8a5430'; cx.fillRect(x - 8, y - 10, 5, 3); cx.fillRect(x + 3, y - 2, 6, 3); cx.fillRect(x - 4, y + 5, 4, 2);
-        cx.strokeStyle = '#d8c8a0'; cx.lineWidth = .8; cx.beginPath(); for (const [a, b, c, e] of [[-13, -16, -18, -21], [13, -16, 18, -21], [-11, 7, -18, 10], [11, 7, 18, 10]]) { cx.moveTo(x + a, y + b); cx.lineTo(x + c, y + e); } cx.stroke();
-      }
-      function drawFarol(x, y, t) {
-        const s = Math.sin(t * 1.7 + x) * .12;
-        cx.save(); cx.translate(x, y); cx.rotate(s);
-        cx.strokeStyle = OL; cx.lineWidth = 1; cx.beginPath(); cx.moveTo(0, -8); cx.lineTo(0, 0); cx.stroke();
-        cx.fillStyle = OL; cx.fillRect(-4, 0, 8, 10); cx.fillStyle = '#ffcf6a'; cx.fillRect(-3, 2, 6, 6); cx.fillStyle = '#fff4c8'; cx.fillRect(-1, 3, 2, 3); cx.fillStyle = '#3a2a1a'; cx.fillRect(-4, 0, 8, 2);
-        cx.restore();
-      }
       function puParticles(dt) {
         const P = PU, F = P.fx, t = P.t, wind = Math.sin(t * .35) * .6 + Math.sin(t * 1.1) * .25;
         P.wind = wind;
         const emit = (key, every, fn) => { P.em[key] = (P.em[key] || 0) - dt; if (P.em[key] <= 0) { P.em[key] = every(); fn(); } };
         if (F.length < 380) {
           emit('smoke', () => rnd(.1, .18), () => F.push({ k: 'smoke', x: 320 + rnd(-4, 4), y: 248, vx: rnd(-4, 4), vy: rnd(-22, -14), life: rnd(2.2, 3.2), max: 3.2, s: rnd(2, 3) }));
-          emit('steam', () => rnd(.35, .6), () => F.push({ k: 'steam', x: 339, y: 254, vx: rnd(2, 6), vy: -12, life: 1.1, max: 1.1, s: 1.5 }));
+          emit('steam', () => rnd(.35, .6), () => F.push({ k: 'steam', x: 342, y: 271, vx: rnd(-6, -2), vy: -12, life: 1.1, max: 1.1, s: 1.5 }));
           emit('leaf', () => rnd(.5, 1.4), () => { const own = Object.keys(SAVE.nire).length; if (Math.random() < .4 + own * .03) F.push({ k: 'leaf', x: 118 + rnd(-60, 60), y: rnd(64, 100), vx: rnd(-6, 6), vy: rnd(10, 18), life: rnd(5, 7), max: 7, ph: rnd(0, TAU), col: ['#8a3222', '#b8482a', '#d8743a', '#e89a48'][(Math.random() * 4) | 0], gy: rnd(170, 230) }); });
           if (SAVE.puesto.fragua >= 1) {
             emit('spark', () => rnd(1.2, 2.8), () => { for (let i = 0; i < 9; i++) F.push({ k: 'spark', x: 132 + rnd(-8, 8), y: 280, vx: rnd(-40, 40), vy: rnd(-90, -40), life: rnd(.4, .8), max: .8 }); sfx(2400 + Math.random() * 800, .03, 'square', .006); });
@@ -6790,6 +6970,7 @@
         cx.beginPath(); cx.moveTo(296, PUH + 30); cx.quadraticCurveTo(308, 330, 320, 292); cx.quadraticCurveTo(332, 330, 344, PUH + 30); cx.fill();
         cx.restore();
         cx.fillStyle = 'rgba(8,12,18,.55)'; cx.fillRect(X0, PU_TOP - 1, X1 - X0, 3);
+        cx.imageSmoothingEnabled = false;
         drawPuFx(true);
         // todo lo que tiene profundidad se ordena por y
         const c = CORRAL, lvC = SAVE.puesto.corral, lvF = SAVE.puesto.fragua, D = puDecor(), L = [], add = (y, fn) => L.push([y, fn]), vis = x => x > X0 - 70 && x < X1 + 70;
@@ -6797,46 +6978,34 @@
         for (const s of D.shrubs) if (vis(s.x)) add(s.y + 10, () => dimg(puShrub(s.v), s.x, s.y));
         for (const tf of D.tufts) if (vis(tf.x)) add(tf.y + 8, () => { const w = P.wind + Math.sin(t * 2.2 + tf.ph + tf.x * .02) * .35, lean = clamp(Math.round(w * 1.6), -2, 2); dimg(puTuft(tf.v, lean), tf.x, tf.y); });
         const own = Object.keys(SAVE.nire).length;
-        add(PU_INT.nire.y, () => { cx.save(); cx.translate(118, 178); cx.rotate(Math.sin(t * .8) * .012 + P.wind * .01); dimg(sprNire(Math.min(4, Math.ceil(own / 5))), 0, -58); cx.restore(); });
+        add(PU_INT.nire.y, () => dimg(sprNire(Math.min(4, Math.ceil(own / 5))), 118, 120));
         add(170, () => {
           const lv = SAVE.puesto.rancho; dimg(lv >= 2 ? sprRancho(lv) : sprCarpa(), 320, lv >= 2 ? 112 : 118);
-          if (lv >= 2) { const fl = .75 + Math.sin(t * 9) * .08 + Math.sin(t * 3.1) * .08; cx.globalAlpha = clamp(fl, 0, 1) * .5; cx.fillStyle = '#ffd070'; cx.fillRect(348, 122, 16, 13); cx.globalAlpha = 1; drawTrophyBoard(); if (lv >= 3) drawFarol(372, 112, t); }
+          if (lv >= 2) { drawTrophyBoard(); if (lv >= 3) drawFarol(372, 112, t); }
           else drawTrophyPost();
         });
         add(200, () => drawCuero(t));
         add(170, () => { dimg(sprCarreta(), 548, 128); drawFarol(506, 112, t); });
         add(330, () => {
           dimg(sprFragua(lvF), 132, 290);
-          if (lvF >= 1) {
-            const g = .5 + Math.sin(t * 6) * .25 + Math.sin(t * 13) * .1; cx.globalAlpha = clamp(g, 0, 1) * .6; cx.fillStyle = '#ffb040'; cx.fillRect(122, 277, 20, 4); cx.globalAlpha = 1;
-            dimg(sprYunque(), 178, 318); const kn = knifeEq(); if (kn) { cx.save(); cx.translate(88, 286); cx.rotate(-1.2); drawKnife(cx, -10, 0, .8, kn.hoja, kn.cabo); cx.restore(); }
-          }
+          if (lvF >= 1) { dimg(sprYunque(), 180, 316); const kn = knifeEq(); if (kn) dimg(sprKnifeWall(kn), 90, 280); }
         });
-        for (const [x, y, a] of [[272, 262, .2], [368, 262, -.2], [320, 300, 0]]) add(y + 6, () => { cx.save(); cx.translate(x, y); cx.rotate(a); dimg(sprTronco(), 0, 0); cx.restore(); });
+        for (const [x, y, a] of [[272, 262, .2], [368, 262, -.2], [320, 300, 0]]) add(y + 6, () => dimg(sprTronco(a), x, y));
         add(266, () => drawFogon(t));
+        add(282, () => dimg(sprPava(), 349, 276)); add(284, () => dimg(sprMate(), 359, 280));
         add(302, () => drawPerro(t));
         if (lvC >= 1) {
-          add(c.y, () => drawFence(c.x, c.y, c.w));
-          add(c.y + c.h, () => drawFence(c.x, c.y + c.h, c.w));
-          add(c.y + c.h, () => {
-            drawFenceV(c.x, c.y, c.h); drawFenceV(c.x + c.w, c.y, c.h);
-            if (lvC >= 2) {
-              cx.fillStyle = OL; cx.fillRect(c.x + c.w - 58, c.y + c.h - 26, 44, 14); cx.fillStyle = '#6a4a2c'; cx.fillRect(c.x + c.w - 57, c.y + c.h - 25, 42, 12); cx.fillStyle = '#3a6a8a'; cx.fillRect(c.x + c.w - 55, c.y + c.h - 23, 38, 6);
-              cx.fillStyle = 'rgba(200,230,255,.5)'; cx.fillRect(c.x + c.w - 50 + ((t * 9) % 30), c.y + c.h - 22, 4, 1);
-            }
-          });
+          add(c.y, () => dimg(sprFenceH(c.w), c.x + c.w / 2, c.y));
+          add(c.y + c.h, () => dimg(sprFenceH(c.w), c.x + c.w / 2, c.y + c.h));
+          add(c.y + c.h, () => { dimg(sprFenceV(c.h), c.x, c.y + c.h / 2); dimg(sprFenceV(c.h), c.x + c.w, c.y + c.h / 2); });
+          if (lvC >= 2) add(c.y + c.h - 10, () => dimg(sprBebedero(), c.x + c.w - 36, c.y + c.h - 20));
           for (const h of P.horses) add(h.y + 22, () => {
             const AS = animSpr('caballo', h.idx === SAVE.horse, h.pelaje), mv = Math.hypot(h.vx, h.vy) > 3, fr = AS.frames[mv ? 1 + (((t * 6 + h.wob) | 0) % 4) : 0];
             cx.fillStyle = 'rgba(0,0,0,.28)'; cx.beginPath(); cx.ellipse(h.x, h.y + 22, 20, 5, 0, 0, TAU); cx.fill();
             const nod = mv ? 0 : Math.max(0, Math.sin(t * .7 + h.wob * 3)) * 1.2;
-            cx.save(); cx.translate(h.x, h.y + nod); cx.scale(h.face, 1); cx.drawImage(fr.img, -AS.size / 2, -AS.size / 2, AS.size, AS.size);
-            const sw = Math.sin(t * 3 + h.wob) * (Math.sin(t * .5 + h.wob) > .3 ? 4 : 1); cx.strokeStyle = OL; cx.lineWidth = 3; cx.lineCap = 'round'; cx.beginPath(); cx.moveTo(-20, -4); cx.lineTo(-26 + sw * .3, 8 + sw); cx.stroke();
-            cx.strokeStyle = (PELAJES[h.pelaje] || PELAJES.zaino).mane; cx.lineWidth = 1.6; cx.stroke(); cx.lineCap = 'butt'; cx.restore();
+            cx.save(); cx.translate(h.x, Math.round(h.y + nod)); cx.scale(h.face, 1); cx.drawImage(fr.img, -AS.size / 2, -AS.size / 2, AS.size, AS.size); cx.restore();
           });
-        } else add(c.y + c.h, () => {
-          for (let i = 0; i < 5; i++) { cx.save(); cx.translate(c.x + 40 + i * 22, c.y + c.h - 20 + (i % 2) * 6); cx.rotate(.3 + i * .2); cx.fillStyle = OL; cx.fillRect(-15, -3, 30, 6); cx.fillStyle = '#6a4a2c'; cx.fillRect(-14, -2, 28, 4); cx.restore(); }
-          cx.fillStyle = OL; cx.fillRect(c.x + c.w / 2 - 2, c.y + 30, 5, 40); cx.fillStyle = '#5a3a22'; cx.fillRect(c.x + c.w / 2 - 1, c.y + 30, 3, 40); cx.fillStyle = OL; cx.fillRect(c.x + c.w / 2 - 18, c.y + 22, 36, 16); cx.fillStyle = '#8a6a44'; cx.fillRect(c.x + c.w / 2 - 17, c.y + 23, 34, 14);
-        });
+        } else add(c.y + c.h, () => dimg(sprCorralVacio(), c.x + c.w / 2, c.y + c.h - 34));
         add(P.y + 14, () => {
           const PS = PSPR[SAVE.lastChar && CHARS[SAVE.lastChar] ? SAVE.lastChar : 'baqueano'], fr = PS.frames[P.moving ? 1 + (((t * 8.9) | 0) % 4) : 0], sz = PS.size;
           cx.fillStyle = 'rgba(0,0,0,.3)'; cx.beginPath(); cx.ellipse(P.x, P.y + 13, 11, 4, 0, 0, TAU); cx.fill();
@@ -6845,6 +7014,7 @@
         });
         L.sort((a, b) => a[0] - b[0]); for (const [, fn] of L) fn();
         drawPuFx(false);
+        cx.imageSmoothingEnabled = true;
         cx.restore();
         // luz: oscuridad con el fogón, la fragua, las ventanas y los faroles como fuentes
         if (!puMask || puMask.width !== cv.width || puMask.height !== cv.height) { puMask = document.createElement('canvas'); puMask.width = cv.width; puMask.height = cv.height; }
@@ -6878,40 +7048,6 @@
           const dx = joy.x - joy.ox, dy = joy.y - joy.oy, d = Math.hypot(dx, dy), k = d > 50 ? 50 / d : 1;
           cx.fillStyle = 'rgba(236,230,210,.4)'; cx.beginPath(); cx.arc(joy.ox + dx * k, joy.oy + dy * k, 20, 0, TAU); cx.fill();
         }
-      }
-
-      function drawFogon(t) {
-        const P = PU;
-        cx.save(); cx.translate(320, 262);
-        for (let i = 0; i < 9; i++) { const a = i / 9 * TAU; cx.fillStyle = OL; cx.beginPath(); cx.ellipse(Math.cos(a) * 22, Math.sin(a) * 11 + 4, 6, 4.5, 0, 0, TAU); cx.fill(); cx.fillStyle = i % 2 ? '#5d635e' : '#6f7670'; cx.beginPath(); cx.ellipse(Math.cos(a) * 22, Math.sin(a) * 11 + 3, 5, 3.5, 0, 0, TAU); cx.fill(); }
-        const log = a => { cx.save(); cx.rotate(a); cx.fillStyle = OL; cx.fillRect(-15, -3.5, 30, 7); cx.fillStyle = '#5a3a22'; cx.fillRect(-14, -2.5, 28, 5); cx.fillStyle = '#ff9a3c'; cx.fillRect(-3, -2.5, 6, 1.5); cx.restore(); };
-        cx.save(); cx.translate(0, 5); log(.35); log(-.35); cx.restore();
-        for (let i = 0; i < 3; i++) { const fr = ITEM.flame0, h = 1 + Math.floor((Math.sin(t * 9 + i * 2.1) + 1) * 1.5); dimg(fr[Math.min(3, h)], (i - 1) * 6, 2 - i % 2 * 2, 1.35); }
-        // pava sobre las brasas
-        cx.fillStyle = OL; cx.fillRect(12, -6, 12, 10); cx.fillStyle = '#6a6e78'; cx.fillRect(13, -5, 10, 8); cx.fillStyle = '#9aa0aa'; cx.fillRect(13, -5, 10, 2); cx.fillStyle = OL; cx.fillRect(23, -4, 5, 2);
-        for (const e of P.embers) { cx.globalAlpha = clamp(e.l / e.m, 0, 1); cx.fillStyle = e.l > 1 ? '#ffd070' : '#ff7a2a'; cx.fillRect(Math.round(e.x), Math.round(e.y), 1.5, 1.5); }
-        cx.globalAlpha = 1; cx.restore();
-      }
-      function drawFence(x, y, w) {
-        const n = Math.round(w / 24);
-        cx.strokeStyle = OL; cx.lineWidth = 4; cx.beginPath(); cx.moveTo(x, y - 12); cx.lineTo(x + w, y - 12); cx.moveTo(x, y - 5); cx.lineTo(x + w, y - 5); cx.stroke();
-        cx.strokeStyle = '#8a6a44'; cx.lineWidth = 2; cx.stroke();
-        for (let i = 0; i <= n; i++) { const px = x + i * w / n; cx.fillStyle = OL; cx.fillRect(px - 3, y - 18, 6, 20); cx.fillStyle = '#6a4a2c'; cx.fillRect(px - 2, y - 17, 4, 18); cx.fillStyle = '#8a6a44'; cx.fillRect(px - 2, y - 17, 1.5, 18); }
-      }
-      function drawFenceV(x, y, h) {
-        cx.strokeStyle = OL; cx.lineWidth = 4; cx.beginPath(); cx.moveTo(x, y - 12); cx.lineTo(x, y + h - 12); cx.stroke(); cx.strokeStyle = '#8a6a44'; cx.lineWidth = 2; cx.stroke();
-        for (let i = 1; i < 4; i++) { const py = y + i * h / 4; cx.fillStyle = OL; cx.fillRect(x - 3, py - 18, 6, 20); cx.fillStyle = '#6a4a2c'; cx.fillRect(x - 2, py - 17, 4, 18); }
-      }
-      function drawTrophyBoard() {
-        const got = TROFEOS.filter(tr => hasTrophy(tr.id)), bx = 248, by = 128;
-        cx.fillStyle = OL; cx.fillRect(bx - 2, by - 2, 56, 22); cx.fillStyle = '#5a3a22'; cx.fillRect(bx - 1, by - 1, 54, 20); cx.fillStyle = '#6a4a2c'; cx.fillRect(bx, by, 52, 18);
-        got.slice(0, 5).forEach((tr, i) => drawTrophy(tr.id, bx + 6 + i * 10, by + 9));
-        if (got.length > 5) got.slice(5).forEach((tr, i) => drawTrophy(tr.id, bx - 14 - i * 12, by + 22));
-      }
-      function drawTrophyPost() {
-        const got = TROFEOS.filter(tr => hasTrophy(tr.id)); if (!got.length) return;
-        cx.fillStyle = OL; cx.fillRect(252, 118, 5, 52); cx.fillStyle = '#5a3a22'; cx.fillRect(253, 118, 3, 52);
-        got.forEach((tr, i) => drawTrophy(tr.id, 254 + (i % 2 ? 7 : -7), 126 + i * 8));
       }
 
       /* ---------------- paneles ---------------- */
