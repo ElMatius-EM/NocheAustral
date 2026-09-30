@@ -14,7 +14,7 @@
         SAVE.campo = Object.assign({ seed: 1 + ((Math.random() * 99999) | 0), taken: {}, salidas: 0, tiempo: 0 }, SAVE.campo || {});
         { const now = Date.now(); for (const k in SAVE.campo.taken) if (now - SAVE.campo.taken[k] > CAMPO_REGROW) delete SAVE.campo.taken[k]; }
         SAVE.mat = Object.assign({ cuero: 0, hueso: 0, hierro: 0 }, SAVE.mat || {});
-        SAVE.puesto = Object.assign({ rancho: 1, fragua: 0, corral: 0 }, SAVE.puesto || {});
+        SAVE.puesto = Object.assign({ rancho: 1, fragua: 0, corral: 0, fogon: 0 }, SAVE.puesto || {});
         SAVE.nire = SAVE.nire || {}; SAVE.trophies = SAVE.trophies || {};
         SAVE.knives = SAVE.knives || []; SAVE.horses = SAVE.horses || [];
         if (typeof SAVE.fama !== 'number') SAVE.fama = 0;
@@ -139,8 +139,24 @@
             { name: 'Sin construir' },
             { name: 'Corral', desc: '3 lugares. Los caballos que amanses se quedan acá si aguantás al menos 5 minutos en la partida.', cost: { oro: 300, cuero: 10 } },
             { name: 'Corral grande', desc: '6 lugares y bebedero.', cost: { oro: 800, cuero: 22, hierro: 8 } }]
+        },
+        fogon: {
+          name: 'Fogón', lv: [
+            { name: 'Fogón', desc: 'Unos troncos, la pava y el mate.' },
+            { name: 'Asador de hierro', desc: 'Una cruz para el cordero y una parrilla: suma las tortas fritas y el cordero al asador.', cost: { oro: 300, hierro: 6 } }]
         }
       };
+
+      /* ---------------- fogón: comidas para la próxima noche ----------------
+         Se prepara una sola por vez; queda en SAVE.comida hasta que empieza una noche saliendo del Puesto
+         (Recorrer el campo no la gasta) y dura la primera mitad de esa noche. Para sumar una receta: una línea acá. */
+      const COMIDA_T = 450;
+      const FOGON_REC = {
+        mate: { name: 'Mate amargo', fx: '+10% de recarga', desc: 'Las armas recargan 10% más rápido.', end: 'Se enfrió el mate', cost: { oro: 60, hueso: 1 }, lvl: 0, apply: p => { p.cd *= .9; } },
+        tortas: { name: 'Tortas fritas', fx: '+10% de velocidad', desc: 'Te movés 10% más rápido.', end: 'Se terminaron las tortas fritas', cost: { oro: 80, cuero: 2 }, lvl: 1, apply: p => { p.speed *= 1.1; } },
+        cordero: { name: 'Cordero al asador', fx: '+15% de vida máxima', desc: '+15% de vida máxima.', end: 'Se te bajó el asado', cost: { oro: 120, hueso: 3 }, lvl: 1, apply: p => { p.maxHp *= 1.15; } }
+      };
+      if (SAVE.comida && !FOGON_REC[SAVE.comida]) { SAVE.comida = null; writeSave(); }
       const TROFEOS = [
         { id: 'lobizon', name: 'Cuero del Lobizón Mayor', how: 'Derrotá al jefe de la Estepa.' },
         { id: 'caleuche', name: 'Farol del Caleuche', how: 'Derrotá al jefe del Glaciar.' },
@@ -174,6 +190,27 @@
       const MAT_URL = {};
       const matIco = m => `<img class="ico" src="${MAT_URL[m] || (MAT_URL[m] = matSprite(m).img.toDataURL())}" alt="${MATS[m].name}">`;
       const famaIco = '<span class="fama-i">✦</span>';
+      /* íconos de las comidas del fogón (panel, tranquera y HUD) */
+      const REC_SPR = {}, REC_URL = {};
+      function recSprite(id) {
+        if (REC_SPR[id]) return REC_SPR[id];
+        return REC_SPR[id] = pixSprite(24, 1, b => {
+          if (id === 'mate') {
+            b.ell(0, 2.5, 6, 6, '#7a3424'); b.ell(-2, 1, 2.2, 3, '#9a4a30', 1); b.rect(-4.5, 6.5, 9, 1.6, '#5a2418', 1);
+            b.ell(0, -3.2, 4.4, 1.6, '#c8ccd4'); b.ell(0, -3.4, 3.2, 1, '#5e7a34', 1);
+            b.line([[1, -3.4], [4.5, -9.5]], 1.2, '#d8dce4', 1); b.dot(4.6, -9.8, '#eef2f8', 1);
+          } else if (id === 'tortas') {
+            b.ell(-1.5, 3.5, 7.5, 3.4, '#b87a34'); b.ell(-1.5, 2.6, 6.6, 2.6, '#d89a48', 1);
+            b.ell(1.5, -1.5, 7.5, 3.4, '#c8883c'); b.ell(1.5, -2.4, 6.6, 2.6, '#e8b058', 1); b.ell(1.5, -2.6, 1.3, 1, '#8a5a24', 1);
+            for (const [x, y] of [[-2, -3], [4, -1.8], [0, -1], [-4.5, 2.4], [2, 3.2]]) b.dot(x, y, '#fff6e0', 1);
+          } else {
+            b.line([[-7.5, 6.5], [-3, 2]], 2.2, '#e8e0c8'); b.ell(-8.2, 7.2, 1.8, 1.8, '#e8e0c8');
+            b.ell(2, -1, 7, 5.6, '#8a3a22'); b.ell(1, -2.4, 5.4, 3.6, '#b0582e', 1); b.ell(-.5, -3.6, 2.2, 1.2, '#d88a4a', 1);
+            for (const x of [-1, 2, 5]) b.line([[x, -5.5], [x + 1.5, 3]], .7, '#6a2a18', 1);
+          }
+        });
+      }
+      const recURL = id => REC_URL[id] || (REC_URL[id] = recSprite(id).img.toDataURL());
 
       /* facón compuesto (vista lateral, filo hacia la derecha), dibujado con rectángulos de píxel */
       function drawKnife(g, x, y, s, hoja, cabo) {

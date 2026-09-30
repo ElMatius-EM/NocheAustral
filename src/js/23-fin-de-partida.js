@@ -9,6 +9,7 @@
         if (NI('p1')) p.greed *= 1.1;
         if (NI('p2')) p.growth *= 1.08;
         if (SAVE.puesto.rancho >= 3) p.greed *= 1.05;
+        if (S.comida && !S.comida.done) FOGON_REC[S.comida.id].apply(p);
         const kn = knifeEq();
         p.eliteDmg = 0;
         if (kn) {

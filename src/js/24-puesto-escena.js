@@ -6,14 +6,16 @@
         nire: { x: 118, y: 190, r: 72, label: 'Ñire de las habilidades' },
         rancho: { x: 320, y: 152, r: 72, label: 'Rancho: obras y trofeos' },
         carreta: { x: 548, y: 150, r: 68, label: 'Almacén del pulpero' },
-        fogon: { x: 320, y: 262, r: 44, label: 'Fogón: aguantar la noche' },
+        fogon: { x: 320, y: 262, r: 58, label: 'Fogón: sentarse y preparar la noche' },
         fragua: { x: 132, y: 318, r: 68, label: 'Fragua' },
         corral: { x: 514, y: 306, r: 104, label: 'Corral' },
-        tranquera: { x: 320, y: 366, r: 40, label: 'Tranquera: recorrer el campo' },
+        tranquera: { x: 320, y: 364, r: 56, label: 'Tranquera: salir' },
         perro: { x: 378, y: 300, r: 34, label: 'Acariciar al perro' }
       };
-      const PU_SOLID = [[262, 180, 3], [196, 300, 3], [420, 222, 3], [364, 372, 3], [294, 376, 4], [346, 376, 4], [320, 120, 60], [118, 168, 18], [548, 132, 40], [320, 256, 22], [132, 302, 32], [90, 330, 14], [380, 302, 12], [214, 206, 14], [352, 278, 6], [162, 190, 8]];
+      const PU_SOLID = [[262, 180, 3], [196, 300, 3], [420, 222, 3], [392, 372, 3], [278, 376, 4], [362, 376, 4], [286, 246, 4], [320, 120, 60], [118, 168, 18], [548, 132, 40], [320, 256, 22], [132, 302, 32], [90, 330, 14], [380, 302, 12], [214, 206, 14], [352, 278, 6], [162, 190, 8]];
       const CORRAL = { x: 440, y: 236, w: 148, h: 142 };
+      // troncos alrededor del fogón: [x, y, inclinación, hacia dónde mira el que se sienta]
+      const PU_SEATS = [[272, 262, .2, 1], [368, 262, -.2, -1], [320, 300, 0, 1]];
       function enterPuesto() {
         viaPuesto = false; initAudio();
         hide('startOv');
@@ -40,11 +42,18 @@
       }
       function puUpdate(dt) {
         const P = PU; P.t += dt; if (P.pet > 0) P.pet -= dt; if (P.gateT > 0) P.gateT -= dt;
-        if (!P.ui) {
+        if (P.sit) {
+          const st = P.sit; st.k = Math.min(1, st.k + dt * 5); st.sip -= dt; if (st.sip < -1.3) st.sip = rnd(3.5, 6);
+          if (!P.ui) { const [ix, iy] = inputVec(); if (Math.hypot(ix, iy) > .3) puStand(ix, iy); }
+          if (P.sit) { P.vx = P.vy = 0; P.moving = false; P.x = st.x; P.y = st.y - 8; P.face = st.face; }
+        }
+        if (P.sit) { /* quieto en el tronco */ }
+        else if (!P.ui) {
           const [ix, iy] = inputVec(), l = Math.hypot(ix, iy), sp = 135;
           P.moving = l > .05; if (P.moving && Math.abs(ix) > .1) P.face = ix > 0 ? 1 : -1;
           const k = Math.min(1, 20 * dt); P.vx += (ix * sp - P.vx) * k; P.vy += (iy * sp - P.vy) * k;
         } else { P.vx *= .8; P.vy *= .8; P.moving = false; }
+        if (!P.sit) {
         P.x += P.vx * dt; P.y += P.vy * dt;
         P.x = clamp(P.x, 24, PUW - 24); P.y = clamp(P.y, PU_TOP + 70, PUH - 8);
         for (const [x, y, r] of PU_SOLID) { const dx = P.x - x, dy = P.y - y, d = Math.hypot(dx, dy) || 1, m = r + 10; if (d < m) { P.x = x + dx / d * m; P.y = y + dy / d * m; } }
@@ -54,9 +63,12 @@
             if (m === dl) P.x = c.x - 8; else if (m === dr) P.x = c.x + c.w + 8; else if (m === dt_) P.y = c.y - 6; else P.y = c.y + c.h + 8;
           }
         }
+        }
         let best = null, bd = 1e9;
         for (const k in PU_INT) { const o = PU_INT[k], d = Math.hypot(P.x - o.x, P.y - o.y) / o.r; if (d < 1 && d < bd) { bd = d; best = k; } }
-        if (best !== P.near) { P.near = best; const b = $('puPrompt'); b.classList.toggle('on', !!best && !P.ui); if (best) b.innerHTML = `<kbd>E</kbd> ${PU_INT[best].label}`; }
+        if (P.sit) best = 'fogon';
+        const nk = best + (P.sit ? '+' : '');
+        if (nk !== P.nearK) { P.near = best; P.nearK = nk; const b = $('puPrompt'); b.classList.toggle('on', !!best && !P.ui); if (best) b.innerHTML = `<kbd>E</kbd> ${puLabel()}`; }
         if (P.ui) $('puPrompt').classList.remove('on'); else if (P.near) $('puPrompt').classList.add('on');
         // caballos del corral
         const c = CORRAL;
@@ -70,13 +82,37 @@
         for (const e of P.embers) { e.l -= dt; e.x += e.vx * dt + Math.sin(P.t * 3 + e.y) * .2; e.y += e.vy * dt; }
         P.embers = P.embers.filter(e => e.l > 0);
       }
+      const puLabel = () => PU.sit ? 'Cocinar · moverse para levantarse' : PU_INT[PU.near].label;
       function puInteract() {
-        if (!PU || PU.ui || !PU.near) return;
+        if (!PU || PU.ui) return;
+        if (PU.sit) { sfx(660, .06, 'triangle', .03); openPuPanel('fogon'); return; }
+        if (!PU.near) return;
         const k = PU.near; sfx(660, .06, 'triangle', .03);
-        if (k === 'tranquera') { PU.gateT = .6; PU.ui = 'salida'; sfx(180, .35, 'sawtooth', .02, .7); setTimeout(() => { if (PU && PU.ui === 'salida') { PU = null; keys.clear(); joy = null; $('puHud').classList.remove('on'); $('puPrompt').classList.remove('on'); hide('puOv'); startCampo(); } }, 380); return; }
+        if (k === 'tranquera') { openPuPanel('tranquera'); return; }
+        if (k === 'fogon') { puSit(); openPuPanel('fogon'); return; }
         if (k === 'perro') { PU.pet = 1.6; for (let i = 0; i < 4; i++) PU.fx.push({ k: 'heart', x: 370 + i * 5, y: 286, vy: -18 - i * 4, ph: i, life: 1.2, max: 1.2 }); sfx(700, .06, 'square', .03, .8); setTimeout(() => sfx(560, .08, 'square', .03, .8), 120); return; }
-        if (k === 'fogon') return exitPuesto('vChars');
         if (k === 'carreta') { PU.ui = 'shop'; show('startOv'); go('vShop'); return; }
         openPuPanel(k);
       }
-
+      /* sentarse en el tronco más cercano, mate en mano */
+      function puSit() {
+        let best = PU_SEATS[0], bd = 1e9;
+        for (const st of PU_SEATS) { const d = Math.hypot(PU.x - st[0], PU.y - st[1]); if (d < bd) { bd = d; best = st; } }
+        PU.sit = { x: best[0], y: best[1], face: best[3], k: 0, sip: 1.2 }; keys.clear(); joy = null;
+        sfx(220, .08, 'triangle', .03, .6);
+      }
+      function puStand(ix, iy) {
+        const st = PU.sit; PU.sit = null; PU.nearK = null;
+        if (st.y > 280) PU.y = st.y + 14; else { PU.x = st.x - st.face * 16; PU.y = st.y + 2; }
+        PU.x += ix * 4; PU.y += iy * 4;
+      }
+      /* salir por la tranquera: se abre y recién ahí arranca lo elegido */
+      function puSalir(modo) {
+        if (!PU) return;
+        hide('puOv'); PU.ui = 'salida'; PU.gateT = .6; sfx(180, .35, 'sawtooth', .02, .7);
+        setTimeout(() => {
+          if (!PU || PU.ui !== 'salida') return;
+          if (modo === 'noche') { exitPuesto('vChars'); return; }
+          PU = null; keys.clear(); joy = null; $('puHud').classList.remove('on'); $('puPrompt').classList.remove('on'); startCampo();
+        }, 380);
+      }

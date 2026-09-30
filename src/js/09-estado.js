@@ -30,6 +30,8 @@
           S.events = []; S.hyper = false; S.herdSeed = SAVE.campo.seed; S.terrSeed = SAVE.campo.seed % 997;
           S.campoTaken = new Set(); S.leftHome = false; S.gath = null; S.armed = false; campoCache.clear();
         }
+        // lo preparado en el fogón se gasta en la primera noche que sale del Puesto (no en el campo ni en partida rápida)
+        if (S.mode !== 'campo' && viaPuesto && SAVE.comida && FOGON_REC[SAVE.comida]) { S.comida = { id: SAVE.comida, until: COMIDA_T, done: false }; SAVE.comida = null; writeSave(); }
         ST = null; obsCache.clear(); TCACHE.clear();
         for (const e of freeE) e.dead = true;
         addWeapon(CHARS[charId].weapon);

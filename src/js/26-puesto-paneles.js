@@ -1,10 +1,10 @@
       /* ---------------- paneles ---------------- */
       function openPuPanel(k) {
-        PU.ui = k; PU.sel = PU.sel || 'b1'; renderPuPanel(); show('puOv');
+        PU.ui = k; PU.sel = PU.sel || 'b1'; show('puOv'); renderPuPanel();
       }
       function closePuPanel() {
         if (!PU) return; if (PU.forge && PU.forge.timer) cancelAnimationFrame(PU.forge.timer); cancelAnimationFrame(PU.nireRAF);
-        PU.forge = null; PU.ui = null; hide('puOv'); puHudUpdate(); PU.near = null;
+        PU.forge = null; PU.ui = null; hide('puOv'); puHudUpdate(); PU.near = null; PU.nearK = null;
       }
       function renderPuPanel() {
         const k = PU.ui, el = $('puPanel');
@@ -12,6 +12,8 @@
         else if (k === 'rancho') el.innerHTML = ranchoHTML();
         else if (k === 'fragua') el.innerHTML = fraguaHTML();
         else if (k === 'corral') el.innerHTML = corralHTML();
+        else if (k === 'fogon') el.innerHTML = fogonHTML();
+        else if (k === 'tranquera') el.innerHTML = tranqueraHTML();
         if (k === 'nire') {
           drawNire();
           const ids = Object.keys(NIRE);
@@ -64,6 +66,40 @@
   <div class="cards">${cards || '<p class="sub">Todavía no hay caballos. Amansá uno en la Estepa.</p>'}</div>
   ${lv < 2 ? `<div class="cards" style="margin-top:8px">${obraCard('corral')}</div>` : ''}
   <div class="btns"><button class="btn" data-pu-close>Volver<kbd>Esc</kbd></button></div>`;
+      }
+      function fogonHTML() {
+        const lv = SAVE.puesto.fogon, id0 = SAVE.comida, cur = id0 && FOGON_REC[id0];
+        const recs = Object.entries(FOGON_REC).map(([id, r]) => {
+          const lock = r.lvl > lv, poor = !lock && !canPay(r.cost), off = lock || !!cur;
+          const note = lock ? `Necesita el ${OBRAS.fogon.lv[r.lvl].name.toLowerCase()}.` : r.desc;
+          return `<button class="card rec${lock ? ' locked' : ''}${poor && !cur ? ' poor' : ''}" data-rec="${id}" ${off ? 'disabled' : ''}><img class="rimg" src="${recURL(id)}" alt=""><span class="ct"><strong>${r.name}</strong><small>${note}</small>${lock ? '' : `<span class="costs">${costHTML(r.cost)}</span>`}</span></button>`;
+        }).join('');
+        return `<h2>Fogón</h2><p class="sub">Lo que prepares acá te lo llevás a la próxima noche y dura la primera mitad (${COMIDA_T / 60 | 0}:${String(COMIDA_T % 60).padStart(2, '0')}). Una sola cosa por vez; recorrer el campo no la gasta.</p>
+  ${cur ? `<div class="card sel listo"><img class="rimg" src="${recURL(id0)}" alt=""><span class="ct"><strong>Listo: ${cur.name}</strong><small>${cur.fx} en la primera mitad de la próxima noche. Salí por la tranquera cuando quieras.</small></span></div>` : ''}
+  <div class="cards">${recs}</div>
+  ${lv < OBRAS.fogon.lv.length - 1 ? `<h3 class="subh">Mejorar el fogón</h3><div class="cards">${obraCard('fogon')}</div>` : ''}
+  <div class="btns"><button class="btn" data-pu-close>Quedarse un rato<kbd>Esc</kbd></button></div>`;
+      }
+      const SAL_URL = {};
+      function salidaURL(k) {
+        const pel = SAVE.horses[SAVE.horse] ? SAVE.horses[SAVE.horse].pelaje : 'zaino', key = k === 'campo' ? k + pel : k;
+        if (SAL_URL[key]) return SAL_URL[key];
+        if (k === 'campo') return SAL_URL[key] = animSpr('caballo', false, pel).frames[0].img.toDataURL();
+        return SAL_URL[key] = pixSprite(24, 1, b => {
+          b.ell(0, 0, 8, 8, '#f2ecd8'); b.ell(3.5, -1.5, 7, 7.5, '#141b2d', 1);
+          for (const [x, y] of [[-3, -3], [-4.5, 2], [-1.5, 4]]) b.dot(x, y, '#d9d2b3', 1);
+          for (const [x, y] of [[7, -7], [9, 4], [5, 8]]) b.dot(x, y, '#e8ecf8', 1);
+        }).img.toDataURL();
+      }
+      function tranqueraHTML() {
+        const id0 = SAVE.comida, cur = id0 && FOGON_REC[id0];
+        const lleva = cur ? `<span class="lleva"><img class="ico" src="${recURL(id0)}" alt="">Llevás ${cur.name.toLowerCase()}: ${cur.fx}</span>` : `<span class="lleva no">Sin nada del fogón</span>`;
+        return `<h2>Tranquera</h2><p class="sub">¿Para dónde salís?</p>
+  <div class="cards salida">
+  <button class="card sal" data-salir="noche"><img class="rimg" src="${salidaURL('noche')}" alt=""><span class="ct"><strong>Aguantar la noche</strong><small>Quince minutos bajo la luna. Elegís personaje y mapa.</small>${lleva}</span></button>
+  <button class="card sal" data-salir="campo"><img class="rimg" src="${salidaURL('campo')}" alt=""><span class="ct"><strong>Recorrer el campo</strong><small>Tranquilo, con pocos enemigos: andás a caballo y juntás materiales a tu ritmo.${cur ? ' Lo del fogón te espera para la noche.' : ''}</small></span></button>
+  </div>
+  <div class="btns"><button class="btn" data-pu-close>Quedarse en el puesto<kbd>Esc</kbd></button></div>`;
       }
       function nireHTML() {
         const id = PU.sel, n = NIRE[id], st = nireState(id), br = NIRE_BR[n.br];

@@ -2263,3 +2263,107 @@
         padding-right: 10px
       }
     }
+
+    /* ---------------- fogón y tranquera ---------------- */
+    .rimg {
+      width: 48px;
+      height: 48px;
+      image-rendering: pixelated;
+      flex: none;
+      object-fit: contain
+    }
+
+    .card.rec[disabled]:not(.sel):not(.locked) {
+      opacity: .55;
+      cursor: default
+    }
+
+    .card.listo {
+      margin-bottom: 8px
+    }
+
+    .cards.salida {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px
+    }
+
+    .card.sal {
+      align-items: flex-start;
+      padding: 14px
+    }
+
+    .card.sal strong {
+      font-size: 18px
+    }
+
+    .sico {
+      font-size: 30px;
+      line-height: 1;
+      color: var(--bronce);
+      flex: none;
+      width: 36px;
+      text-align: center
+    }
+
+    .lleva {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 8px;
+      font-size: 13px;
+      color: var(--pasto)
+    }
+
+    .lleva.no {
+      color: var(--luna2)
+    }
+
+    .lleva .ico {
+      width: 22px;
+      height: 22px;
+      image-rendering: pixelated
+    }
+
+    @media (max-width:520px) {
+      .cards.salida {
+        grid-template-columns: 1fr
+      }
+    }
+
+    /* comida del fogón en la partida: debajo del reloj */
+    .comidaB {
+      display: none;
+      position: absolute;
+      left: 50%;
+      top: calc(env(safe-area-inset-top, 0px) + 58px);
+      transform: translateX(-50%);
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px 2px 4px;
+      background: rgba(12, 17, 32, .55);
+      border: 1px solid var(--linea);
+      border-radius: 3px;
+      font-size: 14px;
+      text-shadow: 0 2px 0 #000
+    }
+
+    .comidaB.on {
+      display: flex
+    }
+
+    .comidaB img {
+      width: 24px;
+      height: 24px;
+      image-rendering: pixelated
+    }
+
+    .comidaB.low {
+      animation: comidaLow 1s steps(2) infinite
+    }
+
+    @keyframes comidaLow {
+      50% {
+        opacity: .45
+      }
+    }

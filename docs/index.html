@@ -2279,6 +2279,110 @@
         padding-right: 10px
       }
     }
+
+    /* ---------------- fogón y tranquera ---------------- */
+    .rimg {
+      width: 48px;
+      height: 48px;
+      image-rendering: pixelated;
+      flex: none;
+      object-fit: contain
+    }
+
+    .card.rec[disabled]:not(.sel):not(.locked) {
+      opacity: .55;
+      cursor: default
+    }
+
+    .card.listo {
+      margin-bottom: 8px
+    }
+
+    .cards.salida {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px
+    }
+
+    .card.sal {
+      align-items: flex-start;
+      padding: 14px
+    }
+
+    .card.sal strong {
+      font-size: 18px
+    }
+
+    .sico {
+      font-size: 30px;
+      line-height: 1;
+      color: var(--bronce);
+      flex: none;
+      width: 36px;
+      text-align: center
+    }
+
+    .lleva {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 8px;
+      font-size: 13px;
+      color: var(--pasto)
+    }
+
+    .lleva.no {
+      color: var(--luna2)
+    }
+
+    .lleva .ico {
+      width: 22px;
+      height: 22px;
+      image-rendering: pixelated
+    }
+
+    @media (max-width:520px) {
+      .cards.salida {
+        grid-template-columns: 1fr
+      }
+    }
+
+    /* comida del fogón en la partida: debajo del reloj */
+    .comidaB {
+      display: none;
+      position: absolute;
+      left: 50%;
+      top: calc(env(safe-area-inset-top, 0px) + 58px);
+      transform: translateX(-50%);
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px 2px 4px;
+      background: rgba(12, 17, 32, .55);
+      border: 1px solid var(--linea);
+      border-radius: 3px;
+      font-size: 14px;
+      text-shadow: 0 2px 0 #000
+    }
+
+    .comidaB.on {
+      display: flex
+    }
+
+    .comidaB img {
+      width: 24px;
+      height: 24px;
+      image-rendering: pixelated
+    }
+
+    .comidaB.low {
+      animation: comidaLow 1s steps(2) infinite
+    }
+
+    @keyframes comidaLow {
+      50% {
+        opacity: .45
+      }
+    }
   </style>
 </head>
 
@@ -2302,6 +2406,7 @@
             id="goldN">0</span></span><span class="kills" id="kills">☠ 0</span><button id="pauseBtn"
           aria-label="Pausar">❚❚</button></div>
     </div>
+    <div class="comidaB" id="comidaB"><img id="comidaI" alt=""><span id="comidaT"></span></div>
   </div>
   <div id="combo"><span id="comboN">×0</span><small>combo</small>
     <div class="cbar">
@@ -3980,6 +4085,8 @@
           S.events = []; S.hyper = false; S.herdSeed = SAVE.campo.seed; S.terrSeed = SAVE.campo.seed % 997;
           S.campoTaken = new Set(); S.leftHome = false; S.gath = null; S.armed = false; campoCache.clear();
         }
+        // lo preparado en el fogón se gasta en la primera noche que sale del Puesto (no en el campo ni en partida rápida)
+        if (S.mode !== 'campo' && viaPuesto && SAVE.comida && FOGON_REC[SAVE.comida]) { S.comida = { id: SAVE.comida, until: COMIDA_T, done: false }; SAVE.comida = null; writeSave(); }
         ST = null; obsCache.clear(); TCACHE.clear();
         for (const e of freeE) e.dead = true;
         addWeapon(CHARS[charId].weapon);
@@ -4614,6 +4721,7 @@
       }
       function update(dt) {
         S.t += dt;
+        if (S.comida && !S.comida.done && S.t >= S.comida.until) { S.comida.done = true; recompute(); S.player.hp = Math.min(S.player.hp, ST.maxHp); banner(FOGON_REC[S.comida.id].end); }
         const P = S.player;
         S.pWet = terrWet(P.x, P.y);
         const [ix, iy] = inputVec(), l = Math.hypot(ix, iy);
@@ -5277,6 +5385,12 @@
         setIf('xpfill', 'w', (S.xp / S.xpNext * 100).toFixed(1) + '%');
         setIf('lvl', 't', S.mode === 'campo' ? MAT_KEYS.map(m => MATS[m].name.charAt(0).toUpperCase() + MATS[m].name.slice(1) + ' ' + (S.mat[m] || 0)).join(' · ') : 'Nivel ' + S.level);
         setIf('timer', 't', fmt(S.t));
+        const cm = S.comida, cmOn = !!(cm && !cm.done && S.state !== 'end');
+        if (hud.last.cmOn !== cmOn) { hud.last.cmOn = cmOn; $('comidaB').classList.toggle('on', cmOn); }
+        if (cmOn) {
+          if (hud.last.cmId !== cm.id) { hud.last.cmId = cm.id; const R = FOGON_REC[cm.id]; $('comidaI').src = recURL(cm.id); $('comidaB').title = R.name + ': ' + R.fx; }
+          const left = cm.until - S.t; setIf('comidaT', 't', fmt(Math.ceil(left))); if (hud.last.cmLow !== (left < 30)) { hud.last.cmLow = left < 30; $('comidaB').classList.toggle('low', left < 30); }
+        }
         setIf('kills', 't', '☠ ' + S.kills);
         setIf('goldN', 't', String(S.gold));
         const br = S.bossRef, bOn = !!(br && !br.dead && br.elite && S.state !== 'end');
@@ -6410,7 +6524,7 @@
         SAVE.campo = Object.assign({ seed: 1 + ((Math.random() * 99999) | 0), taken: {}, salidas: 0, tiempo: 0 }, SAVE.campo || {});
         { const now = Date.now(); for (const k in SAVE.campo.taken) if (now - SAVE.campo.taken[k] > CAMPO_REGROW) delete SAVE.campo.taken[k]; }
         SAVE.mat = Object.assign({ cuero: 0, hueso: 0, hierro: 0 }, SAVE.mat || {});
-        SAVE.puesto = Object.assign({ rancho: 1, fragua: 0, corral: 0 }, SAVE.puesto || {});
+        SAVE.puesto = Object.assign({ rancho: 1, fragua: 0, corral: 0, fogon: 0 }, SAVE.puesto || {});
         SAVE.nire = SAVE.nire || {}; SAVE.trophies = SAVE.trophies || {};
         SAVE.knives = SAVE.knives || []; SAVE.horses = SAVE.horses || [];
         if (typeof SAVE.fama !== 'number') SAVE.fama = 0;
@@ -6535,8 +6649,24 @@
             { name: 'Sin construir' },
             { name: 'Corral', desc: '3 lugares. Los caballos que amanses se quedan acá si aguantás al menos 5 minutos en la partida.', cost: { oro: 300, cuero: 10 } },
             { name: 'Corral grande', desc: '6 lugares y bebedero.', cost: { oro: 800, cuero: 22, hierro: 8 } }]
+        },
+        fogon: {
+          name: 'Fogón', lv: [
+            { name: 'Fogón', desc: 'Unos troncos, la pava y el mate.' },
+            { name: 'Asador de hierro', desc: 'Una cruz para el cordero y una parrilla: suma las tortas fritas y el cordero al asador.', cost: { oro: 300, hierro: 6 } }]
         }
       };
+
+      /* ---------------- fogón: comidas para la próxima noche ----------------
+         Se prepara una sola por vez; queda en SAVE.comida hasta que empieza una noche saliendo del Puesto
+         (Recorrer el campo no la gasta) y dura la primera mitad de esa noche. Para sumar una receta: una línea acá. */
+      const COMIDA_T = 450;
+      const FOGON_REC = {
+        mate: { name: 'Mate amargo', fx: '+10% de recarga', desc: 'Las armas recargan 10% más rápido.', end: 'Se enfrió el mate', cost: { oro: 60, hueso: 1 }, lvl: 0, apply: p => { p.cd *= .9; } },
+        tortas: { name: 'Tortas fritas', fx: '+10% de velocidad', desc: 'Te movés 10% más rápido.', end: 'Se terminaron las tortas fritas', cost: { oro: 80, cuero: 2 }, lvl: 1, apply: p => { p.speed *= 1.1; } },
+        cordero: { name: 'Cordero al asador', fx: '+15% de vida máxima', desc: '+15% de vida máxima.', end: 'Se te bajó el asado', cost: { oro: 120, hueso: 3 }, lvl: 1, apply: p => { p.maxHp *= 1.15; } }
+      };
+      if (SAVE.comida && !FOGON_REC[SAVE.comida]) { SAVE.comida = null; writeSave(); }
       const TROFEOS = [
         { id: 'lobizon', name: 'Cuero del Lobizón Mayor', how: 'Derrotá al jefe de la Estepa.' },
         { id: 'caleuche', name: 'Farol del Caleuche', how: 'Derrotá al jefe del Glaciar.' },
@@ -6570,6 +6700,27 @@
       const MAT_URL = {};
       const matIco = m => `<img class="ico" src="${MAT_URL[m] || (MAT_URL[m] = matSprite(m).img.toDataURL())}" alt="${MATS[m].name}">`;
       const famaIco = '<span class="fama-i">✦</span>';
+      /* íconos de las comidas del fogón (panel, tranquera y HUD) */
+      const REC_SPR = {}, REC_URL = {};
+      function recSprite(id) {
+        if (REC_SPR[id]) return REC_SPR[id];
+        return REC_SPR[id] = pixSprite(24, 1, b => {
+          if (id === 'mate') {
+            b.ell(0, 2.5, 6, 6, '#7a3424'); b.ell(-2, 1, 2.2, 3, '#9a4a30', 1); b.rect(-4.5, 6.5, 9, 1.6, '#5a2418', 1);
+            b.ell(0, -3.2, 4.4, 1.6, '#c8ccd4'); b.ell(0, -3.4, 3.2, 1, '#5e7a34', 1);
+            b.line([[1, -3.4], [4.5, -9.5]], 1.2, '#d8dce4', 1); b.dot(4.6, -9.8, '#eef2f8', 1);
+          } else if (id === 'tortas') {
+            b.ell(-1.5, 3.5, 7.5, 3.4, '#b87a34'); b.ell(-1.5, 2.6, 6.6, 2.6, '#d89a48', 1);
+            b.ell(1.5, -1.5, 7.5, 3.4, '#c8883c'); b.ell(1.5, -2.4, 6.6, 2.6, '#e8b058', 1); b.ell(1.5, -2.6, 1.3, 1, '#8a5a24', 1);
+            for (const [x, y] of [[-2, -3], [4, -1.8], [0, -1], [-4.5, 2.4], [2, 3.2]]) b.dot(x, y, '#fff6e0', 1);
+          } else {
+            b.line([[-7.5, 6.5], [-3, 2]], 2.2, '#e8e0c8'); b.ell(-8.2, 7.2, 1.8, 1.8, '#e8e0c8');
+            b.ell(2, -1, 7, 5.6, '#8a3a22'); b.ell(1, -2.4, 5.4, 3.6, '#b0582e', 1); b.ell(-.5, -3.6, 2.2, 1.2, '#d88a4a', 1);
+            for (const x of [-1, 2, 5]) b.line([[x, -5.5], [x + 1.5, 3]], .7, '#6a2a18', 1);
+          }
+        });
+      }
+      const recURL = id => REC_URL[id] || (REC_URL[id] = recSprite(id).img.toDataURL());
 
       /* facón compuesto (vista lateral, filo hacia la derecha), dibujado con rectángulos de píxel */
       function drawKnife(g, x, y, s, hoja, cabo) {
@@ -6730,6 +6881,7 @@
         if (NI('p1')) p.greed *= 1.1;
         if (NI('p2')) p.growth *= 1.08;
         if (SAVE.puesto.rancho >= 3) p.greed *= 1.05;
+        if (S.comida && !S.comida.done) FOGON_REC[S.comida.id].apply(p);
         const kn = knifeEq();
         p.eliteDmg = 0;
         if (kn) {
@@ -6791,14 +6943,16 @@
         nire: { x: 118, y: 190, r: 72, label: 'Ñire de las habilidades' },
         rancho: { x: 320, y: 152, r: 72, label: 'Rancho: obras y trofeos' },
         carreta: { x: 548, y: 150, r: 68, label: 'Almacén del pulpero' },
-        fogon: { x: 320, y: 262, r: 44, label: 'Fogón: aguantar la noche' },
+        fogon: { x: 320, y: 262, r: 58, label: 'Fogón: sentarse y preparar la noche' },
         fragua: { x: 132, y: 318, r: 68, label: 'Fragua' },
         corral: { x: 514, y: 306, r: 104, label: 'Corral' },
-        tranquera: { x: 320, y: 366, r: 40, label: 'Tranquera: recorrer el campo' },
+        tranquera: { x: 320, y: 364, r: 56, label: 'Tranquera: salir' },
         perro: { x: 378, y: 300, r: 34, label: 'Acariciar al perro' }
       };
-      const PU_SOLID = [[262, 180, 3], [196, 300, 3], [420, 222, 3], [364, 372, 3], [294, 376, 4], [346, 376, 4], [320, 120, 60], [118, 168, 18], [548, 132, 40], [320, 256, 22], [132, 302, 32], [90, 330, 14], [380, 302, 12], [214, 206, 14], [352, 278, 6], [162, 190, 8]];
+      const PU_SOLID = [[262, 180, 3], [196, 300, 3], [420, 222, 3], [392, 372, 3], [278, 376, 4], [362, 376, 4], [286, 246, 4], [320, 120, 60], [118, 168, 18], [548, 132, 40], [320, 256, 22], [132, 302, 32], [90, 330, 14], [380, 302, 12], [214, 206, 14], [352, 278, 6], [162, 190, 8]];
       const CORRAL = { x: 440, y: 236, w: 148, h: 142 };
+      // troncos alrededor del fogón: [x, y, inclinación, hacia dónde mira el que se sienta]
+      const PU_SEATS = [[272, 262, .2, 1], [368, 262, -.2, -1], [320, 300, 0, 1]];
       function enterPuesto() {
         viaPuesto = false; initAudio();
         hide('startOv');
@@ -6825,11 +6979,18 @@
       }
       function puUpdate(dt) {
         const P = PU; P.t += dt; if (P.pet > 0) P.pet -= dt; if (P.gateT > 0) P.gateT -= dt;
-        if (!P.ui) {
+        if (P.sit) {
+          const st = P.sit; st.k = Math.min(1, st.k + dt * 5); st.sip -= dt; if (st.sip < -1.3) st.sip = rnd(3.5, 6);
+          if (!P.ui) { const [ix, iy] = inputVec(); if (Math.hypot(ix, iy) > .3) puStand(ix, iy); }
+          if (P.sit) { P.vx = P.vy = 0; P.moving = false; P.x = st.x; P.y = st.y - 8; P.face = st.face; }
+        }
+        if (P.sit) { /* quieto en el tronco */ }
+        else if (!P.ui) {
           const [ix, iy] = inputVec(), l = Math.hypot(ix, iy), sp = 135;
           P.moving = l > .05; if (P.moving && Math.abs(ix) > .1) P.face = ix > 0 ? 1 : -1;
           const k = Math.min(1, 20 * dt); P.vx += (ix * sp - P.vx) * k; P.vy += (iy * sp - P.vy) * k;
         } else { P.vx *= .8; P.vy *= .8; P.moving = false; }
+        if (!P.sit) {
         P.x += P.vx * dt; P.y += P.vy * dt;
         P.x = clamp(P.x, 24, PUW - 24); P.y = clamp(P.y, PU_TOP + 70, PUH - 8);
         for (const [x, y, r] of PU_SOLID) { const dx = P.x - x, dy = P.y - y, d = Math.hypot(dx, dy) || 1, m = r + 10; if (d < m) { P.x = x + dx / d * m; P.y = y + dy / d * m; } }
@@ -6839,9 +7000,12 @@
             if (m === dl) P.x = c.x - 8; else if (m === dr) P.x = c.x + c.w + 8; else if (m === dt_) P.y = c.y - 6; else P.y = c.y + c.h + 8;
           }
         }
+        }
         let best = null, bd = 1e9;
         for (const k in PU_INT) { const o = PU_INT[k], d = Math.hypot(P.x - o.x, P.y - o.y) / o.r; if (d < 1 && d < bd) { bd = d; best = k; } }
-        if (best !== P.near) { P.near = best; const b = $('puPrompt'); b.classList.toggle('on', !!best && !P.ui); if (best) b.innerHTML = `<kbd>E</kbd> ${PU_INT[best].label}`; }
+        if (P.sit) best = 'fogon';
+        const nk = best + (P.sit ? '+' : '');
+        if (nk !== P.nearK) { P.near = best; P.nearK = nk; const b = $('puPrompt'); b.classList.toggle('on', !!best && !P.ui); if (best) b.innerHTML = `<kbd>E</kbd> ${puLabel()}`; }
         if (P.ui) $('puPrompt').classList.remove('on'); else if (P.near) $('puPrompt').classList.add('on');
         // caballos del corral
         const c = CORRAL;
@@ -6855,16 +7019,40 @@
         for (const e of P.embers) { e.l -= dt; e.x += e.vx * dt + Math.sin(P.t * 3 + e.y) * .2; e.y += e.vy * dt; }
         P.embers = P.embers.filter(e => e.l > 0);
       }
+      const puLabel = () => PU.sit ? 'Cocinar · moverse para levantarse' : PU_INT[PU.near].label;
       function puInteract() {
-        if (!PU || PU.ui || !PU.near) return;
+        if (!PU || PU.ui) return;
+        if (PU.sit) { sfx(660, .06, 'triangle', .03); openPuPanel('fogon'); return; }
+        if (!PU.near) return;
         const k = PU.near; sfx(660, .06, 'triangle', .03);
-        if (k === 'tranquera') { PU.gateT = .6; PU.ui = 'salida'; sfx(180, .35, 'sawtooth', .02, .7); setTimeout(() => { if (PU && PU.ui === 'salida') { PU = null; keys.clear(); joy = null; $('puHud').classList.remove('on'); $('puPrompt').classList.remove('on'); hide('puOv'); startCampo(); } }, 380); return; }
+        if (k === 'tranquera') { openPuPanel('tranquera'); return; }
+        if (k === 'fogon') { puSit(); openPuPanel('fogon'); return; }
         if (k === 'perro') { PU.pet = 1.6; for (let i = 0; i < 4; i++) PU.fx.push({ k: 'heart', x: 370 + i * 5, y: 286, vy: -18 - i * 4, ph: i, life: 1.2, max: 1.2 }); sfx(700, .06, 'square', .03, .8); setTimeout(() => sfx(560, .08, 'square', .03, .8), 120); return; }
-        if (k === 'fogon') return exitPuesto('vChars');
         if (k === 'carreta') { PU.ui = 'shop'; show('startOv'); go('vShop'); return; }
         openPuPanel(k);
       }
-
+      /* sentarse en el tronco más cercano, mate en mano */
+      function puSit() {
+        let best = PU_SEATS[0], bd = 1e9;
+        for (const st of PU_SEATS) { const d = Math.hypot(PU.x - st[0], PU.y - st[1]); if (d < bd) { bd = d; best = st; } }
+        PU.sit = { x: best[0], y: best[1], face: best[3], k: 0, sip: 1.2 }; keys.clear(); joy = null;
+        sfx(220, .08, 'triangle', .03, .6);
+      }
+      function puStand(ix, iy) {
+        const st = PU.sit; PU.sit = null; PU.nearK = null;
+        if (st.y > 280) PU.y = st.y + 14; else { PU.x = st.x - st.face * 16; PU.y = st.y + 2; }
+        PU.x += ix * 4; PU.y += iy * 4;
+      }
+      /* salir por la tranquera: se abre y recién ahí arranca lo elegido */
+      function puSalir(modo) {
+        if (!PU) return;
+        hide('puOv'); PU.ui = 'salida'; PU.gateT = .6; sfx(180, .35, 'sawtooth', .02, .7);
+        setTimeout(() => {
+          if (!PU || PU.ui !== 'salida') return;
+          if (modo === 'noche') { exitPuesto('vChars'); return; }
+          PU = null; keys.clear(); joy = null; $('puHud').classList.remove('on'); $('puPrompt').classList.remove('on'); startCampo();
+        }, 380);
+      }
       /* ---------------- sprites de la escena ---------------- */
       const PUS = {};
       const puSpr = (key, size, draw) => PUS[key] || (PUS[key] = pixSprite(size, 1, draw));
@@ -7118,19 +7306,47 @@
           b.line([[-12, -8], [12, -8]], 1, '#9aa4b4', 1); b.dot(-6, -6, '#2a2e36', 1);
         });
       }
-      /* tranquera criolla: dos postes, cuatro varas y la diagonal; open (0-1) la entreabre un poco al tocarla */
+      /* tranquera criolla de dos hojas: postes gruesos, cuatro varas y la diagonal en cada hoja.
+         open (0-1) las abre hacia afuera (se acortan en perspectiva y la punta sube un poco) */
       function sprTranquera(open) {
-        const k = Math.round(open * 4);
-        return puSpr('tranq' + k, 96, b => {
-          const sq = 1 - k * .06, x0 = -23, x1 = x0 + 46 * sq;
-          b.ellD(0, 3, 34, 4, [0, 0, 0], 2, .3, 0);
-          for (const y of [-25, -18, -11, -4]) b.line([[x0, y], [x1, y - k * .6]], 2.8, '#8a6a44');
-          b.line([[x0 + 1, -4], [x1 - 1, -25 - k * .6]], 2.6, '#7a5a38');
-          b.line([[x1 - 1, -26], [x1 - 1, -3]], 2.4, '#7a5a38');
+        const k = Math.round(open * 6);
+        return puSpr('tranq2_' + k, 128, b => {
+          const L = 37 * (1 - k * .11), up = k * .7;
+          b.ellD(0, 3, 50, 4.5, [0, 0, 0], 2, .3, 0);
+          for (const sd of [-1, 1]) {
+            const x0 = sd * 39, x1 = x0 - sd * L;
+            for (const y of [-27, -20, -13, -6]) b.line([[x0, y], [x1, y - up]], 2.8, '#8a6a44');
+            b.line([[x0 - sd, -6], [x1 + sd, -27 - up]], 2.6, '#7a5a38');
+            b.line([[x1 + sd, -28 - up], [x1 + sd, -5 - up]], 2.4, '#7a5a38');
+          }
           b.tex('#8a6a44', (x, y) => hash(x >> 2, y) < .22 ? [110, 86, 58] : null);
-          for (const px of [-26, 26]) { b.rect(px - 3, -33, 6, 36, '#5e4028'); b.rect(px - 3, -34, 6, 2, '#8a6a44'); }
+          for (const px of [-42, 42]) { b.rect(px - 3.5, -37, 7, 40, '#5e4028'); b.rect(px - 3.5, -38, 7, 2, '#8a6a44'); b.ell(px, -38, 3.5, 1.3, '#9a7a50', 1); }
           b.tex('#5e4028', (x, y) => (x % 2 === 0 && hash(x, y >> 2) < .4) ? [78, 52, 30] : null);
-          b.line([[24, -22], [28, -20], [24, -18]], 1.2, '#b8bcc4');
+          if (k === 0) { b.line([[-3, -18], [3, -18]], 1.4, '#b8bcc4'); b.line([[3, -18], [3, -15.5]], 1.2, '#b8bcc4', 1); }
+          for (const px of [-42, 42]) b.line([[px + (px < 0 ? 3 : -3), -30], [px + (px < 0 ? 5 : -5), -30]], 1.2, '#b8bcc4', 1);
+        });
+      }
+      /* asador de hierro: la cruz con el cordero abierto, inclinada hacia el fuego */
+      function sprAsador() {
+        return puSpr('asador', 64, b => {
+          b.ellD(0, 16, 8, 2.4, [0, 0, 0], 2, .3, 0);
+          b.line([[-2, 16], [6, -22]], 1.6, '#5a6272');
+          b.line([[-8, -8], [13, -3]], 1.3, '#5a6272'); b.line([[-4, 8], [10, 11]], 1.3, '#5a6272');
+          b.poly([[-7, -9], [12, -5], [10, 10], [-4, 7]], '#8a3a22');
+          b.poly([[-5, -7], [10, -4], [8.5, 8], [-2.5, 5.5]], '#a8502a', 1);
+          for (let i = 0; i < 5; i++) b.line([[-3.5 + i * 3, -5.5 + i * .7], [-1.5 + i * 2.4, 6 + i * .5]], .7, '#e8d8c0', 1);
+          b.ell(2, 1, 2.4, 1.4, '#d88a4a', 1);
+          b.line([[6, -22], [6.8, -25]], 1.2, '#8a94a4', 1);
+        });
+      }
+      /* parrilla chica de hierro sobre unas brasas apartadas */
+      function sprParrilla() {
+        return puSpr('parrilla', 40, b => {
+          b.ellD(0, 5, 11, 2.6, [0, 0, 0], 2, .3, 0);
+          b.ell(0, 4, 8, 2.2, '#2a140c'); b.ell(0, 3.8, 6, 1.4, '#b8401a', 1); for (const x of [-4, 0, 3]) b.dot(x, 3.6, '#ff9a3c', 2);
+          for (const x of [-8, 8]) b.line([[x, 5], [x * .9, -1]], 1, '#4a4e58');
+          b.rect(-9, -2, 18, 1.4, '#6a7078'); for (let x = -8; x <= 8; x += 2.6) b.line([[x, -2.6], [x, 1.8]], .6, '#8a94a4', 1);
+          b.ell(-3, -2.4, 2.4, 1, '#c8883c', 1); b.ell(3, -2.2, 2.4, 1, '#d89a48', 1);
         });
       }
       function sprTronco(a) {
@@ -7337,7 +7553,7 @@
          Se hornea una vez a la densidad de los sprites (PXS) con bordes tramados, no con alfa suave. ---- */
       const PU_PATHS = [ // [x1, y1, x2, y2, curva, medio ancho]
         [320, 262, 146, 212, 18, 11], [320, 262, 320, 172, 0, 11], [320, 262, 526, 182, -16, 11],
-        [320, 262, 166, 330, -14, 11], [320, 262, 434, 318, 10, 9], [320, 262, 320, 430, 6, 13]];
+        [320, 262, 166, 330, -14, 11], [320, 262, 434, 318, 10, 9], [320, 262, 320, 430, 6, 17]];
       let PU_CLEAR = null;
       function puClearing() {
         if (PU_CLEAR) return PU_CLEAR;
@@ -7391,7 +7607,7 @@
         });
       }
       /* ---- poste con farol colgado: marca cada estación con un charco de luz cálida ---- */
-      const PU_POSTS = [[262, 180], [196, 300], [420, 222], [364, 372]];
+      const PU_POSTS = [[262, 180], [196, 300], [420, 222], [392, 372]];
       function sprPoste() {
         return puSpr('poste', 64, b => {
           b.ellD(1, 2, 7, 2.2, [0, 0, 0], 2, .3, 0);
@@ -7403,7 +7619,7 @@
       function puDecor() {
         if (PU.decor) return PU.decor;
         const D = { tufts: [], shrubs: [], trees: [] }, H0 = PU_TOP + 14;
-        const busy = (x, y) => Math.hypot((x - 118) / 92, (y - 186) / 40) < 1 || (x > 40 && x < 600 && y > 110 && y < 370) || (y >= 370 && Math.abs(x - 320) < 44) || (y < 130 && ((x > 240 && x < 400) || (x > 480 && x < 620) || (x > 50 && x < 190)));
+        const busy = (x, y) => Math.hypot((x - 118) / 92, (y - 186) / 40) < 1 || (x > 40 && x < 600 && y > 110 && y < 370) || (y >= 366 && Math.abs(x - 320) < 64) || (y < 130 && ((x > 240 && x < 400) || (x > 480 && x < 620) || (x > 50 && x < 190)));
         for (let k = 0; k < 420; k++) { const x = MTN_X0 + 100 + hash(k, 5) * (MTN_X1 - MTN_X0 - 200), y = H0 + hash(k, 9) * (PUH - H0 + 4); if (!busy(x, y)) D.tufts.push({ x, y, v: k % 3, ph: hash(k, 13) * TAU }); }
         for (let k = 0; k < 70; k++) { const x = MTN_X0 + 100 + hash(k, 21) * (MTN_X1 - MTN_X0 - 200), y = H0 + 10 + hash(k, 23) * (PUH - H0); if (!busy(x, y) && (x < 20 || x > 620 || y > 380 || y < 105)) D.shrubs.push({ x, y, v: k % 3 }); }
         const core = [[420, 98, 4], [610, 110, 5], [606, 200, 6], [20, 272, 7], [612, 370, 8], [24, 380, 9]];
@@ -7415,7 +7631,7 @@
         for (let k = 0; k < 15; k++) { cip(-16 + hash(k, 61) * 42, 104 + k * 21 + hash(k, 62) * 10, k % 6); cip(614 + hash(k, 63) * 40, 118 + k * 20 + hash(k, 64) * 10, (k + 3) % 6); }
         for (let k = 0; k < 26; k++) { cip(-40 - hash(k, 65) * 380, PU_TOP + 20 + hash(k, 66) * (PUH - PU_TOP), k % 6); cip(680 + hash(k, 67) * 380, PU_TOP + 20 + hash(k, 68) * (PUH - PU_TOP), (k + 2) % 6); }
         for (const [x, y, v] of [[34, 98, 1], [58, 92, 4], [196, 96, 2], [222, 90, 5], [448, 94, 0], [478, 100, 3], [596, 94, 2], [640, 100, 5]]) cip(x, y, v);
-        for (let x = -30; x < 680; x += 30) { if (Math.abs(x - 320) < 58) continue; const hx = hash(x, 71); D.shrubs.push({ x: x + hx * 14, y: 400 + hash(x, 72) * 10, v: (x / 30 | 0) % 3 }); }
+        for (let x = -30; x < 680; x += 30) { if (Math.abs(x - 320) < 76) continue; const hx = hash(x, 71); D.shrubs.push({ x: x + hx * 14, y: 400 + hash(x, 72) * 10, v: (x / 30 | 0) % 3 }); }
         for (const [x, y, v] of [[6, 404, 2], [36, 412, 5], [610, 406, 1], [640, 414, 4]]) cip(x, y, v);
         return PU.decor = D;
       }
@@ -7477,6 +7693,24 @@
           else if (f.k === 'heart') { cx.globalAlpha = a; cx.fillStyle = '#e05a6a'; const x = f.x, y = f.y; cx.fillRect(x - 3, y - 2, 2, 2); cx.fillRect(x + 1, y - 2, 2, 2); cx.fillRect(x - 3, y, 6, 2); cx.fillRect(x - 2, y + 2, 4, 1); cx.fillRect(x - 1, y + 3, 2, 1); }
         }
         cx.globalAlpha = 1;
+      }
+      /* gaucho sentado en el tronco: la mitad de arriba del sprite (hasta el poncho) apoyada en el tronco,
+         piernas dobladas hacia el fuego y el mate que sube a la boca cada tanto */
+      const SIT_CUT = 120 / 176;  // fila donde termina el poncho en el sprite del gaucho
+      function drawSentado(P, t) {
+        const st = P.sit, PS = PSPR[SAVE.lastChar && CHARS[SAVE.lastChar] ? SAVE.lastChar : 'baqueano'], fr = PS.frames[0], sz = PS.size, f = st.face;
+        const seatY = st.y - 3.5, drop = (1 - st.k) * 5, cy = seatY - (SIT_CUT - .5) * sz - 1 + drop + Math.sin(t * 2) * .35;
+        cx.fillStyle = 'rgba(0,0,0,.28)'; cx.beginPath(); cx.ellipse(st.x + f * 4, st.y + 9, 11, 3.5, 0, 0, TAU); cx.fill();
+        // piernas: muslo hacia adelante y canilla hasta el suelo, con la bota
+        const hx = st.x + f * 1, hy = seatY + drop;
+        cx.fillStyle = '#3a3036'; cx.fillRect(Math.min(hx, hx + f * 10), hy - 2, 10, 4); cx.fillRect(hx + f * 9 - 2, hy, 4, 7);
+        cx.fillStyle = '#1a1410'; cx.fillRect(hx + f * 9 - 2 + (f > 0 ? 0 : -2), hy + 6, 6, 3); cx.fillStyle = '#5a4636'; cx.fillRect(hx + f * 9 - 2 + (f > 0 ? 0 : -2), hy + 6, 6, 1);
+        cx.save(); cx.translate(st.x, cy); cx.scale(f, 1);
+        cx.drawImage(fr, 0, 0, fr.width, fr.height * SIT_CUT, -sz / 2, -sz / 2, sz, sz * SIT_CUT); cx.restore();
+        // mate: en la mano, y a la boca durante el sorbo
+        const sip = st.sip < 0, mx = st.x + f * (sip ? 6 : 10), my = cy + (sip ? -10 : 2);
+        dimg(sprMate(), mx, my, .9);
+        if (sip && Math.random() < .08) PU.fx.push({ k: 'steam', x: mx, y: my - 4, vx: f * 3, vy: -10, life: .8, max: .8, s: 1 });
       }
       function drawPuesto(dt) {
         puUpdate(dt); puParticles(dt);
@@ -7542,6 +7776,7 @@
         add(266, () => drawFogon(t));
         add(282, () => dimg(sprPava(), 349, 276)); add(284, () => dimg(sprMate(), 359, 280));
         add(302, () => drawPerro(t));
+        if (SAVE.puesto.fogon >= 1) { add(250, () => dimg(sprAsador(), 286, 234)); add(294, () => dimg(sprParrilla(), 262, 290)); }
         add(378, () => dimg(sprTranquera(P.gateT > 0 ? Math.sin((.6 - P.gateT) / .6 * Math.PI) : 0), 320, 378));
         if (lvC >= 1) {
           add(c.y, () => dimg(sprFenceH(c.w), c.x + c.w / 2, c.y));
@@ -7555,7 +7790,8 @@
             cx.save(); cx.translate(h.x, Math.round(h.y + nod)); cx.scale(h.face, 1); cx.drawImage(fr.img, -AS.size / 2, -AS.size / 2, AS.size, AS.size); cx.restore();
           });
         } else add(c.y + c.h, () => dimg(sprCorralVacio(), c.x + c.w / 2, c.y + c.h - 34));
-        add(P.y + 14, () => {
+        if (P.sit) add(P.sit.y + 7, () => drawSentado(P, t));
+        else add(P.y + 14, () => {
           const PS = PSPR[SAVE.lastChar && CHARS[SAVE.lastChar] ? SAVE.lastChar : 'baqueano'], fr = PS.frames[P.moving ? 1 + (((t * 8.9) | 0) % 4) : 0], sz = PS.size;
           cx.fillStyle = 'rgba(0,0,0,.3)'; cx.beginPath(); cx.ellipse(P.x, P.y + 13, 11, 4, 0, 0, TAU); cx.fill();
           const br = P.moving ? Math.sin(t * 14) * 1.5 : Math.sin(t * 2) * .5;
@@ -7592,11 +7828,11 @@
         cx.restore();
         // cartel del lugar cercano, sobre el personaje
         if (P.near && !P.ui) {
-          const o = PU_INT[P.near], X = sx(P.x), Y = sy(P.y - 34) + Math.sin(t * 4) * 2, fs = Math.round(clamp(11 * z * .55, 11, 18));
+          const lb = puLabel(), X = sx(P.x), Y = sy(P.y - 34) + Math.sin(t * 4) * 2, fs = Math.round(clamp(11 * z * .55, 11, 18));
           cx.font = `600 ${fs}px ${getComputedStyle(document.body).fontFamily}`; cx.textAlign = 'center';
-          const tw = cx.measureText(o.label).width + 16, bh = fs + 10;
+          const tw = cx.measureText(lb).width + 16, bh = fs + 10;
           cx.fillStyle = 'rgba(12,17,32,.85)'; cx.fillRect(X - tw / 2, Y - bh + 4, tw, bh); cx.strokeStyle = '#c9a45c'; cx.lineWidth = 1.5; cx.strokeRect(X - tw / 2 + .5, Y - bh + 4.5, tw - 1, bh - 1);
-          cx.fillStyle = '#ece6d2'; cx.fillText(o.label, X, Y); cx.textAlign = 'left';
+          cx.fillStyle = '#ece6d2'; cx.fillText(lb, X, Y); cx.textAlign = 'left';
         }
         if (joy && !P.ui) {
           cx.strokeStyle = 'rgba(236,230,210,.35)'; cx.lineWidth = 2; cx.beginPath(); cx.arc(joy.ox, joy.oy, 50, 0, TAU); cx.stroke();
@@ -7607,11 +7843,11 @@
 
       /* ---------------- paneles ---------------- */
       function openPuPanel(k) {
-        PU.ui = k; PU.sel = PU.sel || 'b1'; renderPuPanel(); show('puOv');
+        PU.ui = k; PU.sel = PU.sel || 'b1'; show('puOv'); renderPuPanel();
       }
       function closePuPanel() {
         if (!PU) return; if (PU.forge && PU.forge.timer) cancelAnimationFrame(PU.forge.timer); cancelAnimationFrame(PU.nireRAF);
-        PU.forge = null; PU.ui = null; hide('puOv'); puHudUpdate(); PU.near = null;
+        PU.forge = null; PU.ui = null; hide('puOv'); puHudUpdate(); PU.near = null; PU.nearK = null;
       }
       function renderPuPanel() {
         const k = PU.ui, el = $('puPanel');
@@ -7619,6 +7855,8 @@
         else if (k === 'rancho') el.innerHTML = ranchoHTML();
         else if (k === 'fragua') el.innerHTML = fraguaHTML();
         else if (k === 'corral') el.innerHTML = corralHTML();
+        else if (k === 'fogon') el.innerHTML = fogonHTML();
+        else if (k === 'tranquera') el.innerHTML = tranqueraHTML();
         if (k === 'nire') {
           drawNire();
           const ids = Object.keys(NIRE);
@@ -7671,6 +7909,40 @@
   <div class="cards">${cards || '<p class="sub">Todavía no hay caballos. Amansá uno en la Estepa.</p>'}</div>
   ${lv < 2 ? `<div class="cards" style="margin-top:8px">${obraCard('corral')}</div>` : ''}
   <div class="btns"><button class="btn" data-pu-close>Volver<kbd>Esc</kbd></button></div>`;
+      }
+      function fogonHTML() {
+        const lv = SAVE.puesto.fogon, id0 = SAVE.comida, cur = id0 && FOGON_REC[id0];
+        const recs = Object.entries(FOGON_REC).map(([id, r]) => {
+          const lock = r.lvl > lv, poor = !lock && !canPay(r.cost), off = lock || !!cur;
+          const note = lock ? `Necesita el ${OBRAS.fogon.lv[r.lvl].name.toLowerCase()}.` : r.desc;
+          return `<button class="card rec${lock ? ' locked' : ''}${poor && !cur ? ' poor' : ''}" data-rec="${id}" ${off ? 'disabled' : ''}><img class="rimg" src="${recURL(id)}" alt=""><span class="ct"><strong>${r.name}</strong><small>${note}</small>${lock ? '' : `<span class="costs">${costHTML(r.cost)}</span>`}</span></button>`;
+        }).join('');
+        return `<h2>Fogón</h2><p class="sub">Lo que prepares acá te lo llevás a la próxima noche y dura la primera mitad (${COMIDA_T / 60 | 0}:${String(COMIDA_T % 60).padStart(2, '0')}). Una sola cosa por vez; recorrer el campo no la gasta.</p>
+  ${cur ? `<div class="card sel listo"><img class="rimg" src="${recURL(id0)}" alt=""><span class="ct"><strong>Listo: ${cur.name}</strong><small>${cur.fx} en la primera mitad de la próxima noche. Salí por la tranquera cuando quieras.</small></span></div>` : ''}
+  <div class="cards">${recs}</div>
+  ${lv < OBRAS.fogon.lv.length - 1 ? `<h3 class="subh">Mejorar el fogón</h3><div class="cards">${obraCard('fogon')}</div>` : ''}
+  <div class="btns"><button class="btn" data-pu-close>Quedarse un rato<kbd>Esc</kbd></button></div>`;
+      }
+      const SAL_URL = {};
+      function salidaURL(k) {
+        const pel = SAVE.horses[SAVE.horse] ? SAVE.horses[SAVE.horse].pelaje : 'zaino', key = k === 'campo' ? k + pel : k;
+        if (SAL_URL[key]) return SAL_URL[key];
+        if (k === 'campo') return SAL_URL[key] = animSpr('caballo', false, pel).frames[0].img.toDataURL();
+        return SAL_URL[key] = pixSprite(24, 1, b => {
+          b.ell(0, 0, 8, 8, '#f2ecd8'); b.ell(3.5, -1.5, 7, 7.5, '#141b2d', 1);
+          for (const [x, y] of [[-3, -3], [-4.5, 2], [-1.5, 4]]) b.dot(x, y, '#d9d2b3', 1);
+          for (const [x, y] of [[7, -7], [9, 4], [5, 8]]) b.dot(x, y, '#e8ecf8', 1);
+        }).img.toDataURL();
+      }
+      function tranqueraHTML() {
+        const id0 = SAVE.comida, cur = id0 && FOGON_REC[id0];
+        const lleva = cur ? `<span class="lleva"><img class="ico" src="${recURL(id0)}" alt="">Llevás ${cur.name.toLowerCase()}: ${cur.fx}</span>` : `<span class="lleva no">Sin nada del fogón</span>`;
+        return `<h2>Tranquera</h2><p class="sub">¿Para dónde salís?</p>
+  <div class="cards salida">
+  <button class="card sal" data-salir="noche"><img class="rimg" src="${salidaURL('noche')}" alt=""><span class="ct"><strong>Aguantar la noche</strong><small>Quince minutos bajo la luna. Elegís personaje y mapa.</small>${lleva}</span></button>
+  <button class="card sal" data-salir="campo"><img class="rimg" src="${salidaURL('campo')}" alt=""><span class="ct"><strong>Recorrer el campo</strong><small>Tranquilo, con pocos enemigos: andás a caballo y juntás materiales a tu ritmo.${cur ? ' Lo del fogón te espera para la noche.' : ''}</small></span></button>
+  </div>
+  <div class="btns"><button class="btn" data-pu-close>Quedarse en el puesto<kbd>Esc</kbd></button></div>`;
       }
       function nireHTML() {
         const id = PU.sel, n = NIRE[id], st = nireState(id), br = NIRE_BR[n.br];
@@ -7787,6 +8059,8 @@
         const T = ev.target;
         if (T.closest('[data-pu-close]')) return closePuPanel();
         const ob = T.closest('[data-obra]'); if (ob) { const id = ob.dataset.obra, nx = OBRAS[id].lv[SAVE.puesto[id] + 1]; if (nx && canPay(nx.cost)) { pay(nx.cost); SAVE.puesto[id]++; devHorse(); writeSave(); sfx(392, .15, 'triangle', .05); setTimeout(() => sfx(587, .25, 'triangle', .05), 120); banner(nx.name + ': listo'); renderPuPanel(); } else sfx(120, .12, 'square', .03); return; }
+        if (PU.ui === 'tranquera') { const sb = T.closest('[data-salir]'); if (sb) puSalir(sb.dataset.salir); return; }
+        if (PU.ui === 'fogon') { const rb = T.closest('[data-rec]'); if (rb) fogonCook(rb.dataset.rec); return; }
         if (PU.ui === 'nire') {
           if (T.id === 'nireCv') return nireHit(ev); if (T.closest('#nireBuy')) return nireBuy();
           if (T.closest('#nireReset')) { for (const id in SAVE.nire) SAVE.fama += NIRE_COST[NIRE[id].t]; SAVE.nire = {}; writeSave(); rerenderNireInfo(); } return;
@@ -7806,6 +8080,16 @@
           const fr = T.closest('[data-hfree]'); if (fr) { const i = +fr.dataset.hfree; SAVE.horses.splice(i, 1); if (SAVE.horse === i) SAVE.horse = -1; else if (SAVE.horse > i) SAVE.horse--; writeSave(); puSyncHorses(); renderPuPanel(); return; }
         }
       });
+      function fogonCook(id) {
+        const r = FOGON_REC[id];
+        if (SAVE.comida || r.lvl > SAVE.puesto.fogon || !canPay(r.cost)) { sfx(120, .12, 'square', .03); return; }
+        pay(r.cost); SAVE.comida = id; writeSave();
+        for (let i = 0; i < 14; i++) PU.fx.push({ k: 'spark', x: 320 + rnd(-10, 10), y: 254, vx: rnd(-50, 50), vy: rnd(-110, -50), life: rnd(.4, .9), max: .9 });
+        for (let i = 0; i < 6; i++) PU.fx.push({ k: 'smoke', x: 320 + rnd(-8, 8), y: 248, vx: rnd(-6, 6), vy: rnd(-26, -16), life: rnd(1.6, 2.4), max: 2.4, s: rnd(2.5, 3.5) });
+        for (let i = 0; i < 8; i++) setTimeout(() => sfx(2000 + Math.random() * 2200, .03, 'square', .008), i * 45);
+        setTimeout(() => sfx(392, .15, 'triangle', .05), 200); setTimeout(() => sfx(523, .22, 'triangle', .05), 320);
+        banner(r.name + ': listo para la noche'); renderPuPanel();
+      }
       $('puPanel').addEventListener('input', ev => { if (ev.target.id === 'kname' && PU && PU.forgeSel) PU.forgeSel.name = ev.target.value; });
       new MutationObserver(() => { if (PU && PU.ui === 'fragua') drawKnifePreview(); }).observe($('puPanel'), { childList: true });
       $('puPrompt').addEventListener('click', () => puInteract());

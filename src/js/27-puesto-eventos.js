@@ -3,6 +3,8 @@
         const T = ev.target;
         if (T.closest('[data-pu-close]')) return closePuPanel();
         const ob = T.closest('[data-obra]'); if (ob) { const id = ob.dataset.obra, nx = OBRAS[id].lv[SAVE.puesto[id] + 1]; if (nx && canPay(nx.cost)) { pay(nx.cost); SAVE.puesto[id]++; devHorse(); writeSave(); sfx(392, .15, 'triangle', .05); setTimeout(() => sfx(587, .25, 'triangle', .05), 120); banner(nx.name + ': listo'); renderPuPanel(); } else sfx(120, .12, 'square', .03); return; }
+        if (PU.ui === 'tranquera') { const sb = T.closest('[data-salir]'); if (sb) puSalir(sb.dataset.salir); return; }
+        if (PU.ui === 'fogon') { const rb = T.closest('[data-rec]'); if (rb) fogonCook(rb.dataset.rec); return; }
         if (PU.ui === 'nire') {
           if (T.id === 'nireCv') return nireHit(ev); if (T.closest('#nireBuy')) return nireBuy();
           if (T.closest('#nireReset')) { for (const id in SAVE.nire) SAVE.fama += NIRE_COST[NIRE[id].t]; SAVE.nire = {}; writeSave(); rerenderNireInfo(); } return;
@@ -22,6 +24,16 @@
           const fr = T.closest('[data-hfree]'); if (fr) { const i = +fr.dataset.hfree; SAVE.horses.splice(i, 1); if (SAVE.horse === i) SAVE.horse = -1; else if (SAVE.horse > i) SAVE.horse--; writeSave(); puSyncHorses(); renderPuPanel(); return; }
         }
       });
+      function fogonCook(id) {
+        const r = FOGON_REC[id];
+        if (SAVE.comida || r.lvl > SAVE.puesto.fogon || !canPay(r.cost)) { sfx(120, .12, 'square', .03); return; }
+        pay(r.cost); SAVE.comida = id; writeSave();
+        for (let i = 0; i < 14; i++) PU.fx.push({ k: 'spark', x: 320 + rnd(-10, 10), y: 254, vx: rnd(-50, 50), vy: rnd(-110, -50), life: rnd(.4, .9), max: .9 });
+        for (let i = 0; i < 6; i++) PU.fx.push({ k: 'smoke', x: 320 + rnd(-8, 8), y: 248, vx: rnd(-6, 6), vy: rnd(-26, -16), life: rnd(1.6, 2.4), max: 2.4, s: rnd(2.5, 3.5) });
+        for (let i = 0; i < 8; i++) setTimeout(() => sfx(2000 + Math.random() * 2200, .03, 'square', .008), i * 45);
+        setTimeout(() => sfx(392, .15, 'triangle', .05), 200); setTimeout(() => sfx(523, .22, 'triangle', .05), 320);
+        banner(r.name + ': listo para la noche'); renderPuPanel();
+      }
       $('puPanel').addEventListener('input', ev => { if (ev.target.id === 'kname' && PU && PU.forgeSel) PU.forgeSel.name = ev.target.value; });
       new MutationObserver(() => { if (PU && PU.ui === 'fragua') drawKnifePreview(); }).observe($('puPanel'), { childList: true });
       $('puPrompt').addEventListener('click', () => puInteract());

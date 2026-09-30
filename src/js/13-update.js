@@ -27,6 +27,7 @@
       }
       function update(dt) {
         S.t += dt;
+        if (S.comida && !S.comida.done && S.t >= S.comida.until) { S.comida.done = true; recompute(); S.player.hp = Math.min(S.player.hp, ST.maxHp); banner(FOGON_REC[S.comida.id].end); }
         const P = S.player;
         S.pWet = terrWet(P.x, P.y);
         const [ix, iy] = inputVec(), l = Math.hypot(ix, iy);

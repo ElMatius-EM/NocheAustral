@@ -7,6 +7,12 @@
         setIf('xpfill', 'w', (S.xp / S.xpNext * 100).toFixed(1) + '%');
         setIf('lvl', 't', S.mode === 'campo' ? MAT_KEYS.map(m => MATS[m].name.charAt(0).toUpperCase() + MATS[m].name.slice(1) + ' ' + (S.mat[m] || 0)).join(' · ') : 'Nivel ' + S.level);
         setIf('timer', 't', fmt(S.t));
+        const cm = S.comida, cmOn = !!(cm && !cm.done && S.state !== 'end');
+        if (hud.last.cmOn !== cmOn) { hud.last.cmOn = cmOn; $('comidaB').classList.toggle('on', cmOn); }
+        if (cmOn) {
+          if (hud.last.cmId !== cm.id) { hud.last.cmId = cm.id; const R = FOGON_REC[cm.id]; $('comidaI').src = recURL(cm.id); $('comidaB').title = R.name + ': ' + R.fx; }
+          const left = cm.until - S.t; setIf('comidaT', 't', fmt(Math.ceil(left))); if (hud.last.cmLow !== (left < 30)) { hud.last.cmLow = left < 30; $('comidaB').classList.toggle('low', left < 30); }
+        }
         setIf('kills', 't', '☠ ' + S.kills);
         setIf('goldN', 't', String(S.gold));
         const br = S.bossRef, bOn = !!(br && !br.dead && br.elite && S.state !== 'end');

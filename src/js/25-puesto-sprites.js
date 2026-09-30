@@ -251,19 +251,47 @@
           b.line([[-12, -8], [12, -8]], 1, '#9aa4b4', 1); b.dot(-6, -6, '#2a2e36', 1);
         });
       }
-      /* tranquera criolla: dos postes, cuatro varas y la diagonal; open (0-1) la entreabre un poco al tocarla */
+      /* tranquera criolla de dos hojas: postes gruesos, cuatro varas y la diagonal en cada hoja.
+         open (0-1) las abre hacia afuera (se acortan en perspectiva y la punta sube un poco) */
       function sprTranquera(open) {
-        const k = Math.round(open * 4);
-        return puSpr('tranq' + k, 96, b => {
-          const sq = 1 - k * .06, x0 = -23, x1 = x0 + 46 * sq;
-          b.ellD(0, 3, 34, 4, [0, 0, 0], 2, .3, 0);
-          for (const y of [-25, -18, -11, -4]) b.line([[x0, y], [x1, y - k * .6]], 2.8, '#8a6a44');
-          b.line([[x0 + 1, -4], [x1 - 1, -25 - k * .6]], 2.6, '#7a5a38');
-          b.line([[x1 - 1, -26], [x1 - 1, -3]], 2.4, '#7a5a38');
+        const k = Math.round(open * 6);
+        return puSpr('tranq2_' + k, 128, b => {
+          const L = 37 * (1 - k * .11), up = k * .7;
+          b.ellD(0, 3, 50, 4.5, [0, 0, 0], 2, .3, 0);
+          for (const sd of [-1, 1]) {
+            const x0 = sd * 39, x1 = x0 - sd * L;
+            for (const y of [-27, -20, -13, -6]) b.line([[x0, y], [x1, y - up]], 2.8, '#8a6a44');
+            b.line([[x0 - sd, -6], [x1 + sd, -27 - up]], 2.6, '#7a5a38');
+            b.line([[x1 + sd, -28 - up], [x1 + sd, -5 - up]], 2.4, '#7a5a38');
+          }
           b.tex('#8a6a44', (x, y) => hash(x >> 2, y) < .22 ? [110, 86, 58] : null);
-          for (const px of [-26, 26]) { b.rect(px - 3, -33, 6, 36, '#5e4028'); b.rect(px - 3, -34, 6, 2, '#8a6a44'); }
+          for (const px of [-42, 42]) { b.rect(px - 3.5, -37, 7, 40, '#5e4028'); b.rect(px - 3.5, -38, 7, 2, '#8a6a44'); b.ell(px, -38, 3.5, 1.3, '#9a7a50', 1); }
           b.tex('#5e4028', (x, y) => (x % 2 === 0 && hash(x, y >> 2) < .4) ? [78, 52, 30] : null);
-          b.line([[24, -22], [28, -20], [24, -18]], 1.2, '#b8bcc4');
+          if (k === 0) { b.line([[-3, -18], [3, -18]], 1.4, '#b8bcc4'); b.line([[3, -18], [3, -15.5]], 1.2, '#b8bcc4', 1); }
+          for (const px of [-42, 42]) b.line([[px + (px < 0 ? 3 : -3), -30], [px + (px < 0 ? 5 : -5), -30]], 1.2, '#b8bcc4', 1);
+        });
+      }
+      /* asador de hierro: la cruz con el cordero abierto, inclinada hacia el fuego */
+      function sprAsador() {
+        return puSpr('asador', 64, b => {
+          b.ellD(0, 16, 8, 2.4, [0, 0, 0], 2, .3, 0);
+          b.line([[-2, 16], [6, -22]], 1.6, '#5a6272');
+          b.line([[-8, -8], [13, -3]], 1.3, '#5a6272'); b.line([[-4, 8], [10, 11]], 1.3, '#5a6272');
+          b.poly([[-7, -9], [12, -5], [10, 10], [-4, 7]], '#8a3a22');
+          b.poly([[-5, -7], [10, -4], [8.5, 8], [-2.5, 5.5]], '#a8502a', 1);
+          for (let i = 0; i < 5; i++) b.line([[-3.5 + i * 3, -5.5 + i * .7], [-1.5 + i * 2.4, 6 + i * .5]], .7, '#e8d8c0', 1);
+          b.ell(2, 1, 2.4, 1.4, '#d88a4a', 1);
+          b.line([[6, -22], [6.8, -25]], 1.2, '#8a94a4', 1);
+        });
+      }
+      /* parrilla chica de hierro sobre unas brasas apartadas */
+      function sprParrilla() {
+        return puSpr('parrilla', 40, b => {
+          b.ellD(0, 5, 11, 2.6, [0, 0, 0], 2, .3, 0);
+          b.ell(0, 4, 8, 2.2, '#2a140c'); b.ell(0, 3.8, 6, 1.4, '#b8401a', 1); for (const x of [-4, 0, 3]) b.dot(x, 3.6, '#ff9a3c', 2);
+          for (const x of [-8, 8]) b.line([[x, 5], [x * .9, -1]], 1, '#4a4e58');
+          b.rect(-9, -2, 18, 1.4, '#6a7078'); for (let x = -8; x <= 8; x += 2.6) b.line([[x, -2.6], [x, 1.8]], .6, '#8a94a4', 1);
+          b.ell(-3, -2.4, 2.4, 1, '#c8883c', 1); b.ell(3, -2.2, 2.4, 1, '#d89a48', 1);
         });
       }
       function sprTronco(a) {
@@ -470,7 +498,7 @@
          Se hornea una vez a la densidad de los sprites (PXS) con bordes tramados, no con alfa suave. ---- */
       const PU_PATHS = [ // [x1, y1, x2, y2, curva, medio ancho]
         [320, 262, 146, 212, 18, 11], [320, 262, 320, 172, 0, 11], [320, 262, 526, 182, -16, 11],
-        [320, 262, 166, 330, -14, 11], [320, 262, 434, 318, 10, 9], [320, 262, 320, 430, 6, 13]];
+        [320, 262, 166, 330, -14, 11], [320, 262, 434, 318, 10, 9], [320, 262, 320, 430, 6, 17]];
       let PU_CLEAR = null;
       function puClearing() {
         if (PU_CLEAR) return PU_CLEAR;
@@ -524,7 +552,7 @@
         });
       }
       /* ---- poste con farol colgado: marca cada estación con un charco de luz cálida ---- */
-      const PU_POSTS = [[262, 180], [196, 300], [420, 222], [364, 372]];
+      const PU_POSTS = [[262, 180], [196, 300], [420, 222], [392, 372]];
       function sprPoste() {
         return puSpr('poste', 64, b => {
           b.ellD(1, 2, 7, 2.2, [0, 0, 0], 2, .3, 0);
@@ -536,7 +564,7 @@
       function puDecor() {
         if (PU.decor) return PU.decor;
         const D = { tufts: [], shrubs: [], trees: [] }, H0 = PU_TOP + 14;
-        const busy = (x, y) => Math.hypot((x - 118) / 92, (y - 186) / 40) < 1 || (x > 40 && x < 600 && y > 110 && y < 370) || (y >= 370 && Math.abs(x - 320) < 44) || (y < 130 && ((x > 240 && x < 400) || (x > 480 && x < 620) || (x > 50 && x < 190)));
+        const busy = (x, y) => Math.hypot((x - 118) / 92, (y - 186) / 40) < 1 || (x > 40 && x < 600 && y > 110 && y < 370) || (y >= 366 && Math.abs(x - 320) < 64) || (y < 130 && ((x > 240 && x < 400) || (x > 480 && x < 620) || (x > 50 && x < 190)));
         for (let k = 0; k < 420; k++) { const x = MTN_X0 + 100 + hash(k, 5) * (MTN_X1 - MTN_X0 - 200), y = H0 + hash(k, 9) * (PUH - H0 + 4); if (!busy(x, y)) D.tufts.push({ x, y, v: k % 3, ph: hash(k, 13) * TAU }); }
         for (let k = 0; k < 70; k++) { const x = MTN_X0 + 100 + hash(k, 21) * (MTN_X1 - MTN_X0 - 200), y = H0 + 10 + hash(k, 23) * (PUH - H0); if (!busy(x, y) && (x < 20 || x > 620 || y > 380 || y < 105)) D.shrubs.push({ x, y, v: k % 3 }); }
         const core = [[420, 98, 4], [610, 110, 5], [606, 200, 6], [20, 272, 7], [612, 370, 8], [24, 380, 9]];
@@ -548,7 +576,7 @@
         for (let k = 0; k < 15; k++) { cip(-16 + hash(k, 61) * 42, 104 + k * 21 + hash(k, 62) * 10, k % 6); cip(614 + hash(k, 63) * 40, 118 + k * 20 + hash(k, 64) * 10, (k + 3) % 6); }
         for (let k = 0; k < 26; k++) { cip(-40 - hash(k, 65) * 380, PU_TOP + 20 + hash(k, 66) * (PUH - PU_TOP), k % 6); cip(680 + hash(k, 67) * 380, PU_TOP + 20 + hash(k, 68) * (PUH - PU_TOP), (k + 2) % 6); }
         for (const [x, y, v] of [[34, 98, 1], [58, 92, 4], [196, 96, 2], [222, 90, 5], [448, 94, 0], [478, 100, 3], [596, 94, 2], [640, 100, 5]]) cip(x, y, v);
-        for (let x = -30; x < 680; x += 30) { if (Math.abs(x - 320) < 58) continue; const hx = hash(x, 71); D.shrubs.push({ x: x + hx * 14, y: 400 + hash(x, 72) * 10, v: (x / 30 | 0) % 3 }); }
+        for (let x = -30; x < 680; x += 30) { if (Math.abs(x - 320) < 76) continue; const hx = hash(x, 71); D.shrubs.push({ x: x + hx * 14, y: 400 + hash(x, 72) * 10, v: (x / 30 | 0) % 3 }); }
         for (const [x, y, v] of [[6, 404, 2], [36, 412, 5], [610, 406, 1], [640, 414, 4]]) cip(x, y, v);
         return PU.decor = D;
       }
@@ -610,6 +638,24 @@
           else if (f.k === 'heart') { cx.globalAlpha = a; cx.fillStyle = '#e05a6a'; const x = f.x, y = f.y; cx.fillRect(x - 3, y - 2, 2, 2); cx.fillRect(x + 1, y - 2, 2, 2); cx.fillRect(x - 3, y, 6, 2); cx.fillRect(x - 2, y + 2, 4, 1); cx.fillRect(x - 1, y + 3, 2, 1); }
         }
         cx.globalAlpha = 1;
+      }
+      /* gaucho sentado en el tronco: la mitad de arriba del sprite (hasta el poncho) apoyada en el tronco,
+         piernas dobladas hacia el fuego y el mate que sube a la boca cada tanto */
+      const SIT_CUT = 120 / 176;  // fila donde termina el poncho en el sprite del gaucho
+      function drawSentado(P, t) {
+        const st = P.sit, PS = PSPR[SAVE.lastChar && CHARS[SAVE.lastChar] ? SAVE.lastChar : 'baqueano'], fr = PS.frames[0], sz = PS.size, f = st.face;
+        const seatY = st.y - 3.5, drop = (1 - st.k) * 5, cy = seatY - (SIT_CUT - .5) * sz - 1 + drop + Math.sin(t * 2) * .35;
+        cx.fillStyle = 'rgba(0,0,0,.28)'; cx.beginPath(); cx.ellipse(st.x + f * 4, st.y + 9, 11, 3.5, 0, 0, TAU); cx.fill();
+        // piernas: muslo hacia adelante y canilla hasta el suelo, con la bota
+        const hx = st.x + f * 1, hy = seatY + drop;
+        cx.fillStyle = '#3a3036'; cx.fillRect(Math.min(hx, hx + f * 10), hy - 2, 10, 4); cx.fillRect(hx + f * 9 - 2, hy, 4, 7);
+        cx.fillStyle = '#1a1410'; cx.fillRect(hx + f * 9 - 2 + (f > 0 ? 0 : -2), hy + 6, 6, 3); cx.fillStyle = '#5a4636'; cx.fillRect(hx + f * 9 - 2 + (f > 0 ? 0 : -2), hy + 6, 6, 1);
+        cx.save(); cx.translate(st.x, cy); cx.scale(f, 1);
+        cx.drawImage(fr, 0, 0, fr.width, fr.height * SIT_CUT, -sz / 2, -sz / 2, sz, sz * SIT_CUT); cx.restore();
+        // mate: en la mano, y a la boca durante el sorbo
+        const sip = st.sip < 0, mx = st.x + f * (sip ? 6 : 10), my = cy + (sip ? -10 : 2);
+        dimg(sprMate(), mx, my, .9);
+        if (sip && Math.random() < .08) PU.fx.push({ k: 'steam', x: mx, y: my - 4, vx: f * 3, vy: -10, life: .8, max: .8, s: 1 });
       }
       function drawPuesto(dt) {
         puUpdate(dt); puParticles(dt);
@@ -675,6 +721,7 @@
         add(266, () => drawFogon(t));
         add(282, () => dimg(sprPava(), 349, 276)); add(284, () => dimg(sprMate(), 359, 280));
         add(302, () => drawPerro(t));
+        if (SAVE.puesto.fogon >= 1) { add(250, () => dimg(sprAsador(), 286, 234)); add(294, () => dimg(sprParrilla(), 262, 290)); }
         add(378, () => dimg(sprTranquera(P.gateT > 0 ? Math.sin((.6 - P.gateT) / .6 * Math.PI) : 0), 320, 378));
         if (lvC >= 1) {
           add(c.y, () => dimg(sprFenceH(c.w), c.x + c.w / 2, c.y));
@@ -688,7 +735,8 @@
             cx.save(); cx.translate(h.x, Math.round(h.y + nod)); cx.scale(h.face, 1); cx.drawImage(fr.img, -AS.size / 2, -AS.size / 2, AS.size, AS.size); cx.restore();
           });
         } else add(c.y + c.h, () => dimg(sprCorralVacio(), c.x + c.w / 2, c.y + c.h - 34));
-        add(P.y + 14, () => {
+        if (P.sit) add(P.sit.y + 7, () => drawSentado(P, t));
+        else add(P.y + 14, () => {
           const PS = PSPR[SAVE.lastChar && CHARS[SAVE.lastChar] ? SAVE.lastChar : 'baqueano'], fr = PS.frames[P.moving ? 1 + (((t * 8.9) | 0) % 4) : 0], sz = PS.size;
           cx.fillStyle = 'rgba(0,0,0,.3)'; cx.beginPath(); cx.ellipse(P.x, P.y + 13, 11, 4, 0, 0, TAU); cx.fill();
           const br = P.moving ? Math.sin(t * 14) * 1.5 : Math.sin(t * 2) * .5;
@@ -725,11 +773,11 @@
         cx.restore();
         // cartel del lugar cercano, sobre el personaje
         if (P.near && !P.ui) {
-          const o = PU_INT[P.near], X = sx(P.x), Y = sy(P.y - 34) + Math.sin(t * 4) * 2, fs = Math.round(clamp(11 * z * .55, 11, 18));
+          const lb = puLabel(), X = sx(P.x), Y = sy(P.y - 34) + Math.sin(t * 4) * 2, fs = Math.round(clamp(11 * z * .55, 11, 18));
           cx.font = `600 ${fs}px ${getComputedStyle(document.body).fontFamily}`; cx.textAlign = 'center';
-          const tw = cx.measureText(o.label).width + 16, bh = fs + 10;
+          const tw = cx.measureText(lb).width + 16, bh = fs + 10;
           cx.fillStyle = 'rgba(12,17,32,.85)'; cx.fillRect(X - tw / 2, Y - bh + 4, tw, bh); cx.strokeStyle = '#c9a45c'; cx.lineWidth = 1.5; cx.strokeRect(X - tw / 2 + .5, Y - bh + 4.5, tw - 1, bh - 1);
-          cx.fillStyle = '#ece6d2'; cx.fillText(o.label, X, Y); cx.textAlign = 'left';
+          cx.fillStyle = '#ece6d2'; cx.fillText(lb, X, Y); cx.textAlign = 'left';
         }
         if (joy && !P.ui) {
           cx.strokeStyle = 'rgba(236,230,210,.35)'; cx.lineWidth = 2; cx.beginPath(); cx.arc(joy.ox, joy.oy, 50, 0, TAU); cx.stroke();
