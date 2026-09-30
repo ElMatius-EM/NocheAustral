@@ -6401,7 +6401,7 @@
         salida: { x: 320, y: 398, r: 34, label: 'Volver al menú' },
         perro: { x: 378, y: 300, r: 34, label: 'Acariciar al perro' }
       };
-      const PU_SOLID = [[320, 120, 60], [118, 168, 18], [548, 132, 40], [320, 256, 22], [132, 302, 32], [90, 330, 14], [380, 302, 12], [214, 206, 14], [352, 278, 6]];
+      const PU_SOLID = [[320, 120, 60], [118, 168, 18], [548, 132, 40], [320, 256, 22], [132, 302, 32], [90, 330, 14], [380, 302, 12], [214, 206, 14], [352, 278, 6], [162, 190, 8]];
       const CORRAL = { x: 392, y: 250, w: 188, h: 118 };
       function enterPuesto() {
         initAudio();
@@ -6514,8 +6514,56 @@
         cl.slice(half).forEach(blob);
         for (const P of o.pals) { b.tex(P[1], (x, y) => hash(x * 7 + sd, y * 5) < .12 ? rgb(P[2]) : hash(x * 3, y * 9 + sd) < .08 ? rgb(P[0]) : null); b.tex(P[2], (x, y) => hash(x * 5, y * 7 + sd) < .1 ? rgb(P[3]) : null); }
       }
-      function sprNire(bucket) { return puSpr('nire2_' + bucket, 200, b => treeDraw(b, { s: 1, seed: 7, full: .12 + bucket * .22, pals: [PAL_OTONO, PAL_ORO] })); }
-      function sprNireChico(v) { return puSpr('nch2_' + v, 120, b => treeDraw(b, { s: .52, seed: v * 11, full: .55 + (v % 3) * .15, pals: v % 2 ? [PAL_OTONO, PAL_ORO] : [PAL_VERDE] })); }
+      /* ---- el ñire de las habilidades se distingue: único árbol en otoño, en un claro con anillo de piedras,
+         apacheta con velas, una cinta por cada nudo aprendido (color de su rama) y aviso cuando hay algo para aprender ---- */
+      const PAL_VERDE2 = ['#1e2e1c', '#2e4a28', '#4a6a34', '#6a8c44'];
+      function sprNire(bucket) { return puSpr('nire3_' + bucket, 236, b => treeDraw(b, { s: 1.16, seed: 7, full: .12 + bucket * .22, pals: [PAL_OTONO, PAL_ORO] })); }
+      function sprNireChico(v) { return puSpr('nch3_' + v, 120, b => treeDraw(b, { s: .52, seed: v * 11, full: .45 + (v % 3) * .18, pals: v % 2 ? [PAL_VERDE] : [PAL_VERDE2] })); }
+      const NIRE_X = 118, NIRE_Y = 110, NIRE_GY = 188;
+      function sprNireRing(front) {
+        return puSpr('nring' + (front ? 1 : 0), 96, b => {
+          for (let i = 0; i < 16; i++) {
+            const a = i / 16 * TAU + .1, y = Math.sin(a); if (front !== (y > 0)) continue;
+            const x = Math.cos(a) * 38, yy = y * 11, r = 3.6 + hash(i, 8) * 1.4;
+            b.ell(x, yy, r, r * .72, i % 3 ? '#6a7078' : '#5d635e'); b.ell(x - .8, yy - 1, r * .45, r * .3, '#8e949c', 1);
+          }
+        });
+      }
+      function sprApacheta(f) {
+        return puSpr('apacheta' + f, 40, b => {
+          b.ellD(0, 9, 13, 3, [0, 0, 0], 2, .3, 0);
+          const st = [[-8, 6, 4.2], [0, 7, 4.8], [8, 6, 4], [-4, 1, 4], [4, 1.5, 3.8], [0, -4, 3.4], [-1, -8.5, 2.6]];
+          st.forEach(([x, y, r], i) => { b.ell(x, y, r, r * .75, ['#6a7078', '#5d635e', '#7a7e84'][i % 3]); b.ell(x - .8, y - .9, r * .4, r * .28, '#9aa0a8', 1); });
+          for (const [x, y] of [[-7, 1], [7, 2]]) { b.rect(x - 1, y - 5, 2, 5, '#e8e0c8'); const h = f ? 3 : 2.2; b.rect(x - .6, y - 5 - h, 1.4, h, '#ff9a3c', 2); b.rect(x - .3, y - 5 - h + .6, .8, h * .5, '#fff0a0', 2); }
+        });
+      }
+      function sprCinta(col, f) {
+        return puSpr('cinta2' + col + f, 28, b => {
+          b.rect(-2, -1.4, 4, 2.4, dk(col, .2));
+          b.line([[-.6, 0], [.4 + f * 1.2, 6], [f ? 2.4 : -1, 12.5]], 2.6, col, 0, 1, 2);
+          b.line([[.8, 0], [1.8 + f * .8, 5], [f ? 1 : 3, 9]], 1.8, lt(col, .1), 0, 1, 1.4);
+        });
+      }
+      function sprMarca() {
+        return puSpr('marca2', 30, b => { b.poly([[0, -10], [6.5, 0], [0, 10], [-6.5, 0]], '#e0b75a'); b.poly([[0, -6], [3.4, 0], [0, 1.6], [-2.8, -.8]], '#fff0b8', 1); b.dot(0, -.4, '#fff8e0', 1); });
+      }
+      const NIRE_CINTA = { b: [-60, -53, -46, -40, -35], c: [-27, -21, -15, -10, -5], p: [5, 10, 15, 21, 27], h: [35, 40, 46, 53, 60] };
+      function nireCanLearn() { for (const id in NIRE) if (nireState(id) === 'buy') return true; return false; }
+      function drawNireScene(t, own) {
+        dimg(sprNireRing(false), NIRE_X, NIRE_GY);
+        dimg(sprNire(Math.min(4, Math.ceil(own / 5))), NIRE_X, NIRE_Y);
+        // cintas: una por nudo aprendido, colgada de la copa con el color de su rama
+        for (const br of ['b', 'c', 'p', 'h']) {
+          const ids = Object.keys(NIRE).filter(k => NIRE[k].br === br);
+          ids.forEach((id, i) => {
+            if (!NI(id)) return; const x = NIRE_X + NIRE_CINTA[br][i], y = NIRE_Y - 3 + hash(i, br.charCodeAt(0)) * 8, f = ((t * 3 + i + x * .1) | 0) % 2;
+            dimg(sprCinta(NIRE_BR[br].col, f), x, y + 4);
+          });
+        }
+        dimg(sprNireRing(true), NIRE_X, NIRE_GY);
+        dimg(sprApacheta(Math.sin(t * 9) > 0 ? 1 : 0), NIRE_X + 44, NIRE_GY + 2);
+        if (nireCanLearn()) { const bob = Math.round(Math.sin(t * 3) * 2); dimg(sprMarca(), NIRE_X, NIRE_Y - 96 + bob); }
+      }
       /* ---- fogón: piedras en anillo, leños cruzados con cortes a la vista y fuego en capas ---- */
       function fireStones(front) {
         return puSpr('fst' + (front ? 1 : 0), 76, b => {
@@ -6866,10 +6914,10 @@
       function puDecor() {
         if (PU.decor) return PU.decor;
         const D = { tufts: [], shrubs: [], trees: [] }, H0 = PU_TOP + 14;
-        const busy = (x, y) => (x > 40 && x < 600 && y > 110 && y < 370) || (y >= 370 && Math.abs(x - 320) < 44) || (y < 130 && ((x > 240 && x < 400) || (x > 480 && x < 620) || (x > 50 && x < 190)));
+        const busy = (x, y) => Math.hypot((x - 118) / 92, (y - 186) / 40) < 1 || (x > 40 && x < 600 && y > 110 && y < 370) || (y >= 370 && Math.abs(x - 320) < 44) || (y < 130 && ((x > 240 && x < 400) || (x > 480 && x < 620) || (x > 50 && x < 190)));
         for (let k = 0; k < 420; k++) { const x = MTN_X0 + 100 + hash(k, 5) * (MTN_X1 - MTN_X0 - 200), y = H0 + hash(k, 9) * (PUH - H0 + 4); if (!busy(x, y)) D.tufts.push({ x, y, v: k % 3, ph: hash(k, 13) * TAU }); }
         for (let k = 0; k < 70; k++) { const x = MTN_X0 + 100 + hash(k, 21) * (MTN_X1 - MTN_X0 - 200), y = H0 + 10 + hash(k, 23) * (PUH - H0); if (!busy(x, y) && (x < 20 || x > 620 || y > 380 || y < 105)) D.shrubs.push({ x, y, v: k % 3 }); }
-        const core = [[30, 120, 1], [70, 100, 2], [200, 96, 3], [420, 98, 4], [610, 110, 5], [606, 200, 6], [28, 250, 7], [612, 370, 8], [24, 380, 9]];
+        const core = [[420, 98, 4], [610, 110, 5], [606, 200, 6], [20, 272, 7], [612, 370, 8], [24, 380, 9]];
         for (const t of core) D.trees.push({ x: t[0], y: t[1], v: t[2] });
         for (let k = 0; k < 44; k++) { const side = k % 2 ? -1 : 1, x = side < 0 ? -40 - hash(k, 31) * 560 : 680 + hash(k, 31) * 560, y = PU_TOP + 30 + hash(k, 33) * (PUH - PU_TOP - 10); D.trees.push({ x, y, v: (k % 9) + 1 }); }
         return PU.decor = D;
@@ -6895,6 +6943,7 @@
         if (F.length < 380) {
           emit('smoke', () => rnd(.1, .18), () => F.push({ k: 'smoke', x: 320 + rnd(-4, 4), y: 248, vx: rnd(-4, 4), vy: rnd(-22, -14), life: rnd(2.2, 3.2), max: 3.2, s: rnd(2, 3) }));
           emit('steam', () => rnd(.35, .6), () => F.push({ k: 'steam', x: 342, y: 271, vx: rnd(-6, -2), vy: -12, life: 1.1, max: 1.1, s: 1.5 }));
+          emit('glint', () => rnd(.18, .3), () => { if (nireCanLearn()) F.push({ k: 'glint', x: NIRE_X + rnd(-60, 60), y: NIRE_Y + rnd(-70, -5), vx: rnd(-4, 4), vy: rnd(6, 12), life: rnd(1, 1.6), max: 1.6 }); });
           emit('leaf', () => rnd(.5, 1.4), () => { const own = Object.keys(SAVE.nire).length; if (Math.random() < .4 + own * .03) F.push({ k: 'leaf', x: 118 + rnd(-60, 60), y: rnd(64, 100), vx: rnd(-6, 6), vy: rnd(10, 18), life: rnd(5, 7), max: 7, ph: rnd(0, TAU), col: ['#8a3222', '#b8482a', '#d8743a', '#e89a48'][(Math.random() * 4) | 0], gy: rnd(170, 230) }); });
           if (SAVE.puesto.fragua >= 1) {
             emit('spark', () => rnd(1.2, 2.8), () => { for (let i = 0; i < 9; i++) F.push({ k: 'spark', x: 132 + rnd(-8, 8), y: 280, vx: rnd(-40, 40), vy: rnd(-90, -40), life: rnd(.4, .8), max: .8 }); sfx(2400 + Math.random() * 800, .03, 'square', .006); });
@@ -6927,6 +6976,7 @@
           else if (f.k === 'steam' || f.k === 'breath') { const r = f.s + (1 - a) * 3; cx.globalAlpha = a * .45; cx.fillStyle = '#eef2f8'; cx.fillRect(f.x - r, f.y - r, r * 2, r * 2); }
           else if (f.k === 'leaf') { cx.globalAlpha = Math.min(1, f.life); cx.fillStyle = f.col; const w = Math.abs(Math.sin(PU.t * 4 + f.ph)) * 2 + .8; cx.fillRect(f.x - w / 2, f.y - 1, w, 2); }
           else if (f.k === 'spark') { cx.globalAlpha = a; cx.fillStyle = a > .5 ? '#fff0a0' : '#ff8a2a'; cx.fillRect(f.x, f.y, 1.6, 1.6); }
+          else if (f.k === 'glint') { const tw = Math.sin(PU.t * 14 + f.x) > 0; cx.globalAlpha = a; cx.fillStyle = '#ffe08a'; const x = Math.round(f.x), y = Math.round(f.y); cx.fillRect(x, y, 1.3, 1.3); if (tw) { cx.fillRect(x - 1.3, y, 1.3, 1.3); cx.fillRect(x + 1.3, y, 1.3, 1.3); cx.fillRect(x, y - 1.3, 1.3, 1.3); cx.fillRect(x, y + 1.3, 1.3, 1.3); } }
           else if (f.k === 'heart') { cx.globalAlpha = a; cx.fillStyle = '#e05a6a'; const x = f.x, y = f.y; cx.fillRect(x - 3, y - 2, 2, 2); cx.fillRect(x + 1, y - 2, 2, 2); cx.fillRect(x - 3, y, 6, 2); cx.fillRect(x - 2, y + 2, 4, 1); cx.fillRect(x - 1, y + 3, 2, 1); }
         }
         cx.globalAlpha = 1;
@@ -6978,7 +7028,7 @@
         for (const s of D.shrubs) if (vis(s.x)) add(s.y + 10, () => dimg(puShrub(s.v), s.x, s.y));
         for (const tf of D.tufts) if (vis(tf.x)) add(tf.y + 8, () => { const w = P.wind + Math.sin(t * 2.2 + tf.ph + tf.x * .02) * .35, lean = clamp(Math.round(w * 1.6), -2, 2); dimg(puTuft(tf.v, lean), tf.x, tf.y); });
         const own = Object.keys(SAVE.nire).length;
-        add(PU_INT.nire.y, () => dimg(sprNire(Math.min(4, Math.ceil(own / 5))), 118, 120));
+        add(PU_INT.nire.y, () => drawNireScene(t, own));
         add(170, () => {
           const lv = SAVE.puesto.rancho; dimg(lv >= 2 ? sprRancho(lv) : sprCarpa(), 320, lv >= 2 ? 112 : 118);
           if (lv >= 2) { drawTrophyBoard(); if (lv >= 3) drawFarol(372, 112, t); }
@@ -7028,12 +7078,13 @@
         if (lvF >= 1) light(132, 284, 92 * (1 + Math.sin(t * 6) * .06), .8);
         if (SAVE.puesto.rancho >= 2) light(358, 132, 62, .6);
         if (SAVE.puesto.rancho >= 3) light(372, 120, 50, .55);
-        light(506, 120, 50, .6);
+        light(506, 120, 50, .6); light(NIRE_X + 44, NIRE_GY - 4, 62, .65);
+        const nl = nireCanLearn(); if (nl) light(NIRE_X, NIRE_Y - 20, 95, .35 + Math.sin(t * 2) * .08);
         m2.setTransform(1, 0, 0, 1, 0, 0);
         cx.save(); cx.setTransform(1, 0, 0, 1, 0, 0); cx.drawImage(puMask, 0, 0); cx.restore();
         cx.save(); cx.globalCompositeOperation = 'lighter';
         const warm = (x, y, r, a, col) => { const X = sx(x), Y = sy(y), R = r * z, g = cx.createRadialGradient(X, Y, 0, X, Y, R); g.addColorStop(0, `rgba(${col || '255,140,60'},${a})`); g.addColorStop(1, 'rgba(255,120,40,0)'); cx.fillStyle = g; cx.fillRect(X - R, Y - R, R * 2, R * 2); };
-        warm(320, 262, 125 * fl, .17); if (lvF >= 1) warm(132, 284, 62 * (1 + Math.sin(t * 6) * .08), .15); warm(506, 120, 28, .12, '255,200,110');
+        warm(320, 262, 125 * fl, .17); if (lvF >= 1) warm(132, 284, 62 * (1 + Math.sin(t * 6) * .08), .15); warm(506, 120, 28, .12, '255,200,110'); warm(NIRE_X + 44, NIRE_GY - 6, 30, .14, '255,190,100'); if (nl) warm(NIRE_X, NIRE_Y - 30, 70, .09 + Math.sin(t * 2) * .03, '255,210,120');
         cx.restore();
         // cartel del lugar cercano, sobre el personaje
         if (P.near && !P.ui) {
