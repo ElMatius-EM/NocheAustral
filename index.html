@@ -2412,7 +2412,8 @@
         <p class="ctrl"><kbd>WASD</kbd> o flechas para moverte; en el celular, arrastrá el dedo en cualquier parte.
           <kbd>Espacio</kbd> o <kbd>Shift</kbd> para el dash. <kbd>P</kbd> o <kbd>Esc</kbd> para pausar. <kbd>H</kbd>
           silba a tu caballo del corral. Si ves un caballo o un guanaco suelto, perseguilo y quedate cerca hasta llenar
-          la barra para montarlo.</p>
+          la barra para montarlo.
+        </p>
         <div class="btns"><button class="btn" id="resetSave">Borrar todo el progreso</button><button class="btn"
             data-go="vMain">Volver<kbd>Esc</kbd></button></div>
       </div>
@@ -4076,7 +4077,7 @@
         const T = ETYPES[type], m = S.t / 60, hm = hpMult();
         const e = freeE.pop() || {};
         e.type = type; e.x = x; e.y = y; e.r = T.r; e.hp = e.maxHp = T.hp * hm; e.spd = T.spd * rnd(.82, 1.18) * (S.hyper ? 1.25 : 1); e.dmg = T.dmg * dmgMult(); e.xp = T.xp;
-        e.dead = false; e.gone = false; e.mini = false; e.capT = 0; e.cw = 0; e.cdmg = 0; e.howl = undefined; e.enr = false; e.flash = 0; e.kx = 0; e.ky = 0; e.imm = {}; e.slowT = 0; e.elite = false; e.boss = false; e.chest = false;
+        e.dead = false; e.gone = false; e.dmgTxt = null; e.mini = false; e.capT = 0; e.cw = 0; e.cdmg = 0; e.howl = undefined; e.enr = false; e.flash = 0; e.kx = 0; e.ky = 0; e.imm = {}; e.slowT = 0; e.elite = false; e.boss = false; e.chest = false;
         e.vx = 0; e.vy = 0; e.life = 0; e.straight = false; e.prop = !!T.prop; e.shoot = rnd(1.5, 3); e.scale = 1; e.oa = Math.random() * TAU; e.orad = rnd(80, 260); e.odir = Math.random() < .5 ? -1 : 1; e.phase = null; e.ch = undefined; e.summon = 6; e.aimT = 0; e.wob = Math.random() * TAU; e._wtT = 0; e._wet = false; e._md = 0;
         if (opt) Object.assign(e, opt);
         S.enemies.push(e);
@@ -4219,7 +4220,7 @@
         if (NI('c3') && !e.elite && !e.prop && e.hp > 0 && e.hp < e.maxHp * .12) e.hp = 0;
         if (!e.prop && S.parts.length < 450 && Math.random() < .6) { const sx = e.x - S.player.x, sy = e.y - S.player.y, sl = Math.hypot(sx, sy) || 1; for (let i = 0; i < 2; i++) S.parts.push({ x: e.x - sx / sl * e.r * .6, y: e.y - sy / sl * e.r * .6, vx: sx / sl * rnd(60, 140) + rnd(-40, 40), vy: sy / sl * rnd(60, 140) + rnd(-40, 40), life: rnd(.12, .22), max: .22, col: crit ? '#ffd23c' : '#fff4d8', size: rnd(1.5, 2.5) }); }
         S.dmgBy[w.id] = (S.dmgBy[w.id] || 0) + dmg;
-        if (S.texts.length < 90 && !e.prop && SAVE.opts.nums) addText(e.x + rnd(-4, 4), e.y - e.r - 4, Math.round(dmg), resist ? '#8a90a4' : crit ? '#ffd23c' : '#f4efe0', crit && !resist);
+        if (!e.prop && SAVE.opts.nums) dmgNum(e, dmg, w, crit, resist);
         if (kb && !e.boss) {
           const P = S.player; if (sx === undefined) { sx = P.x; sy = P.y; }
           let dx = e.x - sx, dy = e.y - sy, d = Math.hypot(dx, dy);
@@ -4359,6 +4360,29 @@
         }
       }
       function addText(x, y, txt, col, big) { S.texts.push({ x, y, txt, col, life: big ? .8 : .6, big }); }
+      /* ---- agregador de números de daño ----
+         Un número por enemigo: mientras sigan llegando golpes (sin cortes de más de AGG_GAP) el mismo número crece
+         y sigue al enemigo. Las auras pegan cada 0,35-0,55 s, así que usan una ventana más larga. AGG_MAX evita que
+         un enemigo metido en varias fuentes tenga un número abierto para siempre. */
+      const AGG_GAP = .2, AGG_GAP_AURA = .6, AGG_MAX = 1.2, AGG_TIER = [60, 250];
+      function dmgNum(e, dmg, w, crit, resist) {
+        const gap = AURA.has(w.id) ? AGG_GAP_AURA : AGG_GAP, t = e.dmgTxt;
+        if (t && !t.dead && S.t - t.last < gap && S.t - t.born < AGG_MAX) {
+          t.val += dmg; t.hits++; t.last = S.t; t.life = Math.max(t.life, .5);
+          if (crit && !resist) t.crit = true; if (!resist) t.res = false;
+          aggStyle(t); return;
+        }
+        if (S.texts.length >= 90) return;
+        const n = { x: e.x + rnd(-4, 4), y: e.y - e.r - 4, val: dmg, hits: 1, born: S.t, last: S.t, crit: crit && !resist, res: resist, life: .6, e };
+        aggStyle(n); S.texts.push(n); e.dmgTxt = n;
+      }
+      function aggStyle(t) {
+        const prev = t.tier;
+        t.txt = Math.round(t.val);
+        t.col = t.crit ? '#ffd23c' : t.res ? '#8a90a4' : '#f4efe0';
+        t.tier = (t.val >= AGG_TIER[1] ? 2 : t.val >= AGG_TIER[0] ? 1 : 0) + (t.crit ? 1 : 0);
+        if (t.hits > 1 && t.tier !== prev) t.pop = .1;   // salta un escalón al cambiar de tamaño
+      }
 
       /* ---------------- level up / chest ---------------- */
       function buildChoices() {
@@ -4824,7 +4848,12 @@
 
         for (const p of S.parts) { p.life -= dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= .92; p.vy *= .92; if (p.life <= 0) p.dead = true; }
         compact(S.parts);
-        for (const t of S.texts) { t.life -= dt; t.y -= 38 * dt; if (t.life <= 0) t.dead = true; }
+        for (const t of S.texts) {
+          t.life -= dt; if (t.pop > 0) t.pop -= dt;
+          if (t.e && !t.e.dead && t.e.dmgTxt === t && S.t - t.last < AGG_GAP_AURA) { t.x = t.e.x; t.y = t.e.y - t.e.r - 4; }
+          else { t.e = null; t.y -= 38 * dt; }
+          if (t.life <= 0) t.dead = true;
+        }
         compact(S.texts);
         for (const f of S.fx) { f.life -= dt; if (f.life <= 0) f.dead = true; else if (f.type === 'death') { f.x += f.vx * dt; f.y += f.vy * dt; const d = Math.max(0, 1 - dt * 5); f.vx *= d; f.vy *= d; f.rot += f.spin * dt; } }
         compact(S.fx);
@@ -5161,8 +5190,13 @@
       }
       function drawTexts() {
         cx.font = `600 13px ${FONT}`; cx.textAlign = 'center'; cx.lineWidth = 3; cx.strokeStyle = 'rgba(0,0,0,.75)';
-        const fN = `600 13px ${FONT}`, fB = `700 19px ${FONT}`;
-        for (const t of S.texts) { cx.globalAlpha = clamp(t.life / .3, 0, 1); if (t.big) cx.font = fB; cx.strokeText(t.txt, t.x, t.y); cx.fillStyle = t.col; cx.fillText(t.txt, t.x, t.y); if (t.big) cx.font = fN; }
+        const fN = `600 13px ${FONT}`, fB = `700 19px ${FONT}`, FNUM = [fN, `700 16px ${FONT}`, fB, `700 24px ${FONT}`];
+        for (const t of S.texts) {
+          cx.globalAlpha = clamp(t.life / .3, 0, 1);
+          if (t.tier !== undefined) cx.font = FNUM[Math.min(3, t.tier + (t.pop > 0 ? 1 : 0))]; else if (t.big) cx.font = fB;
+          cx.strokeText(t.txt, t.x, t.y); cx.fillStyle = t.col; cx.fillText(t.txt, t.x, t.y);
+          if (t.tier !== undefined || t.big) cx.font = fN;
+        }
         cx.globalAlpha = 1;
       }
       let demoT = 0;
