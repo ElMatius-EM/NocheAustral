@@ -1778,6 +1778,82 @@
         animation: none
       }
     }
+
+    /* ---------------- paneles translúcidos en pixel art (html.clear) ----------------
+   Mismos marcos pixelados, con el relleno semitransparente para que se vea el mundo detrás (sin desenfoque).
+   Los personajes flotan sin recuadro hasta el hover o la selección. Sin la clase quedan los marcos opacos. */
+    html.clear .panel {
+      border-image-source: var(--frameT)
+    }
+
+    html.clear .btn,
+    html.clear .card,
+    html.clear .beast,
+    html.clear .gtile,
+    html.clear .chip,
+    html.clear .ex {
+      border-image-source: var(--pbT)
+    }
+
+    html.clear .btn:hover:not(:disabled),
+    html.clear .card:hover,
+    html.clear .gtile:hover,
+    html.clear .gtile.sel,
+    html.clear .card.sel,
+    html.clear .card.done,
+    html.clear .card.evo,
+    html.clear .gtabs .btn.on,
+    html.clear .gopts .btn.on,
+    html.clear .ex:hover,
+    html.clear .ex:focus-visible {
+      border-image-source: var(--pbOnT)
+    }
+
+    html.clear .card.locked:hover {
+      border-image-source: var(--pbT)
+    }
+
+    html.clear .btn.main {
+      border-image-source: var(--pbMain)
+    }
+
+    html.clear .btn.main:hover:not(:disabled) {
+      border-image-source: var(--pbMainOn)
+    }
+
+    html.clear .char {
+      border-image-source: none
+    }
+
+    html.clear .char:hover,
+    html.clear .char.sel {
+      border-image-source: var(--pbOnT)
+    }
+
+    html.clear .char.locked:hover {
+      border-image-source: none
+    }
+
+    html.clear .cprev {
+      border-image-source: var(--pb)
+    }
+
+    html.clear .overlay {
+      background: rgba(9, 12, 24, .4)
+    }
+
+    html.clear #startOv {
+      background: none
+    }
+
+    html.clear #banner {
+      background: rgba(20, 27, 45, .72)
+    }
+
+    html.clear #pauseBtn,
+    html.clear .slot {
+      background: rgba(20, 27, 45, .6)
+    }
   </style>
 </head>
 
@@ -1902,6 +1978,7 @@
         <label class="tog"><input type="checkbox" id="optNums"> Números de daño</label>
         <label class="tog"><input type="checkbox" id="optShake"> Sacudida de pantalla</label>
         <label class="tog"><input type="checkbox" id="optFastChest"> Cofres rápidos (sin animación)</label>
+        <label class="tog"><input type="checkbox" id="optGlass"> Paneles translúcidos (desactivados: opacos)</label>
         <h3 class="subh">Controles</h3>
         <p class="ctrl"><kbd>WASD</kbd> o flechas para moverte; en el celular, arrastrá el dedo en cualquier parte.
           <kbd>Espacio</kbd> o <kbd>Shift</kbd> para el dash. <kbd>P</kbd> o <kbd>Esc</kbd> para pausar. Si ves un
@@ -2351,7 +2428,7 @@
       const SAVE_KEY = 'noche-austral-v1';
       const DEF_SAVE = () => ({
         gold: 0, spent: 0, shop: {}, ach: {}, hyper: false,
-        bestiary: {}, stats: { kills: 0, runs: 0, chests: 0, evos: 0, bosses: 0, best: {} }, opts: { music: .6, sfx: .8, nums: true, shake: true, fastChest: false }
+        bestiary: {}, stats: { kills: 0, runs: 0, chests: 0, evos: 0, bosses: 0, best: {} }, opts: { music: .6, sfx: .8, nums: true, shake: true, fastChest: false, clearUI: true }
       });
       let SAVE = DEF_SAVE();
       function loadSave() {
@@ -2364,6 +2441,7 @@
       }
       function writeSave() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(SAVE)); } catch (e) { } }
       loadSave();
+      document.documentElement.classList.toggle('clear', SAVE.opts.clearUI !== false);
       const SHOP = {
         fuerza: { name: 'Fuerza', desc: '+5% de daño por nivel.', max: 5, cost: 120, icon: 'yerba' },
         aguante: { name: 'Aguante', desc: '+10% de vida máxima por nivel.', max: 5, cost: 120, icon: 'corazon' },
@@ -3454,7 +3532,7 @@
           weapons: [], passives: [], level: 1, xp: 0, xpNext: xpNeed(1), kills: 0,
           enemies: [], proj: [], ebul: [], gems: [], picks: [], parts: [], texts: [], fx: [], timers: [],
           rerolls: 3 + shopLvl('otramano'), spawnAcc: 0, bigGem: null, dmgBy: {}, shake: 0, hurtFlash: 0, endless: false, nextMandinga: 0,
-          pendingLevels: 0, pendingChests: 0, mounts: [], ride: null, herdCD: new Map(), herdAct: new Set(), herdScan: 0, tumble: 0, herdTip: false, events: buildEvents(), cracks: [], crackNext: 100, endAcc: 0, invDirty: true, choiceLock: 0
+          pendingLevels: 0, pendingChests: 0, mounts: [], ride: null, herdSeed: (Math.random() * 1e5) | 0, herdCD: new Map(), herdAct: new Set(), herdScan: 0, tumble: 0, herdTip: false, events: buildEvents(), cracks: [], crackNext: 100, endAcc: 0, invDirty: true, choiceLock: 0
         };
         ST = null; obsCache.clear();
         for (const e of freeE) e.dead = true;
@@ -4836,7 +4914,7 @@
       }
       function renderOpts() {
         $('optMusic').value = SAVE.opts.music; $('optSfx').value = SAVE.opts.sfx;
-        $('optNums').checked = !!SAVE.opts.nums; $('optShake').checked = !!SAVE.opts.shake; $('optFastChest').checked = !!SAVE.opts.fastChest;
+        $('optNums').checked = !!SAVE.opts.nums; $('optShake').checked = !!SAVE.opts.shake; $('optFastChest').checked = !!SAVE.opts.fastChest; $('optGlass').checked = SAVE.opts.clearUI !== false;
         $('resetSave').textContent = 'Borrar todo el progreso'; resetArm = false;
       }
       let resetArm = false, refundArm = false;
@@ -4871,6 +4949,7 @@
       $('optNums').addEventListener('change', () => { SAVE.opts.nums = $('optNums').checked; writeSave(); });
       $('optShake').addEventListener('change', () => { SAVE.opts.shake = $('optShake').checked; writeSave(); });
       $('optFastChest').addEventListener('change', () => { SAVE.opts.fastChest = $('optFastChest').checked; writeSave(); });
+      $('optGlass').addEventListener('change', () => { SAVE.opts.clearUI = $('optGlass').checked; document.documentElement.classList.toggle('clear', SAVE.opts.clearUI); writeSave(); });
       $('resetSave').addEventListener('click', () => {
         if (!resetArm) { resetArm = true; $('resetSave').textContent = '¿Seguro? Se pierde todo. Tocá de nuevo'; return; }
         const opts = SAVE.opts; SAVE = DEF_SAVE(); SAVE.opts = opts; writeSave(); renderOpts(); renderGold();
@@ -5039,6 +5118,18 @@
         }));
         const btn = (el, ed, fill) => nineSlice(6, (x, y, d, q) => { if (corner(x, y, 6)) return null; if (d === 0) return '#0c1120'; if (d === 1) return (q === 'tl' || (q === 'tr' && y <= 1) || (q === 'bl' && x <= 1)) ? el : ed; return fill; });
         R.setProperty('--pb', btn('#465274', '#161c2c', '#242d42'));
+        // variantes translúcidas: el borde queda sólido y el relleno deja ver el mundo
+        R.setProperty('--frameT', nineSlice(12, (x, y, d, q) => {
+          if (corner(x, y, 12)) return null;
+          const lit = q === 'tl' || (q === 'tr' && y < x && y <= d) || (q === 'bl' && x <= d && x < y);
+          if (d === 0) return '#0c1120';
+          if (d === 1) return lit ? '#8a6238' : '#3e2814';
+          if (d === 2) { if ((x === 2 || x === 9) && (y === 2 || y === 9)) return '#f0d080'; return lit ? '#6b4a2a' : '#4e3420'; }
+          if (d === 3) return lit ? '#e0c078' : '#9a7a3e';
+          return 'rgba(16,22,38,.6)';
+        }));
+        R.setProperty('--pbT', btn('rgba(120,140,190,.45)', 'rgba(8,12,22,.6)', 'rgba(36,45,66,.38)'));
+        R.setProperty('--pbOnT', btn('#f0d890', '#8a6a32', 'rgba(58,66,96,.55)'));
         R.setProperty('--pbOn', btn('#f0d890', '#8a6a32', '#2e3650'));
         R.setProperty('--pbMain', btn('#fff0b8', '#8a6a32', '#c9a45c'));
         R.setProperty('--pbMainOn', btn('#ffffff', '#a07a38', '#e0bc6a'));
@@ -5327,10 +5418,12 @@
 
       /* zonas: potreros (caballos) y aguadas (guanacos), fijas por celda como los obstáculos */
       function herdZone(ix, iy) {
-        if (hash(ix * 41 + 13, iy * 23 + 7) > .42) return null;
-        const x = (ix + .2 + hash(ix * 7 + 1, iy * 11) * .6) * HERD_CELL, y = (iy + .2 + hash(ix * 3, iy * 5 + 9) * .6) * HERD_CELL;
-        if (Math.hypot(x, y) < 500) return null;
-        const kind = S.map === 'glaciar' ? 'guanaco' : (hash(ix * 19, iy * 31 + 5) < .55 ? 'caballo' : 'guanaco');
+        // la semilla cambia en cada partida: los potreros y aguadas nunca quedan en el mismo lugar
+        const sd = S.herdSeed || 0, a = ix + sd, c = iy - sd * 3;
+        if (hash(a * 41 + 13, c * 23 + 7) > .42) return null;
+        const x = (ix + .2 + hash(a * 7 + 1, c * 11) * .6) * HERD_CELL, y = (iy + .2 + hash(a * 3, c * 5 + 9) * .6) * HERD_CELL;
+        if (Math.hypot(x, y) < 900) return null;
+        const kind = S.map === 'glaciar' ? 'guanaco' : (hash(a * 19, c * 31 + 5) < .55 ? 'caballo' : 'guanaco');
         return { key: ix + ',' + iy, x, y, kind };
       }
       function rideDmg(frac, base) { const R = S.ride; return Math.max(base * hpMult(), (R ? R.dps : S.dpsEMA || 0) * frac / Math.max(1, ST.might)); }
