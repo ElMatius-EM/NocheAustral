@@ -25,12 +25,15 @@
         burst(P.x, P.y + 10, 8, '#c9b894', 120);
         sfx(520, .12, 'sawtooth', .03, .35);
       }
+      // el Paisano Viejo ve venir las hordas unos segundos antes
+      const AVISOS = { swarm: 'Algo viene volando del lado del monte', rush: 'Tiembla la tierra: se viene una estampida', ring: 'Te están cerrando el cerco', boss: 'Huele a jefe: se viene algo grande' };
       function update(dt) {
         S.t += dt;
         if (S.comida && !S.comida.done && S.t >= S.comida.until) { S.comida.done = true; recompute(); S.player.hp = Math.min(S.player.hp, ST.maxHp); banner(FOGON_REC[S.comida.id].end); }
         const P = S.player;
         S.pWet = terrWet(P.x, P.y);
-        const [ix, iy] = inputVec(), l = Math.hypot(ix, iy);
+        let [ix, iy] = inputVec(); const l = Math.hypot(ix, iy);
+        if (CHARS[S.char].drunk && l > .05 && !S.ride) { const a = Math.sin(S.t * 1.3) * .38 + Math.sin(S.t * 3.7) * .14, c = Math.cos(a), s = Math.sin(a); [ix, iy] = [ix * c - iy * s, ix * s + iy * c]; }
         P.moving = l > .05;
         P.dashCD -= dt;
         if (P.dashT > 0) {
@@ -60,6 +63,7 @@
         const tm = S.timers;
         for (let i = tm.length - 1; i >= 0; i--) { const t = tm[i]; t.t -= dt; if (t.t <= 0) { tm[i] = tm[tm.length - 1]; tm.pop(); t.fn(); } }
 
+        if (CHARS[S.char].aviso) for (const ev of S.events) if (!ev.done && !ev.warned && AVISOS[ev.type] && S.t >= ev.t - 5) { ev.warned = true; banner(AVISOS[ev.type]); sfx(330, .2, 'triangle', .03); }
         for (const ev of S.events) if (!ev.done && S.t >= ev.t) {
           if ((ev.type === 'elite' || ev.type === 'boss' || ev.type === 'miniboss') && (ev.wait || 0) < 150 && S.bossRef && !S.bossRef.dead && S.bossRef.elite && S.bossRef.type !== 'mandinga') { ev.t = S.t + 10; ev.wait = (ev.wait || 0) + 10; continue; }
           ev.done = true; runEvent(ev.type); if (S.state !== 'play') return;
@@ -266,7 +270,7 @@
           if (d < mag * .6 && pk.type !== 'cofre') { pk.x += dx / d * 300 * dt; pk.y += dy / d * 300 * dt; }
           if (d < P.r + 16) {
             pk.dead = true;
-            if (pk.type === 'asado') { const cc = S.arc.has('cuatroCopas'); if (cc) { S.bonusHp += 5; recompute(); } const hv = (cc ? 60 : 30) * (NI('h2') ? 1.5 : 1); P.hp = Math.min(ST.maxHp, P.hp + hv); addText(P.x, P.y - 28, '+' + hv, '#8fe07a'); sfx(440, .15, 'triangle', .05, 1.5); }
+            if (pk.type === 'asado') { const cc = S.arc.has('cuatroCopas'); if (cc) { S.bonusHp += 5; recompute(); } const hv = (cc ? 60 : 30) * (NI('h2') ? 1.5 : 1) * (CHARS[S.char].asado || 1); P.hp = Math.min(ST.maxHp, P.hp + hv); addText(P.x, P.y - 28, '+' + hv, '#8fe07a'); sfx(440, .15, 'triangle', .05, 1.5); }
             else if (pk.type === 'iman') { for (const g of S.gems) g.vac = true; sfx(300, .4, 'sine', .05, 3); }
             else if (pk.type === 'cofre') { S.pendingChests++; }
             else if (pk.type === 'oro' || pk.type === 'bolsa') { S.gold += pk.v; if (S.arc.has('sieteOros')) gainXP(pk.v * 2); addText(P.x, P.y - 30, '+' + pk.v, '#e0b75a'); sfx(1320, .05, 'square', .025); setTimeout(() => sfx(1760, .07, 'square', .025), 50); }

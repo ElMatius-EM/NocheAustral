@@ -23,6 +23,7 @@
         puSyncHorses();
         $('puHud').classList.add('on'); puHudUpdate();
         if (!SAVE.puTip) { SAVE.puTip = 1; writeSave(); banner('Tu puesto. Acercate a cada lugar y tocá E para usarlo'); }
+        puAch();
       }
       function exitPuesto(view) {
         viaPuesto = view === 'vChars'; PU = null; keys.clear(); joy = null;

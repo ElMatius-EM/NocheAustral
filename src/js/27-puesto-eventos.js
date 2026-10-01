@@ -2,7 +2,7 @@
       $('puPanel').addEventListener('click', ev => {
         const T = ev.target;
         if (T.closest('[data-pu-close]')) return closePuPanel();
-        const ob = T.closest('[data-obra]'); if (ob) { const id = ob.dataset.obra, nx = OBRAS[id].lv[SAVE.puesto[id] + 1]; if (nx && canPay(nx.cost)) { pay(nx.cost); SAVE.puesto[id]++; devHorse(); writeSave(); sfx(392, .15, 'triangle', .05); setTimeout(() => sfx(587, .25, 'triangle', .05), 120); banner(nx.name + ': listo'); renderPuPanel(); } else sfx(120, .12, 'square', .03); return; }
+        const ob = T.closest('[data-obra]'); if (ob) { const id = ob.dataset.obra, nx = OBRAS[id].lv[SAVE.puesto[id] + 1]; if (nx && canPay(nx.cost)) { pay(nx.cost); SAVE.puesto[id]++; devHorse(); writeSave(); puAch(); sfx(392, .15, 'triangle', .05); setTimeout(() => sfx(587, .25, 'triangle', .05), 120); banner(nx.name + ': listo'); renderPuPanel(); } else sfx(120, .12, 'square', .03); return; }
         if (PU.ui === 'tranquera') { const sb = T.closest('[data-salir]'); if (sb) puSalir(sb.dataset.salir); return; }
         if (PU.ui === 'fogon') { const rb = T.closest('[data-rec]'); if (rb) fogonCook(rb.dataset.rec); return; }
         if (PU.ui === 'nire') {
@@ -24,10 +24,17 @@
           const fr = T.closest('[data-hfree]'); if (fr) { const i = +fr.dataset.hfree; SAVE.horses.splice(i, 1); if (SAVE.horse === i) SAVE.horse = -1; else if (SAVE.horse > i) SAVE.horse--; writeSave(); puSyncHorses(); renderPuPanel(); return; }
         }
       });
+      /* logros que se ganan en el Puesto (no hay partida para chequearlos) */
+      function puAch() {
+        for (const a of ACH) if (a.pu && !SAVE.ach[a.id] && a.test()) {
+          SAVE.ach[a.id] = true; if (a.gold) SAVE.gold += a.gold; writeSave(); puHudUpdate();
+          banner('Logro: ' + a.name + '. ' + a.reward); sfx(784, .15, 'triangle', .05); setTimeout(() => sfx(1047, .25, 'triangle', .05), 120);
+        }
+      }
       function fogonCook(id) {
         const r = FOGON_REC[id];
         if (SAVE.comida || r.lvl > SAVE.puesto.fogon || !canPay(r.cost)) { sfx(120, .12, 'square', .03); return; }
-        pay(r.cost); SAVE.comida = id; writeSave();
+        pay(r.cost); SAVE.comida = id; SAVE.stats.cooked = (SAVE.stats.cooked || 0) + 1; writeSave(); setTimeout(puAch, 1400);
         for (let i = 0; i < 14; i++) PU.fx.push({ k: 'spark', x: 320 + rnd(-10, 10), y: 254, vx: rnd(-50, 50), vy: rnd(-110, -50), life: rnd(.4, .9), max: .9 });
         for (let i = 0; i < 6; i++) PU.fx.push({ k: 'smoke', x: 320 + rnd(-8, 8), y: 248, vx: rnd(-6, 6), vy: rnd(-26, -16), life: rnd(1.6, 2.4), max: 2.4, s: rnd(2.5, 3.5) });
         for (let i = 0; i < 8; i++) setTimeout(() => sfx(2000 + Math.random() * 2200, .03, 'square', .008), i * 45);

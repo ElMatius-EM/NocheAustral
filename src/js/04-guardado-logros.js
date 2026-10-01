@@ -47,6 +47,13 @@
         { id: 'kills10k', name: 'Leyenda', desc: 'Derrotá 10.000 enemigos en total.', reward: 'Personaje: Rastreadora', test: () => SAVE.stats.kills >= 10000 },
         { id: 'glaciar10', name: 'Pies de hielo', desc: 'Aguantá 10 minutos en el Glaciar.', reward: 'Personaje: Payador', test: r => r.map === 'glaciar' && r.t >= 600 },
         { id: 'domador', name: 'Domador', desc: 'Amansá 5 caballos o guanacos en total.', reward: '400 de oro', gold: 400, test: () => (SAVE.stats.rides || 0) >= 5 },
+        { id: 'ojoCazador', name: 'Ojo de cazador', desc: 'Derrotá 3 jefes en total.', reward: 'Personaje: Cazador', test: () => SAVE.stats.bosses >= 3 },
+        { id: 'lanzaBola', name: 'Lanza y boleadora', desc: 'Sobreviví hasta el amanecer con la Pialadora.', reward: 'Personaje: Lancero tehuelche', test: r => r.win && r.char === 'pialadora' },
+        { id: 'curar', name: 'Manos que curan', desc: 'Aguantá 10 minutos con la Rastreadora.', reward: 'Personaje: Curandero', test: r => r.char === 'rastreadora' && r.t >= 600 },
+        { id: 'manas', name: 'Mañas viejas', desc: 'Aguantá 10 minutos con el Baqueano.', reward: 'Personaje: Paisano Viejo', test: r => r.char === 'baqueano' && r.t >= 600 },
+        { id: 'fogonero', name: 'Fogón de ley', desc: 'Prepará 10 comidas en el fogón del Puesto.', reward: 'Personaje: Puestero viejo', pu: true, test: () => (SAVE.stats.cooked || 0) >= 10 },
+        { id: 'patron', name: 'Patrón', desc: 'Construí el corral grande en el Puesto.', reward: 'Personaje: Estanciero', pu: true, test: () => SAVE.puesto && SAVE.puesto.corral >= 2 },
+        { id: 'pulperia', name: 'Noche de pulpería', desc: 'Sobreviví hasta el amanecer con el Cuchillero.', reward: 'Personaje: Borracho', test: r => r.win && r.char === 'cuchillero' },
         { id: 'hyperwin', name: 'Noche cerrada', desc: 'Sobreviví 15 minutos en Noche cerrada.', reward: '1000 de oro', gold: 1000, test: r => r.win && r.hyper }
       ];
       const ARCANAS = {

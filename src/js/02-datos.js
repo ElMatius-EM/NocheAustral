@@ -238,6 +238,17 @@
         fueguera: { name: 'Fueguera', weapon: 'fogon', perk: '+20% de vida máxima', col: '#d9702a', bonus: { maxHp: 1.2 } },
         tormentera: { name: 'Tormentera', weapon: 'relampago', perk: '+10% de área', col: '#5a6fb8', bonus: { area: 1.1 }, lock: 'min5' },
         rastreadora: { name: 'Rastreadora', weapon: 'cruz', perk: '+30% de imán', col: '#3f7a5a', bonus: { magnet: 1.3 }, lock: 'kills10k' },
-        payador: { name: 'Payador', weapon: 'guitarra', perk: '+15% de duración y +10% de área', col: '#7a3f8a', bonus: { dur: 1.15, area: 1.1 }, lock: 'glaciar10' }
+        payador: { name: 'Payador', weapon: 'guitarra', perk: '+15% de duración y +10% de área', col: '#7a3f8a', bonus: { dur: 1.15, area: 1.1 }, lock: 'glaciar10' },
+        /* oficios: cada uno sale de otro personaje o del Puesto (ver los logros que los desbloquean).
+           wdmg: daño por arma · add: suma a un stat · elite: daño extra a élites y jefes · aviso: avisa las hordas
+           asado: curación de asados · doma: tiempo de amansar · monta: segundos extra de monta
+           fogon: la comida del fogón dura toda la noche · rerolls: cambios de opciones · drunk: camina tambaleando */
+        cazador: { name: 'Cazador', weapon: 'trabuco', perk: '+20% de daño con trabuco y boleadoras, +8% de velocidad · −10% de vida', col: '#5a6a3a', bonus: { speed: 1.08, maxHp: .9 }, wdmg: { trabuco: 1.2, boleadoras: 1.2 }, lock: 'ojoCazador' },
+        tehuelche: { name: 'Lancero tehuelche', weapon: 'lanza', perk: '+20% de daño con lanza, +10% con boleadoras y facón · −10% de área', col: '#9a6a40', bonus: { area: .9 }, wdmg: { lanza: 1.2, boleadoras: 1.1, facon: 1.1 }, lock: 'lanzaBola' },
+        curandero: { name: 'Curandero', weapon: 'cruz', perk: '+0,5 de vida/s; +15% con cruz, relámpago y fogón · −10% de daño', col: '#3f3a5a', bonus: { might: .9 }, add: { regen: .5 }, wdmg: { cruz: 1.15, relampago: 1.15, fogon: 1.15 }, lock: 'curar' },
+        paisano: { name: 'Paisano Viejo', weapon: 'rebenque', perk: '+20% de daño a élites y jefes; ve venir las hordas · −15% de imán', col: '#5f6b7a', bonus: { magnet: .85 }, elite: .2, aviso: true, lock: 'manas' },
+        puestero: { name: 'Puestero viejo', weapon: 'pava', perk: 'Asados +50%, lo del fogón dura toda la noche, amansa 40% más rápido · −10% de velocidad', col: '#7a5a3a', bonus: { speed: .9 }, asado: 1.5, fogon: true, doma: .6, lock: 'fogonero' },
+        estanciero: { name: 'Estanciero', weapon: 'boleadoras', perk: '+25% de oro, montas 5 s más largas · un cambio de opciones menos', col: '#2a2a34', bonus: { greed: 1.25 }, monta: 5, rerolls: -1, lock: 'patron' },
+        borracho: { name: 'Borracho', weapon: 'facon', perk: '−20% de daño recibido, +15% con el facón · camina tambaleando', col: '#8a5a5a', bonus: { taken: .8 }, wdmg: { facon: 1.15 }, drunk: true, lock: 'pulperia' }
       };
 

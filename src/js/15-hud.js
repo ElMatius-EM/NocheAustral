@@ -57,7 +57,7 @@
       $('mute').addEventListener('click', () => { muted = !muted; $('mute').textContent = muted ? 'Activar sonido' : 'Silenciar'; });
       $('quit').addEventListener('click', () => { hide('pauseOv'); if (S && S.mode === 'campo') endCampo('pausa'); else endGame(false, true); });
 
-      function runCtx() { return { t: S.t, map: S.map, win: S.won, level: S.level, kills: S.kills, combo: S.comboBest, hyper: S.hyper }; }
+      function runCtx() { return { t: S.t, map: S.map, win: S.won, level: S.level, kills: S.kills, combo: S.comboBest, hyper: S.hyper, char: S.char }; }
       function checkAch() {
         if (!S) return;
         const r = runCtx();

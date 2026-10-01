@@ -17,7 +17,7 @@
         }
       };
       const PJ = { id: 'jinete', evo: false };
-      const TAME_R = 95, HERD_CELL = 1250, BUCK_T = 3.2;
+      const TAME_R = 95, HERD_CELL = 1250, BUCK_T = 3.2, RIDE_CD = 60;  // descanso entre montas en la noche
 
       /* sprites laterales, mirando a la derecha, en unidades de mundo (el suelo queda en y=24).
          Cada pata es [ángulo del muslo, ángulo de la caña] respecto de la vertical (positivo = hacia adelante). */
@@ -127,7 +127,7 @@
       function herdZone(ix, iy) {
         // la semilla cambia en cada partida: los potreros y aguadas nunca quedan en el mismo lugar
         const sd = S.herdSeed || 0, a = ix + sd, c = iy - sd * 3;
-        if (hash(a * 41 + 13, c * 23 + 7) > (NI('b4b') ? .7 : .42)) return null;
+        if (hash(a * 41 + 13, c * 23 + 7) > (NI('b4b') ? .3 : .17)) return null;
         const x = (ix + .2 + hash(a * 7 + 1, c * 11) * .6) * HERD_CELL, y = (iy + .2 + hash(a * 3, c * 5 + 9) * .6) * HERD_CELL;
         if (Math.hypot(x, y) < 900) return null;
         const kind = S.map === 'glaciar' ? 'guanaco' : (hash(a * 19, c * 31 + 5) < .55 ? 'caballo' : 'guanaco');
@@ -143,6 +143,7 @@
       function updateMounts(dt) {
         const P = S.player;
         if (S.tumble > 0) S.tumble -= dt;
+        if (S.rideCD > 0) S.rideCD -= dt;
         S.herdScan -= dt;
         if (S.herdScan <= 0) {
           S.herdScan = .5;
@@ -188,7 +189,8 @@
             a.ang += clamp(da, -M.steer * dt, M.steer * dt);
             sp = ST.speed * (a.sprint ? M.sprint : M.trot) * (d < TAME_R ? .85 : 1); ux = Math.cos(a.ang); uy = Math.sin(a.ang);
             if (d > 520) { a.calm += dt; if (a.calm > 2.5) { a.state = 'graze'; a.hx = a.x; a.hy = a.y; a.tx = a.x; a.ty = a.y; } } else a.calm = 0;
-            if (d < TAME_R) { a.tame += dt / (M.tame * (NI('b2') ? .72 : 1)); if (a.tame >= 1) { startRide(a); continue; } }
+            if (d < TAME_R && S.rideCD > 0) { if (!S.rideCDTip) { S.rideCDTip = true; banner('Todavía estás molido de la última monta'); } }
+            else if (d < TAME_R) { a.tame += dt / (M.tame * (NI('b2') ? .72 : 1) * (CHARS[S.char].doma || 1)); if (a.tame >= 1) { startRide(a); continue; } }
             else if (d > TAME_R * 1.5) a.tame = Math.max(0, a.tame - dt / 5);
           }
           const k = Math.min(1, (MAP().ice ? 3 : 8) * dt);
@@ -210,7 +212,7 @@
         if (a.kind === 'caballo' && !a.own) S.tamed = { pelaje: a.pelaje || 'zaino', rasgo: rg || 'ligero' };
         S.ride = {
           kind: a.kind, pelaje: a.pelaje, rasgo: rg, own: !!a.own, spdK: (rg === 'ligero' ? 1.15 : 1) * (1 + .03 * Math.max(0, lv - 1)), trK: rg === 'manero' ? 1.3 : 1,
-          t: 0, T: S.mode === 'campo' ? Infinity : M.dur + (NI('b3') ? 5 : 0) + (rg === 'aguantador' ? 5 : 0) + Math.max(0, lv - 1), hp: hp * hk, maxHp: hp * hk, rebT: .35, side: P.face, buck: false, buckT: 0, buckMax: 1, bk: 0, mv: null, lastMv: null, introDone: false, swT: 0, swMax: .26, swDir: 1, flash: 0,
+          t: 0, T: S.mode === 'campo' ? Infinity : M.dur + (NI('b3') ? 5 : 0) + (CHARS[S.char].monta || 0) + (rg === 'aguantador' ? 5 : 0) + Math.max(0, lv - 1), hp: hp * hk, maxHp: hp * hk, rebT: .35, side: P.face, buck: false, buckT: 0, buckMax: 1, bk: 0, mv: null, lastMv: null, introDone: false, swT: 0, swMax: .26, swDir: 1, flash: 0,
           spitT: M.spit || 0, dps: S.dpsEMA || 0, intro: .8, dustT: 0
         };
         P.x = a.x; P.y = a.y; P.vx = a.vx; P.vy = a.vy; P.r = M.r; P.dashT = 0; P.atkT = 0;
@@ -329,7 +331,7 @@
 
       function throwRider() {
         const R = S.ride, M = MOUNTS[R.kind], P = S.player, dmg = rideDmg(.4, 20), a = (P.face > 0 ? 0 : Math.PI) + rnd(-.9, .9);
-        S.ride = null;
+        S.ride = null; if (S.mode !== 'campo') { S.rideCD = RIDE_CD; S.rideCDTip = false; }
         S.mounts.push({ kind: R.kind, pelaje: R.pelaje, key: 'suelto', x: P.x, y: P.y, vx: 0, vy: 0, state: 'bolt', life: 3.5, ang: a + Math.PI, face: 1, saddle: true, dead: false, r: M.r, tame: 0, wob: 0 });
         P.r = 12; P.dvx = Math.cos(a) * 460; P.dvy = Math.sin(a) * 460; P.dashT = .2; P.vx = P.vy = 0;
         P.iframe = Math.max(P.iframe, 1.2); P.dashCD = Math.max(P.dashCD, .6); S.tumble = .5; P.dashT = .26;

@@ -321,11 +321,21 @@
         fueguera: { hat: 'suelto', hair: '#4a1e12', scarf: '#3a2a20' },
         tormentera: { hat: 'capucha', hair: '#1a1410', scarf: '#bfe3ff' },
         rastreadora: { hat: 'pluma', hatCol: '#5a4630', band: '#3f7a5a', hair: '#2a1d14', braid: true, scarf: '#e0b75a' },
-        payador: { hat: 'chambergo', hatCol: '#3b2a1c', band: '#c9a45c', hair: '#2a1d14', stache: true, scarf: '#ece6d2' }
+        payador: { hat: 'chambergo', hatCol: '#3b2a1c', band: '#c9a45c', hair: '#2a1d14', stache: true, scarf: '#ece6d2' },
+        cazador: { hat: 'chambergo', hatCol: '#5a4a32', band: '#2a221c', hair: '#3a2a1c', beard: true, scarf: '#d8c8a0', pants: '#4a4232', extra: 'trabuco' },
+        tehuelche: { hat: 'vincha', hair: '#141010', band: '#b8322f', scarf: '#d8b07a', skin: '#b8865a', pants: '#6a4a2c', boot: '#8a6a44', extra: 'lanza', quillango: true },
+        curandero: { hat: 'suelto', hair: '#d8d4cc', beard: true, scarf: '#8fb36a', extra: 'amuleto' },
+        paisano: { hat: 'boina', hatCol: '#a8262a', hair: '#cfcbc4', stache: true, scarf: '#ece6d2', pants: '#4a5a6a', boot: '#d8d0bc', camisa: true },
+        puestero: { hat: 'chambergo', hatCol: '#4a3a2a', band: '#6a5440', hair: '#bdb8b0', beard: true, stache: true, scarf: '#c9a45c' },
+        estanciero: { hat: 'chambergo', hatCol: '#16161c', band: '#c8ccd4', hair: '#2a1d14', stache: true, scarf: '#ece6d2', pants: '#2a2a30', boot: '#1a1210', extra: 'rastra' },
+        borracho: { hat: 'boina', hatCol: '#4a4636', hair: '#3a2e24', beard: true, stache: true, scarf: '#b8322f', nose: '#d0605a', extra: 'botella' }
       };
       function gaucho(b, id, ph, walk) {
-        const col = CHARS[id].col, cf = GAUCHO[id], skin = '#e0b48a', pants = '#3a3246', boot = '#2a1d14', st = walk ? Math.sin(ph) : 0, sw = st * .7;
+        const col = CHARS[id].col, cf = GAUCHO[id], skin = cf.skin || '#e0b48a', pants = cf.pants || '#3a3246', boot = cf.boot || '#2a1d14', st = walk ? Math.sin(ph) : 0, sw = st * .7;
         if (id === 'payador') { b.line([[-6, 0], [-10.5, -15]], 1.6, '#5a3a22'); b.rect(-11.6, -17.4, 2.6, 2.8, '#3b2a1c'); b.ell(-7, 3, 4.4, 5.4, '#a0602c'); b.ell(-6.8, 3.4, 1.4, 1.4, '#2a1d14', 1); }
+        // armas al hombro (detrás del cuerpo)
+        if (cf.extra === 'lanza') { b.line([[-7, 10], [-1, -21]], 1.2, '#6a4a2a'); b.poly([[-1.6, -20], [.4, -20.4], [-.3, -24.6]], '#c8d0dc'); b.line([[-1.6, -19], [.2, -19.3]], .8, '#b8322f', 1); }
+        if (cf.extra === 'trabuco') { b.line([[-8, 6], [-3.5, -12]], 1.8, '#3a2e28'); b.ell(-3.4, -12.4, 1.3, 1.3, '#5a6272'); b.line([[-8.4, 6.4], [-6.6, 8.6]], 2.6, '#6a4a2a'); }
         if (cf.hat === 'capucha') b.ell(-.6, -7.8, 6.8, 7, dk(col, .25));
         if (cf.hat === 'suelto') { b.ell(-1.2, -6, 6.4, 7.2, cf.hair); b.tex(cf.hair, (x, y) => ((x + y) % 4 === 0) ? lt(cf.hair, .15) : null); }
         if (cf.hat === 'vincha') b.ell(-.8, -7.2, 5.9, 5.9, cf.hair);
@@ -337,6 +347,8 @@
         const hw = y => 7.5 + 4 * (y + 3.5) / 12.5;
         b.poly([[-7.5, -3.5], [7.5, -3.5], [11.5 + sw, 9], [-11.5 + sw, 9]], col);
         b.tex(col, (x, y) => (x % 4 === 1) ? dk(col, .1) : null);
+        if (cf.quillango) { for (let i = 0; i < 4; i++) { const yy = 1 + i * 2; b.line([[-8 + i * .5 + sw * .5, yy], [8 - i * .5 + sw * .5, yy]], .5, i % 2 ? '#7a2a1c' : '#2a1d14', 1); } for (const x of [-5, -1, 3, 7]) b.poly([[x + sw * .6, 4], [x + 1.2 + sw * .6, 2.6], [x + 2.4 + sw * .6, 4]], '#b8322f', 1); }
+        if (cf.camisa) { b.rect(-1, -3.5, 2, 12, lt(col, .25), 1); for (const y of [-1, 2.5, 6]) b.dot(0, y, '#ece6d2', 1); b.poly([[-7.5, -3.5], [-3, -3.5], [-4, -1]], lt(col, .35), 1); b.poly([[7.5, -3.5], [3, -3.5], [4, -1]], lt(col, .35), 1); }
         const lc = lt(col, .5), dc = dk(col, .55);
         b.poly([[-hw(5.2) + sw * .7, 5.2], [hw(5.2) + sw * .7, 5.2], [hw(7.4) + sw * .87, 7.4], [-hw(7.4) + sw * .87, 7.4]], lc);
         for (let x = -9; x <= 9; x += 3) b.dot(x + sw * .8, 6.1, dc, 1);
@@ -345,12 +357,15 @@
         b.ell(8.5 + sw, 4, 1.8, 1.8, skin);
         if (id === 'pialadora') { for (const [x, y] of [[7, 11.5], [9.6, 12.6], [11.4, 10.4]]) { b.line([[8.6 + sw, 5], [x, y]], .5, '#8a6a40', 1); b.ell(x, y, 1.3, 1.3, '#8a8a80'); } }
         if (id === 'fueguera') { b.ellD(9.5 + sw, 1.5, 4, 4, [255, 160, 60], 2, .35, 0); b.ell(9.5 + sw, 1.8, 1.9, 2.2, '#ff8a2a', 1); b.ell(9.5 + sw, 2.3, 1, 1.2, '#fff0b0', 1); }
+        if (cf.extra === 'botella') { b.rect(8 + sw, .5, 2, 4, '#3a6a3a'); b.rect(8.5 + sw, -1, 1, 1.6, '#3a6a3a'); b.dot(8.6 + sw, 1.5, '#8ac08a', 1); }
+        if (cf.extra === 'amuleto') { b.line([[-1.2, -2.6], [0, .4], [1.2, -2.6]], .4, '#c9a45c', 1); b.ell(0, .9, .9, .9, '#8fb36a', 1); }
+        if (cf.extra === 'rastra') { b.rect(-6.5, 6.6, 13, 1.6, '#16161c', 1); for (const x of [-4, -1.5, 1, 3.5]) b.ell(x, 7.4, .7, .7, '#c8ccd4', 1); }
         if (id === 'tormentera') b.line([[9 + sw, 1.5], [10.5 + sw, -.5], [9.5 + sw, -.8], [11 + sw, -3]], .7, '#bfe3ff', 1);
         b.ell(0, -3.2, 3.6, 1.6, cf.scarf);
         b.ell(0, -7.5, 5, 5, skin);
         if (cf.hat !== 'capucha' && cf.hat !== 'suelto') b.rect(-5, -9, 2, 4, cf.hair);
         b.dot(2.7, -8.2, '#1c140e', 1); b.dot(2.7, -7.2, '#1c140e', 1);
-        b.dot(3.2, -5.8, '#d08a6a', 1);
+        b.dot(3.2, -5.8, cf.nose || '#d08a6a', 1);
         if (cf.stache) b.line([[1.2, -4.7], [4.6, -5]], .9, cf.hair, 1);
         if (cf.beard) b.poly([[-2, -4], [4, -4.4], [2, -2.6], [-1, -2.8]], cf.hair, 1);
         if (cf.hat === 'chambergo') { b.ell(0, -11.2, 10.5, 2, cf.hatCol); b.poly([[-5, -11], [5, -11], [4.2, -17.6], [-4.2, -17.6]], cf.hatCol); b.rect(-5, -13.4, 10, 1.5, cf.band); }

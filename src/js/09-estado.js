@@ -31,7 +31,8 @@
           S.campoTaken = new Set(); S.leftHome = false; S.gath = null; S.armed = false; campoCache.clear();
         }
         // lo preparado en el fogón se gasta en la primera noche que sale del Puesto (no en el campo ni en partida rápida)
-        if (S.mode !== 'campo' && viaPuesto && SAVE.comida && FOGON_REC[SAVE.comida]) { S.comida = { id: SAVE.comida, until: COMIDA_T, done: false }; SAVE.comida = null; writeSave(); }
+        if (S.mode !== 'campo' && viaPuesto && SAVE.comida && FOGON_REC[SAVE.comida]) { S.comida = { id: SAVE.comida, until: CHARS[charId].fogon ? 900 : COMIDA_T, done: false }; SAVE.comida = null; writeSave(); }
+        S.rerolls = Math.max(0, S.rerolls + (CHARS[charId].rerolls || 0)); S.rideCD = 0;
         ST = null; obsCache.clear(); TCACHE.clear();
         for (const e of freeE) e.dead = true;
         addWeapon(CHARS[charId].weapon);
@@ -52,9 +53,10 @@
         });
       }
       function recompute() {
-        const p = { might: 1, area: 1, cd: 1, dur: 1, amount: 0, speed: 150, magnet: 62, armor: 0, maxHp: 100, regen: 0, growth: 1, greed: 1 };
-        const b = CHARS[S.char].bonus;
+        const p = { might: 1, area: 1, cd: 1, dur: 1, amount: 0, speed: 150, magnet: 62, armor: 0, maxHp: 100, regen: 0, growth: 1, greed: 1, taken: 1 };
+        const CH = CHARS[S.char], b = CH.bonus;
         for (const k in b) p[k] *= b[k];
+        if (CH.add) for (const k in CH.add) p[k] += CH.add[k];
         const L = shopLvl;
         p.might *= 1 + .05 * L('fuerza'); p.maxHp *= 1 + .1 * L('aguante'); p.armor += L('cuerocurtido'); p.cd *= 1 - .03 * L('pulso');
         p.area *= 1 + .05 * L('brazo'); p.speed *= 1 + .05 * L('caballo'); p.magnet *= 1 + .2 * L('bolsillos'); p.growth *= 1 + .06 * L('baquiania');
@@ -64,6 +66,7 @@
         if (S.hyper) { p.speed *= 1.15; p.greed *= 1.5; }
         for (const ps of S.passives) PASSIVES[ps.id].apply(p, ps.lvl);
         nireApply(p);
+        if (CH.elite) p.eliteDmg += CH.elite;
         const prevMax = ST ? ST.maxHp : p.maxHp;
         ST = p;
         if (S.player && p.maxHp > prevMax) S.player.hp += p.maxHp - prevMax;

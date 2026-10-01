@@ -3,6 +3,7 @@
         if (e.dead) return;
         if (e.type === 'mandinga') { e.flash = .05; return; }
         dmg *= ST.might * rnd(.92, 1.08);
+        const wb = CHARS[S.char].wdmg; if (wb && wb[w.id]) dmg *= wb[w.id];
         if (e.elite && AURA.has(w.id)) dmg *= BAL.auraVsElite;
         let crit = false; if (S.arc.has('sieteEspadas') && Math.random() < .15) { dmg *= 2.5; crit = true; } else if (NI('c1') && Math.random() < .05) { dmg *= 2; crit = true; }
         if (e.elite && ST.eliteDmg) dmg *= 1 + ST.eliteDmg;
@@ -128,7 +129,7 @@
         const P = S.player; if (P.iframe > 0) return;
         if (S.ride) { rideHurt(raw); if (contact) P.touchIF = CONTACT_IFRAME; else P.iframe = .2; return; }
         for (const a of S.mounts) if (a.tame > 0) a.tame = Math.max(0, a.tame - .25);
-        const d = Math.max(1, raw * (1 - armorRed())); P.hp -= d;
+        const d = Math.max(1, raw * (1 - armorRed()) * ST.taken); P.hp -= d;
         if (NI('h4a') && !S.secondWind && P.hp > 0 && P.hp < ST.maxHp * .25) { S.secondWind = true; P.iframe = 3; P.hp = Math.min(ST.maxHp, P.hp + ST.maxHp * .3); banner('Segundo aire'); S.fx.push({ type: 'ring', x: P.x, y: P.y, life: .6, max: .6, col: '#8fe07a', R: 120 }); sfx(440, .3, 'triangle', .05, 2); }
         if (contact) P.touchIF = CONTACT_IFRAME; else P.iframe = .3;
         S.shake = Math.min(1, S.shake + .35); S.hurtFlash = .25; S.hitstop = Math.max(S.hitstop, .04);
