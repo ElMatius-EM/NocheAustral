@@ -10,7 +10,7 @@
           reed: null, bird: '#e6eef5', birdHead: '#f4f8fb', birdWing: '#8b99a8', hare: '#dfe6ec', hareBelly: '#ffffff'
         }
       };
-      const TPAL = () => TERR_PAL[S ? S.map : 'estepa'] || TERR_PAL.estepa;
+      const TPAL = bk => TERR_PAL[bk || (S ? S.bio || S.map : 'estepa')] || TERR_PAL.estepa;
       const WET_T = .78;
       function vnoise(x, y, s, o) {
         const gx = x / s + o * 17.31, gy = y / s - o * 9.17, ix = Math.floor(gx), iy = Math.floor(gy), fx = gx - ix, fy = gy - iy, u = fx * fx * (3 - 2 * fx), v = fy * fy * (3 - 2 * fy);
@@ -23,16 +23,19 @@
 
       /* suelo en chunks de píxeles: manchas de coironal, tierra oscura, salitral y mallines */
       const TCH = 240, TCELL = 2.5, TN = TCH / TCELL, TCACHE = new Map();
-      let tBudgetEnd = 0;
+      let tBudgetEnd = 0; const PAL_RGB = {};
       function terrChunk(ix, iy) {
         const key = ix + ',' + iy; let c = TCACHE.get(key); if (c) return c;
         if (performance.now() > tBudgetEnd) return null;
         c = document.createElement('canvas'); c.width = c.height = TN;
-        const g = c.getContext('2d'), img = g.createImageData(TN, TN), d = img.data, Pl = TPAL(), o = S.terrSeed, ice = MAP().ice;
-        const bg = rgb(MAP().bg), dry = rgb(Pl.dry), dark = rgb(Pl.dark), salt = rgb(Pl.salt), rim = rgb(Pl.rim), wet = rgb(Pl.wet), deep = rgb(Pl.deep), gl = rgb(Pl.glint);
+        const g = c.getContext('2d'), img = g.createImageData(TN, TN), d = img.data, o = S.terrSeed, reg = REGION();
         const q = k => Math.max(0, Math.min(1, Math.round(k * 3) / 3));
+        let pk = null, ice, bg, dry, dark, salt, rim, wet, deep, gl;
+        const usePal = k => { if (k === pk) return; pk = k; [ice, bg, dry, dark, salt, rim, wet, deep, gl] = PAL_RGB[k] || (PAL_RGB[k] = (() => { const Pl = TPAL(k), M = MAPS[k]; return [M.ice, rgb(M.bg), rgb(Pl.dry), rgb(Pl.dark), rgb(Pl.salt), rgb(Pl.rim), rgb(Pl.wet), rgb(Pl.deep), rgb(Pl.glint)]; })()); };
+        usePal(S.map in TERR_PAL ? S.map : MAPS[S.map].region.biomes[0]);
         for (let j = 0; j < TN; j++) for (let i = 0; i < TN; i++) {
           const x = ix * TCH + (i + .5) * TCELL, y = iy * TCH + (j + .5) * TCELL, hx = ix * TN + i, hy = iy * TN + j, hh = hash(hx, hy), dn = (hh - .5) * .06;
+          if (reg) { const m = bioMix(x, y); usePal(m[0] === m[1] ? m[0] : bioPick(m, hx, hy, x, y)); }
           let r = bg[0], gg = bg[1], b = bg[2];
           const mix = (cc, k) => { r += (cc[0] - r) * k; gg += (cc[1] - gg) * k; b += (cc[2] - b) * k; };
           const tn = vnoise(x, y, 620, o + 7) + dn; if (tn < .44) mix(dry, q((.44 - tn) / .14) * .7);
@@ -85,9 +88,9 @@
         SWB.set(s, B); return B;
       }
       const VIVO_SPR = {};
-      function vivoSpr() {
-        const key = S ? S.map : 'estepa'; if (VIVO_SPR[key]) return VIVO_SPR[key];
-        const Pl = TPAL(), V = { reed: [] };
+      function vivoSpr(bk) {
+        const key = bk || (S ? S.bio || S.map : 'estepa'); if (VIVO_SPR[key]) return VIVO_SPR[key];
+        const Pl = TPAL(key), V = { reed: [] };
         if (Pl.reed) for (let v = 0; v < 2; v++) V.reed.push(pixSprite(24, 1, b => {
           const st = v ? [[-4, -8], [-1, -11], [2, -9], [5, -7]] : [[-5, -7], [-2, -10], [1, -12], [4, -8], [6, -5]];
           for (const [tx, ty] of st) { b.line([[tx * .5, 5], [tx, ty]], 1.1, Pl.reed, 2); b.dot(tx, ty, lt(Pl.reed, .2), 2); }

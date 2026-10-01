@@ -54,8 +54,8 @@
 
       /* decoración del suelo (por mapa, en unidades de mundo) */
       const DECOR_SPR = {};
-      function decorSpr() {
-        const M = MAP(), key = M.name; if (DECOR_SPR[key]) return DECOR_SPR[key];
+      function decorSpr(bk) {
+        const key = bk || (S ? S.bio || S.map : 'estepa'), M = MAPS[key]; if (DECOR_SPR[key]) return DECOR_SPR[key];
         const D = { tuft: [], stone: [], crack: [] };
         for (let v = 0; v < 3; v++) D.tuft.push(pixSprite(20, 1, b => {
           const blades = [[[0, 4], [-3 - v, -4]], [[2, 4], [3, -6 + v]], [[4, 4], [8 - v, -2]], [[1, 4], [0, -1 - v]]];

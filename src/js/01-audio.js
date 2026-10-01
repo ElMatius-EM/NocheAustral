@@ -37,7 +37,7 @@
         if (!AC || !musBus) return;
         musBus.gain.setTargetAtTime(MUS.on ? musVol() : 0, AC.currentTime, .12);
         if (!MUS.on) { return; }
-        const M = MAP(), m = S ? S.t / 60 : 0, tempo = M.music.tempo + Math.min(24, m * 1.8) + (S && S.hyper ? 10 : 0), e8 = 60 / tempo / 2, tr = M.music.root;
+        const M = MAPR(), m = S ? S.t / 60 : 0, tempo = M.music.tempo + Math.min(24, m * 1.8) + (S && S.hyper ? 10 : 0), e8 = 60 / tempo / 2, tr = M.music.root;
         if (MUS.next < AC.currentTime) MUS.next = AC.currentTime + .05;
         while (MUS.next < AC.currentTime + .25) {
           const t = MUS.next, st = MUS.step, bar = Math.floor(st / 8) % 4, pos = st % 8, [root, iv, bass] = PROG[bar];

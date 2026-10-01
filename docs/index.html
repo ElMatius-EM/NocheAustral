@@ -2675,7 +2675,7 @@
         if (!AC || !musBus) return;
         musBus.gain.setTargetAtTime(MUS.on ? musVol() : 0, AC.currentTime, .12);
         if (!MUS.on) { return; }
-        const M = MAP(), m = S ? S.t / 60 : 0, tempo = M.music.tempo + Math.min(24, m * 1.8) + (S && S.hyper ? 10 : 0), e8 = 60 / tempo / 2, tr = M.music.root;
+        const M = MAPR(), m = S ? S.t / 60 : 0, tempo = M.music.tempo + Math.min(24, m * 1.8) + (S && S.hyper ? 10 : 0), e8 = 60 / tempo / 2, tr = M.music.root;
         if (MUS.next < AC.currentTime) MUS.next = AC.currentTime + .05;
         while (MUS.next < AC.currentTime + .25) {
           const t = MUS.next, st = MUS.step, bar = Math.floor(st / 8) % 4, pos = st % 8, [root, iv, bass] = PROG[bar];
@@ -2976,9 +2976,57 @@
           weather: 'ventisca', obs: ['hielo', 'seraque'],
           txt: { swarm: 'Una bandada de chonchones cruza el hielo', ring: 'Los chonchones te rodean', ring2: 'Doble cerco: chonchones y cueros', rush: '¡Avalancha de calaveras!', win: 'Amaneció sobre el glaciar' },
           music: { root: 5, tempo: 96 }
+        },
+        /* región: no tiene enemigos propios; mezcla biomas (otros mapas) según dónde estés */
+        patagonia: {
+          name: 'Patagonia', desc: 'De la estepa al hielo: el pastizal se corta en lenguas de glaciar a medida que te alejás. Cada zona trae sus enemigos.', lock: 'min10',
+          region: { biomes: ['estepa', 'glaciar'], cuts: [.52] },
+          music: { root: 2, tempo: 100 }
         }
       };
-      const MAP = () => MAPS[S ? S.map : 'estepa'];
+      MAPS.estepa.enter = 'Volvés al pastizal de la estepa';
+      MAPS.glaciar.enter = 'El suelo se congela: entrás al glaciar';
+
+      /* ---------------- biomas ----------------
+         En una región, un ruido de baja frecuencia (escala BIO_SCALE) ordena los biomas como una temperatura:
+         cada corte de region.cuts separa uno del siguiente, con una franja de mezcla de ±BIO_BAND.
+         Cerca del punto de partida siempre domina el primero. MAP() devuelve el bioma donde está el jugador
+         (con histéresis para que no titile en el borde); MAPR() el mapa elegido (nombre, música, récord). */
+      const BIO_SCALE = 2400, BIO_BAND = .05;
+      const MAPR = () => MAPS[S ? S.map : 'estepa'];
+      const MAP = () => MAPS[S ? (S.bio || S.map) : 'estepa'];
+      const REGION = () => S && MAPS[S.map] && MAPS[S.map].region;
+      function bioMix(x, y) {
+        const R = REGION(); if (!R) return [S.map, S.map, 0];
+        const o = S.terrSeed, home = Math.max(0, 1 - Math.hypot(x, y) / 2400) * .7;
+        const n = vnoise(x, y, BIO_SCALE, o + 41) * .75 + vnoise(x, y, BIO_SCALE * .3, o + 43) * .25 - home;
+        const B = R.biomes, C = R.cuts;
+        for (let i = 0; i < C.length; i++) {
+          if (n < C[i] - BIO_BAND) return [B[i], B[i], 0];
+          if (n < C[i] + BIO_BAND) { const t = (n - (C[i] - BIO_BAND)) / (2 * BIO_BAND); return [B[i], B[i + 1], t * t * (3 - 2 * t)]; }
+        }
+        return [B[B.length - 1], B[B.length - 1], 0];
+      }
+      const bioKey = (x, y) => { if (!REGION()) return S.map; const m = bioMix(x, y); return m[2] < .5 ? m[0] : m[1]; };
+      // en la franja de mezcla cada píxel elige un bioma (sin colores intermedios): manchas de ruido chico
+      // —parches de nieve sobre el pasto— y un poco de tramado 4x4 solo en el borde de cada mancha
+      const BAYER4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+      const bioPick = (m, px, py, x, y) => m[2] > vnoise(x, y, 46, S.terrSeed + 5) * .8 + (BAYER4[(py & 3) * 4 + (px & 3)] + .5) / 16 * .2 ? m[1] : m[0];
+      function updateBiome(dt) {
+        const P = S.player;
+        if (REGION()) {
+          const m = bioMix(P.x, P.y); let k = S.bio;
+          if (m[0] === m[1]) k = m[0];
+          else if (k !== m[0] && k !== m[1]) k = m[2] < .5 ? m[0] : m[1];
+          else if (k === m[0] && m[2] > .62) k = m[1];
+          else if (k === m[1] && m[2] < .38) k = m[0];
+          if (k !== S.bio) {
+            S.bio = k; S.weatherNext = Math.max(S.weatherNext, S.t + 8);
+            if (S.t - (S.bioBan || -99) > 6) { S.bioBan = S.t; banner(MAPS[k].enter); }
+          }
+        }
+        S.iceK += ((MAP().ice ? 1 : 0) - S.iceK) * Math.min(1, dt * 1.5);
+      }
 
       /* ---------------- guardado, tienda y logros ---------------- */
       const SAVE_KEY = 'noche-austral-v1';
@@ -3804,8 +3852,8 @@
 
       /* decoración del suelo (por mapa, en unidades de mundo) */
       const DECOR_SPR = {};
-      function decorSpr() {
-        const M = MAP(), key = M.name; if (DECOR_SPR[key]) return DECOR_SPR[key];
+      function decorSpr(bk) {
+        const key = bk || (S ? S.bio || S.map : 'estepa'), M = MAPS[key]; if (DECOR_SPR[key]) return DECOR_SPR[key];
         const D = { tuft: [], stone: [], crack: [] };
         for (let v = 0; v < 3; v++) D.tuft.push(pixSprite(20, 1, b => {
           const blades = [[[0, 4], [-3 - v, -4]], [[2, 4], [3, -6 + v]], [[4, 4], [8 - v, -2]], [[1, 4], [0, -1 - v]]];
@@ -4121,6 +4169,7 @@
         // lo preparado en el fogón se gasta en la primera noche que sale del Puesto (no en el campo ni en partida rápida)
         if (S.mode !== 'campo' && viaPuesto && SAVE.comida && FOGON_REC[SAVE.comida]) { S.comida = { id: SAVE.comida, until: CHARS[charId].fogon ? 900 : COMIDA_T, done: false }; SAVE.comida = null; writeSave(); }
         S.rerolls = Math.max(0, S.rerolls + (CHARS[charId].rerolls || 0)); S.rideCD = 0;
+        { const R = MAPS[S.map].region; S.bio = R ? R.biomes[0] : S.map; S.iceK = MAPS[S.bio].ice ? 1 : 0; }
         ST = null; obsCache.clear(); TCACHE.clear();
         for (const e of freeE) e.dead = true;
         addWeapon(CHARS[charId].weapon);
@@ -4188,14 +4237,14 @@
       }
       const OBS_CELL = 340, obsCache = new Map();
       function obsChunk(ix, iy) {
-        const key = gk(ix, iy) * 2 + (S.map === 'glaciar' ? 1 : 0); let a = obsCache.get(key); if (a) return a; a = [];
-        const M = MAP(), h0 = hash(ix * 31 + 7, iy * 17 + 3), n = h0 < .3 ? 0 : h0 < .78 ? 1 : 2;
+        const key = gk(ix, iy); let a = obsCache.get(key); if (a) return a; a = [];
+        const h0 = hash(ix * 31 + 7, iy * 17 + 3), n = h0 < .3 ? 0 : h0 < .78 ? 1 : 2;
         for (let i = 0; i < n; i++) {
           const h1 = hash(ix * 13 + i * 7, iy * 29 - i * 3), h2 = hash(ix * 5 - i * 11, iy * 7 + i * 19), h3 = hash(ix + i * 23, iy * 3 - i);
           const x = (ix + .15 + h1 * .7) * OBS_CELL, y = (iy + .15 + h2 * .7) * OBS_CELL, r = 20 + h3 * 30;
           if (Math.hypot(x, y) < 260) continue;
           if (a.some(o => Math.hypot(o.x - x, o.y - y) < o.r + r + 70)) continue;
-          a.push({ x, y, r, kind: M.obs[h3 < .55 ? 0 : 1], seed: Math.floor(h1 * 1000) });
+          a.push({ x, y, r, kind: MAPS[bioKey(x, y)].obs[h3 < .55 ? 0 : 1], seed: Math.floor(h1 * 1000) });
         }
         if (obsCache.size > 4000) obsCache.clear();
         obsCache.set(key, a); return a;
@@ -4260,14 +4309,15 @@
           }
           return;
         }
-        const m = minute(), WV = MAP().waves, wv = WV[Math.min(m, WV.length - 1)];
+        const m = minute();
         const alive = S.enemies.length, minCount = Math.min(8 + m * 15 + m * m * .5, 380);
         S.spawnAcc += dt * (.7 + m * .38) * (alive < minCount ? 2.2 : 1) * (S.hyper ? 1.3 : 1);
         S.spawnAcc = Math.min(S.spawnAcc, 6);
         while (S.spawnAcc >= 1) {
           S.spawnAcc -= 1;
           if (S.enemies.length >= 420) break;
-          const [x, y] = S.player.moving && Math.random() < .5 ? spawnAhead() : spawnPos(); spawnEnemy(pickW(wv), x, y);
+          const [x, y] = S.player.moving && Math.random() < .5 ? spawnAhead() : spawnPos();
+          const WV = MAPS[bioKey(x, y)].waves; spawnEnemy(pickW(WV[Math.min(m, WV.length - 1)]), x, y);  // cada bioma aparece con su gente
         }
         S.propT -= dt;
         if (S.propT <= 0) {
@@ -4283,7 +4333,7 @@
           const [x, y] = spawnPos();
           S.bossRef = spawnEnemy(kind, x, y, {
             elite: true, boss, mini, capT: boss ? BAL.capBoss : mini ? BAL.capMini : eliteCap(), scale: sc, r: T.r * sc, hp, maxHp: hp, xp: boss ? 60 : mini ? 35 : 20, chest: true,
-            spd: T.spd * (boss ? 1.12 : mini ? 1.05 : 1.25), dmg: T.dmg * dmgMult() * (boss ? 2 : mini ? 1.7 : 1.3)
+            spd: T.spd * (boss ? 1.12 : mini ? 1.05 : 1.25), dmg: T.dmg * dmgMult() * (boss ? 2 : mini ? 1.7 : 1.3), bname: boss ? M.bossName : mini ? M.miniName : ''
           });
           banner(boss ? 'Llegó ' + M.bossName : mini ? 'Apareció ' + M.miniName : 'Un enemigo fuerte te encontró: cuida un cofre');
           sfx(110, .5, 'sawtooth', .06, .5);
@@ -4760,6 +4810,7 @@
       const AVISOS = { swarm: 'Algo viene volando del lado del monte', rush: 'Tiembla la tierra: se viene una estampida', ring: 'Te están cerrando el cerco', boss: 'Huele a jefe: se viene algo grande' };
       function update(dt) {
         S.t += dt;
+        updateBiome(dt);
         if (S.comida && !S.comida.done && S.t >= S.comida.until) { S.comida.done = true; recompute(); S.player.hp = Math.min(S.player.hp, ST.maxHp); banner(FOGON_REC[S.comida.id].end); }
         const P = S.player;
         S.pWet = terrWet(P.x, P.y);
@@ -5045,9 +5096,10 @@
       function drawGround(px, py) {
         const T = 96, hw = W / 2 / ZOOM + T, hh = H / 2 / ZOOM + T;
         const tx0 = Math.floor((px - hw) / T), tx1 = Math.floor((px + hw) / T), ty0 = Math.floor((py - hh) / T), ty1 = Math.floor((py + hh) / T);
-        const ice = MAP().decor === 'ice', D = decorSpr(), V = vivoSpr();
         if (S) drawTerrain(px, py);
         for (let tx = tx0; tx <= tx1; tx++) for (let ty = ty0; ty <= ty1; ty++) {
+          // en una región, cada baldosa decora según su bioma
+          const bk = S ? bioKey((tx + .5) * T, (ty + .5) * T) : 'estepa', ice = MAPS[bk].decor === 'ice', D = decorSpr(bk), V = vivoSpr(bk);
           for (let k = 0; k < 3; k++) {
             const h1 = hash(tx * 3 + k, ty * 7 - k), h2 = hash(tx * 5 - k, ty * 3 + k * 11), h3 = hash(tx + k * 17, ty - k * 5);
             const x = tx * T + h1 * T, y = ty * T + h2 * T;
@@ -5436,7 +5488,7 @@
         setIf('goldN', 't', String(S.gold));
         const br = S.bossRef, bOn = !!(br && !br.dead && br.elite && S.state !== 'end');
         if (hud.bossOn !== bOn) { hud.bossOn = bOn; $('bossbar').classList.toggle('on', bOn); }
-        if (bOn) { const cap = t => t.charAt(0).toUpperCase() + t.slice(1), nm = br.boss ? cap(MAP().bossName) : br.mini ? cap(MAP().miniName) : ETYPES[br.type].name + ' élite'; setIf('bossName', 't', nm); setIf('bossFill', 'w', (clamp(br.hp / br.maxHp, 0, 1) * 100).toFixed(1) + '%'); }
+        if (bOn) { const cap = t => t.charAt(0).toUpperCase() + t.slice(1), nm = br.boss ? cap(br.bname || MAP().bossName) : br.mini ? cap(br.bname || MAP().miniName) : ETYPES[br.type].name + ' élite'; setIf('bossName', 't', nm); setIf('bossFill', 'w', (clamp(br.hp / br.maxHp, 0, 1) * 100).toFixed(1) + '%'); }
         const on = S.combo >= 5 && S.state !== 'end';
         if (hud.comboOn !== on) { hud.comboOn = on; $('combo').classList.toggle('on', on); }
         if (on) { setIf('comboN', 't', '×' + S.combo); setIf('cbar', 'w', (clamp(S.comboT / 2.2, 0, 1) * 100).toFixed(0) + '%'); }
@@ -5495,7 +5547,7 @@
         S.state = 'end'; joy = null;
         if (win && !S.won) { const bonus = Math.round(200 * ST.greed); S.gold += bonus; }
         if (win) S.won = true;
-        const M = MAP();
+        const M = MAPR();
         SAVE.gold += S.gold - S.goldBanked; S.goldBanked = S.gold;
         if (!S.counted) { S.counted = true; SAVE.stats.runs++; }
         const bk = S.map + (S.hyper ? '-h' : ''); SAVE.stats.best[bk] = Math.max(SAVE.stats.best[bk] || 0, Math.floor(S.t));
@@ -6181,7 +6233,7 @@
         if (hash(a * 41 + 13, c * 23 + 7) > (NI('b4b') ? .3 : .17)) return null;
         const x = (ix + .2 + hash(a * 7 + 1, c * 11) * .6) * HERD_CELL, y = (iy + .2 + hash(a * 3, c * 5 + 9) * .6) * HERD_CELL;
         if (Math.hypot(x, y) < 900) return null;
-        const kind = S.map === 'glaciar' ? 'guanaco' : (hash(a * 19, c * 31 + 5) < .55 ? 'caballo' : 'guanaco');
+        const kind = MAPS[bioKey(x, y)].ice ? 'guanaco' : (hash(a * 19, c * 31 + 5) < .55 ? 'caballo' : 'guanaco');
         return { key: ix + ',' + iy, x, y, kind };
       }
       function rideDmg(frac, base) { const R = S.ride; return Math.max(base * hpMult(), (R ? R.dps : S.dpsEMA || 0) * frac / Math.max(1, ST.might)); }
@@ -6397,11 +6449,11 @@
 
       /* ---- dibujo ---- */
       function drawHerdZones() {
-        const P = S.player, hw = W / 2 / ZOOM + 180, hh = H / 2 / ZOOM + 180, ice = MAP().ice;
+        const P = S.player, hw = W / 2 / ZOOM + 180, hh = H / 2 / ZOOM + 180;
         const x0 = Math.floor((P.x - hw) / HERD_CELL), x1 = Math.floor((P.x + hw) / HERD_CELL), y0 = Math.floor((P.y - hh) / HERD_CELL), y1 = Math.floor((P.y + hh) / HERD_CELL);
         for (let ix = x0; ix <= x1; ix++) for (let iy = y0; iy <= y1; iy++) {
           const z = herdZone(ix, iy); if (!z || Math.abs(z.x - P.x) > hw || Math.abs(z.y - P.y) > hh) continue;
-          const sd = ix * 7 + iy * 13;
+          const sd = ix * 7 + iy * 13, zb = bioKey(z.x, z.y), ice = MAPS[zb].ice;
           if (z.kind === 'caballo') {
             // potrero con alambrado a medio caer
             const n = 10, pts = [];
@@ -6417,7 +6469,7 @@
             cx.fillStyle = ice ? 'rgba(170,215,240,.35)' : 'rgba(24,44,58,.85)'; cx.beginPath(); cx.ellipse(z.x, z.y + 10, 70, 30, 0, 0, TAU); cx.fill();
             cx.strokeStyle = ice ? 'rgba(235,248,255,.55)' : 'rgba(120,160,170,.45)'; cx.lineWidth = 2; cx.beginPath(); cx.ellipse(z.x, z.y + 10, 70, 30, 0, 0, TAU); cx.stroke();
             cx.strokeStyle = ice ? 'rgba(255,255,255,.6)' : 'rgba(190,215,220,.35)'; cx.lineWidth = 1.5; cx.beginPath(); cx.moveTo(z.x - 30, z.y + 2); cx.lineTo(z.x + 8, z.y); cx.moveTo(z.x - 4, z.y + 18); cx.lineTo(z.x + 30, z.y + 16); cx.stroke();
-            if (!ice) { const D = decorSpr(); for (let i = 0; i < 6; i++) { const an = i / 6 * TAU + hash(sd, i); dimg(D.tuft[i % 3], z.x + Math.cos(an) * 78, z.y + 10 + Math.sin(an) * 36); } }
+            if (!ice) { const D = decorSpr(zb); for (let i = 0; i < 6; i++) { const an = i / 6 * TAU + hash(sd, i); dimg(D.tuft[i % 3], z.x + Math.cos(an) * 78, z.y + 10 + Math.sin(an) * 36); } }
           }
         }
       }
@@ -8186,7 +8238,7 @@
           reed: null, bird: '#e6eef5', birdHead: '#f4f8fb', birdWing: '#8b99a8', hare: '#dfe6ec', hareBelly: '#ffffff'
         }
       };
-      const TPAL = () => TERR_PAL[S ? S.map : 'estepa'] || TERR_PAL.estepa;
+      const TPAL = bk => TERR_PAL[bk || (S ? S.bio || S.map : 'estepa')] || TERR_PAL.estepa;
       const WET_T = .78;
       function vnoise(x, y, s, o) {
         const gx = x / s + o * 17.31, gy = y / s - o * 9.17, ix = Math.floor(gx), iy = Math.floor(gy), fx = gx - ix, fy = gy - iy, u = fx * fx * (3 - 2 * fx), v = fy * fy * (3 - 2 * fy);
@@ -8199,16 +8251,19 @@
 
       /* suelo en chunks de píxeles: manchas de coironal, tierra oscura, salitral y mallines */
       const TCH = 240, TCELL = 2.5, TN = TCH / TCELL, TCACHE = new Map();
-      let tBudgetEnd = 0;
+      let tBudgetEnd = 0; const PAL_RGB = {};
       function terrChunk(ix, iy) {
         const key = ix + ',' + iy; let c = TCACHE.get(key); if (c) return c;
         if (performance.now() > tBudgetEnd) return null;
         c = document.createElement('canvas'); c.width = c.height = TN;
-        const g = c.getContext('2d'), img = g.createImageData(TN, TN), d = img.data, Pl = TPAL(), o = S.terrSeed, ice = MAP().ice;
-        const bg = rgb(MAP().bg), dry = rgb(Pl.dry), dark = rgb(Pl.dark), salt = rgb(Pl.salt), rim = rgb(Pl.rim), wet = rgb(Pl.wet), deep = rgb(Pl.deep), gl = rgb(Pl.glint);
+        const g = c.getContext('2d'), img = g.createImageData(TN, TN), d = img.data, o = S.terrSeed, reg = REGION();
         const q = k => Math.max(0, Math.min(1, Math.round(k * 3) / 3));
+        let pk = null, ice, bg, dry, dark, salt, rim, wet, deep, gl;
+        const usePal = k => { if (k === pk) return; pk = k; [ice, bg, dry, dark, salt, rim, wet, deep, gl] = PAL_RGB[k] || (PAL_RGB[k] = (() => { const Pl = TPAL(k), M = MAPS[k]; return [M.ice, rgb(M.bg), rgb(Pl.dry), rgb(Pl.dark), rgb(Pl.salt), rgb(Pl.rim), rgb(Pl.wet), rgb(Pl.deep), rgb(Pl.glint)]; })()); };
+        usePal(S.map in TERR_PAL ? S.map : MAPS[S.map].region.biomes[0]);
         for (let j = 0; j < TN; j++) for (let i = 0; i < TN; i++) {
           const x = ix * TCH + (i + .5) * TCELL, y = iy * TCH + (j + .5) * TCELL, hx = ix * TN + i, hy = iy * TN + j, hh = hash(hx, hy), dn = (hh - .5) * .06;
+          if (reg) { const m = bioMix(x, y); usePal(m[0] === m[1] ? m[0] : bioPick(m, hx, hy, x, y)); }
           let r = bg[0], gg = bg[1], b = bg[2];
           const mix = (cc, k) => { r += (cc[0] - r) * k; gg += (cc[1] - gg) * k; b += (cc[2] - b) * k; };
           const tn = vnoise(x, y, 620, o + 7) + dn; if (tn < .44) mix(dry, q((.44 - tn) / .14) * .7);
@@ -8261,9 +8316,9 @@
         SWB.set(s, B); return B;
       }
       const VIVO_SPR = {};
-      function vivoSpr() {
-        const key = S ? S.map : 'estepa'; if (VIVO_SPR[key]) return VIVO_SPR[key];
-        const Pl = TPAL(), V = { reed: [] };
+      function vivoSpr(bk) {
+        const key = bk || (S ? S.bio || S.map : 'estepa'); if (VIVO_SPR[key]) return VIVO_SPR[key];
+        const Pl = TPAL(key), V = { reed: [] };
         if (Pl.reed) for (let v = 0; v < 2; v++) V.reed.push(pixSprite(24, 1, b => {
           const st = v ? [[-4, -8], [-1, -11], [2, -9], [5, -7]] : [[-5, -7], [-2, -10], [1, -12], [4, -8], [6, -5]];
           for (const [tx, ty] of st) { b.line([[tx * .5, 5], [tx, ty]], 1.1, Pl.reed, 2); b.dot(tx, ty, lt(Pl.reed, .2), 2); }
@@ -8485,7 +8540,7 @@
       // oscuridad según la hora: anochece, noche cerrada, amanece a los 15 min; en la noche eterna vuelve rojiza
       function nightState() {
         if (!S || SAVE.opts.dark === false) return null;
-        const t = S.t, ice = !!MAP().ice; let a = (ice ? .46 : .55) * (S.hyper ? 1.15 : 1), col = [6, 9, 26];
+        const t = S.t, ik = S.iceK || 0; let a = (.55 - .09 * ik) * (S.hyper ? 1.15 : 1), col = [6, 9, 26];
         if (t < 45) a *= .5 + .5 * t / 45;
         else if (t > 720 && t <= 900) { const k = (t - 720) / 180; a *= 1 - .8 * k; col = k < .5 ? mixA([6, 9, 26], [42, 18, 56], k * 2) : mixA([42, 18, 56], [74, 40, 16], (k - .5) * 2); }
         else if (t > 900) { const k = clamp((t - 900) / 45, 0, 1); a *= .2 + .9 * k; col = mixA([74, 40, 16], [32, 4, 10], k); }
@@ -8562,10 +8617,10 @@
         if (!n || GFX_LOW) return; const k = clamp(n.a / .44, 0, 1); if (k < .05) return;
         const P = S.player, t = reduceMotion ? 0 : S.t;
         cx.globalCompositeOperation = 'lighter';
-        if (MAP().ice) {
+        if (S.iceK > .02) {
           const hTop = H * .45;
           for (const [c, al, ph] of [['80,255,170', .11, 0], ['90,200,255', .07, 2.1], ['200,110,255', .045, 4.2]]) {
-            const gr = cx.createLinearGradient(0, 0, 0, hTop); gr.addColorStop(0, `rgba(${c},0)`); gr.addColorStop(.45, `rgba(${c},${al * k})`); gr.addColorStop(1, `rgba(${c},0)`); cx.fillStyle = gr;
+            const gr = cx.createLinearGradient(0, 0, 0, hTop); gr.addColorStop(0, `rgba(${c},0)`); gr.addColorStop(.45, `rgba(${c},${al * k * S.iceK})`); gr.addColorStop(1, `rgba(${c},0)`); cx.fillStyle = gr;
             for (let x = 0; x < W; x += 4) {
               const u = (x + P.x * ZOOM * .12) / W, y0 = hTop * (.1 + .16 * Math.sin(u * 5 + t * .22 + ph) + .07 * Math.sin(u * 13 - t * .37 + ph)), hh = hTop * (.5 + .2 * Math.sin(u * 7 + t * .3 + ph * 2));
               cx.globalAlpha = .55 + .45 * Math.sin(u * 38 + t * 1.2 + ph); cx.fillRect(x, y0, 4, hh);

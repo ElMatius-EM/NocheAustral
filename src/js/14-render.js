@@ -3,9 +3,10 @@
       function drawGround(px, py) {
         const T = 96, hw = W / 2 / ZOOM + T, hh = H / 2 / ZOOM + T;
         const tx0 = Math.floor((px - hw) / T), tx1 = Math.floor((px + hw) / T), ty0 = Math.floor((py - hh) / T), ty1 = Math.floor((py + hh) / T);
-        const ice = MAP().decor === 'ice', D = decorSpr(), V = vivoSpr();
         if (S) drawTerrain(px, py);
         for (let tx = tx0; tx <= tx1; tx++) for (let ty = ty0; ty <= ty1; ty++) {
+          // en una región, cada baldosa decora según su bioma
+          const bk = S ? bioKey((tx + .5) * T, (ty + .5) * T) : 'estepa', ice = MAPS[bk].decor === 'ice', D = decorSpr(bk), V = vivoSpr(bk);
           for (let k = 0; k < 3; k++) {
             const h1 = hash(tx * 3 + k, ty * 7 - k), h2 = hash(tx * 5 - k, ty * 3 + k * 11), h3 = hash(tx + k * 17, ty - k * 5);
             const x = tx * T + h1 * T, y = ty * T + h2 * T;

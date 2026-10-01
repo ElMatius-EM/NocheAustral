@@ -42,14 +42,15 @@
           }
           return;
         }
-        const m = minute(), WV = MAP().waves, wv = WV[Math.min(m, WV.length - 1)];
+        const m = minute();
         const alive = S.enemies.length, minCount = Math.min(8 + m * 15 + m * m * .5, 380);
         S.spawnAcc += dt * (.7 + m * .38) * (alive < minCount ? 2.2 : 1) * (S.hyper ? 1.3 : 1);
         S.spawnAcc = Math.min(S.spawnAcc, 6);
         while (S.spawnAcc >= 1) {
           S.spawnAcc -= 1;
           if (S.enemies.length >= 420) break;
-          const [x, y] = S.player.moving && Math.random() < .5 ? spawnAhead() : spawnPos(); spawnEnemy(pickW(wv), x, y);
+          const [x, y] = S.player.moving && Math.random() < .5 ? spawnAhead() : spawnPos();
+          const WV = MAPS[bioKey(x, y)].waves; spawnEnemy(pickW(WV[Math.min(m, WV.length - 1)]), x, y);  // cada bioma aparece con su gente
         }
         S.propT -= dt;
         if (S.propT <= 0) {
@@ -65,7 +66,7 @@
           const [x, y] = spawnPos();
           S.bossRef = spawnEnemy(kind, x, y, {
             elite: true, boss, mini, capT: boss ? BAL.capBoss : mini ? BAL.capMini : eliteCap(), scale: sc, r: T.r * sc, hp, maxHp: hp, xp: boss ? 60 : mini ? 35 : 20, chest: true,
-            spd: T.spd * (boss ? 1.12 : mini ? 1.05 : 1.25), dmg: T.dmg * dmgMult() * (boss ? 2 : mini ? 1.7 : 1.3)
+            spd: T.spd * (boss ? 1.12 : mini ? 1.05 : 1.25), dmg: T.dmg * dmgMult() * (boss ? 2 : mini ? 1.7 : 1.3), bname: boss ? M.bossName : mini ? M.miniName : ''
           });
           banner(boss ? 'Llegó ' + M.bossName : mini ? 'Apareció ' + M.miniName : 'Un enemigo fuerte te encontró: cuida un cofre');
           sfx(110, .5, 'sawtooth', .06, .5);

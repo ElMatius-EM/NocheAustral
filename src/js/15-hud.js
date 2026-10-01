@@ -17,7 +17,7 @@
         setIf('goldN', 't', String(S.gold));
         const br = S.bossRef, bOn = !!(br && !br.dead && br.elite && S.state !== 'end');
         if (hud.bossOn !== bOn) { hud.bossOn = bOn; $('bossbar').classList.toggle('on', bOn); }
-        if (bOn) { const cap = t => t.charAt(0).toUpperCase() + t.slice(1), nm = br.boss ? cap(MAP().bossName) : br.mini ? cap(MAP().miniName) : ETYPES[br.type].name + ' élite'; setIf('bossName', 't', nm); setIf('bossFill', 'w', (clamp(br.hp / br.maxHp, 0, 1) * 100).toFixed(1) + '%'); }
+        if (bOn) { const cap = t => t.charAt(0).toUpperCase() + t.slice(1), nm = br.boss ? cap(br.bname || MAP().bossName) : br.mini ? cap(br.bname || MAP().miniName) : ETYPES[br.type].name + ' élite'; setIf('bossName', 't', nm); setIf('bossFill', 'w', (clamp(br.hp / br.maxHp, 0, 1) * 100).toFixed(1) + '%'); }
         const on = S.combo >= 5 && S.state !== 'end';
         if (hud.comboOn !== on) { hud.comboOn = on; $('combo').classList.toggle('on', on); }
         if (on) { setIf('comboN', 't', '×' + S.combo); setIf('cbar', 'w', (clamp(S.comboT / 2.2, 0, 1) * 100).toFixed(0) + '%'); }
@@ -76,7 +76,7 @@
         S.state = 'end'; joy = null;
         if (win && !S.won) { const bonus = Math.round(200 * ST.greed); S.gold += bonus; }
         if (win) S.won = true;
-        const M = MAP();
+        const M = MAPR();
         SAVE.gold += S.gold - S.goldBanked; S.goldBanked = S.gold;
         if (!S.counted) { S.counted = true; SAVE.stats.runs++; }
         const bk = S.map + (S.hyper ? '-h' : ''); SAVE.stats.best[bk] = Math.max(SAVE.stats.best[bk] || 0, Math.floor(S.t));

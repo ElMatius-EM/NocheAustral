@@ -130,7 +130,7 @@
         if (hash(a * 41 + 13, c * 23 + 7) > (NI('b4b') ? .3 : .17)) return null;
         const x = (ix + .2 + hash(a * 7 + 1, c * 11) * .6) * HERD_CELL, y = (iy + .2 + hash(a * 3, c * 5 + 9) * .6) * HERD_CELL;
         if (Math.hypot(x, y) < 900) return null;
-        const kind = S.map === 'glaciar' ? 'guanaco' : (hash(a * 19, c * 31 + 5) < .55 ? 'caballo' : 'guanaco');
+        const kind = MAPS[bioKey(x, y)].ice ? 'guanaco' : (hash(a * 19, c * 31 + 5) < .55 ? 'caballo' : 'guanaco');
         return { key: ix + ',' + iy, x, y, kind };
       }
       function rideDmg(frac, base) { const R = S.ride; return Math.max(base * hpMult(), (R ? R.dps : S.dpsEMA || 0) * frac / Math.max(1, ST.might)); }
@@ -346,11 +346,11 @@
 
       /* ---- dibujo ---- */
       function drawHerdZones() {
-        const P = S.player, hw = W / 2 / ZOOM + 180, hh = H / 2 / ZOOM + 180, ice = MAP().ice;
+        const P = S.player, hw = W / 2 / ZOOM + 180, hh = H / 2 / ZOOM + 180;
         const x0 = Math.floor((P.x - hw) / HERD_CELL), x1 = Math.floor((P.x + hw) / HERD_CELL), y0 = Math.floor((P.y - hh) / HERD_CELL), y1 = Math.floor((P.y + hh) / HERD_CELL);
         for (let ix = x0; ix <= x1; ix++) for (let iy = y0; iy <= y1; iy++) {
           const z = herdZone(ix, iy); if (!z || Math.abs(z.x - P.x) > hw || Math.abs(z.y - P.y) > hh) continue;
-          const sd = ix * 7 + iy * 13;
+          const sd = ix * 7 + iy * 13, zb = bioKey(z.x, z.y), ice = MAPS[zb].ice;
           if (z.kind === 'caballo') {
             // potrero con alambrado a medio caer
             const n = 10, pts = [];
@@ -366,7 +366,7 @@
             cx.fillStyle = ice ? 'rgba(170,215,240,.35)' : 'rgba(24,44,58,.85)'; cx.beginPath(); cx.ellipse(z.x, z.y + 10, 70, 30, 0, 0, TAU); cx.fill();
             cx.strokeStyle = ice ? 'rgba(235,248,255,.55)' : 'rgba(120,160,170,.45)'; cx.lineWidth = 2; cx.beginPath(); cx.ellipse(z.x, z.y + 10, 70, 30, 0, 0, TAU); cx.stroke();
             cx.strokeStyle = ice ? 'rgba(255,255,255,.6)' : 'rgba(190,215,220,.35)'; cx.lineWidth = 1.5; cx.beginPath(); cx.moveTo(z.x - 30, z.y + 2); cx.lineTo(z.x + 8, z.y); cx.moveTo(z.x - 4, z.y + 18); cx.lineTo(z.x + 30, z.y + 16); cx.stroke();
-            if (!ice) { const D = decorSpr(); for (let i = 0; i < 6; i++) { const an = i / 6 * TAU + hash(sd, i); dimg(D.tuft[i % 3], z.x + Math.cos(an) * 78, z.y + 10 + Math.sin(an) * 36); } }
+            if (!ice) { const D = decorSpr(zb); for (let i = 0; i < 6; i++) { const an = i / 6 * TAU + hash(sd, i); dimg(D.tuft[i % 3], z.x + Math.cos(an) * 78, z.y + 10 + Math.sin(an) * 36); } }
           }
         }
       }

@@ -9,7 +9,7 @@
       // oscuridad según la hora: anochece, noche cerrada, amanece a los 15 min; en la noche eterna vuelve rojiza
       function nightState() {
         if (!S || SAVE.opts.dark === false) return null;
-        const t = S.t, ice = !!MAP().ice; let a = (ice ? .46 : .55) * (S.hyper ? 1.15 : 1), col = [6, 9, 26];
+        const t = S.t, ik = S.iceK || 0; let a = (.55 - .09 * ik) * (S.hyper ? 1.15 : 1), col = [6, 9, 26];
         if (t < 45) a *= .5 + .5 * t / 45;
         else if (t > 720 && t <= 900) { const k = (t - 720) / 180; a *= 1 - .8 * k; col = k < .5 ? mixA([6, 9, 26], [42, 18, 56], k * 2) : mixA([42, 18, 56], [74, 40, 16], (k - .5) * 2); }
         else if (t > 900) { const k = clamp((t - 900) / 45, 0, 1); a *= .2 + .9 * k; col = mixA([74, 40, 16], [32, 4, 10], k); }
@@ -86,10 +86,10 @@
         if (!n || GFX_LOW) return; const k = clamp(n.a / .44, 0, 1); if (k < .05) return;
         const P = S.player, t = reduceMotion ? 0 : S.t;
         cx.globalCompositeOperation = 'lighter';
-        if (MAP().ice) {
+        if (S.iceK > .02) {
           const hTop = H * .45;
           for (const [c, al, ph] of [['80,255,170', .11, 0], ['90,200,255', .07, 2.1], ['200,110,255', .045, 4.2]]) {
-            const gr = cx.createLinearGradient(0, 0, 0, hTop); gr.addColorStop(0, `rgba(${c},0)`); gr.addColorStop(.45, `rgba(${c},${al * k})`); gr.addColorStop(1, `rgba(${c},0)`); cx.fillStyle = gr;
+            const gr = cx.createLinearGradient(0, 0, 0, hTop); gr.addColorStop(0, `rgba(${c},0)`); gr.addColorStop(.45, `rgba(${c},${al * k * S.iceK})`); gr.addColorStop(1, `rgba(${c},0)`); cx.fillStyle = gr;
             for (let x = 0; x < W; x += 4) {
               const u = (x + P.x * ZOOM * .12) / W, y0 = hTop * (.1 + .16 * Math.sin(u * 5 + t * .22 + ph) + .07 * Math.sin(u * 13 - t * .37 + ph)), hh = hTop * (.5 + .2 * Math.sin(u * 7 + t * .3 + ph * 2));
               cx.globalAlpha = .55 + .45 * Math.sin(u * 38 + t * 1.2 + ph); cx.fillRect(x, y0, 4, hh);

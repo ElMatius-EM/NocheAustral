@@ -29,6 +29,7 @@
       const AVISOS = { swarm: 'Algo viene volando del lado del monte', rush: 'Tiembla la tierra: se viene una estampida', ring: 'Te están cerrando el cerco', boss: 'Huele a jefe: se viene algo grande' };
       function update(dt) {
         S.t += dt;
+        updateBiome(dt);
         if (S.comida && !S.comida.done && S.t >= S.comida.until) { S.comida.done = true; recompute(); S.player.hp = Math.min(S.player.hp, ST.maxHp); banner(FOGON_REC[S.comida.id].end); }
         const P = S.player;
         S.pWet = terrWet(P.x, P.y);

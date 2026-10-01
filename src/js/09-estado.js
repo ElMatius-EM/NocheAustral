@@ -33,6 +33,7 @@
         // lo preparado en el fogón se gasta en la primera noche que sale del Puesto (no en el campo ni en partida rápida)
         if (S.mode !== 'campo' && viaPuesto && SAVE.comida && FOGON_REC[SAVE.comida]) { S.comida = { id: SAVE.comida, until: CHARS[charId].fogon ? 900 : COMIDA_T, done: false }; SAVE.comida = null; writeSave(); }
         S.rerolls = Math.max(0, S.rerolls + (CHARS[charId].rerolls || 0)); S.rideCD = 0;
+        { const R = MAPS[S.map].region; S.bio = R ? R.biomes[0] : S.map; S.iceK = MAPS[S.bio].ice ? 1 : 0; }
         ST = null; obsCache.clear(); TCACHE.clear();
         for (const e of freeE) e.dead = true;
         addWeapon(CHARS[charId].weapon);
@@ -100,14 +101,14 @@
       }
       const OBS_CELL = 340, obsCache = new Map();
       function obsChunk(ix, iy) {
-        const key = gk(ix, iy) * 2 + (S.map === 'glaciar' ? 1 : 0); let a = obsCache.get(key); if (a) return a; a = [];
-        const M = MAP(), h0 = hash(ix * 31 + 7, iy * 17 + 3), n = h0 < .3 ? 0 : h0 < .78 ? 1 : 2;
+        const key = gk(ix, iy); let a = obsCache.get(key); if (a) return a; a = [];
+        const h0 = hash(ix * 31 + 7, iy * 17 + 3), n = h0 < .3 ? 0 : h0 < .78 ? 1 : 2;
         for (let i = 0; i < n; i++) {
           const h1 = hash(ix * 13 + i * 7, iy * 29 - i * 3), h2 = hash(ix * 5 - i * 11, iy * 7 + i * 19), h3 = hash(ix + i * 23, iy * 3 - i);
           const x = (ix + .15 + h1 * .7) * OBS_CELL, y = (iy + .15 + h2 * .7) * OBS_CELL, r = 20 + h3 * 30;
           if (Math.hypot(x, y) < 260) continue;
           if (a.some(o => Math.hypot(o.x - x, o.y - y) < o.r + r + 70)) continue;
-          a.push({ x, y, r, kind: M.obs[h3 < .55 ? 0 : 1], seed: Math.floor(h1 * 1000) });
+          a.push({ x, y, r, kind: MAPS[bioKey(x, y)].obs[h3 < .55 ? 0 : 1], seed: Math.floor(h1 * 1000) });
         }
         if (obsCache.size > 4000) obsCache.clear();
         obsCache.set(key, a); return a;
