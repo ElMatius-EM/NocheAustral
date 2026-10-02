@@ -4,6 +4,7 @@
            ?dev&map=glaciar&min=10   otro mapa y otro minuto de arranque (min entre 0 y 14,9)
            ?dev&char=fueguera&low    otro personaje y gráficos bajos
          Panel a la izquierda, debajo de las armas: Dios (invencible sí/no), +30 s, "Al Mandinga" (salta a 14:55) y "Horda" (llena la pantalla).
+         Debajo, interruptores (verde = se dibuja, rojo tachado = apagado) para ver qué parte pesa en el celular.
          Nada se guarda: writeSave queda anulado mientras dure la sesión. */
       if (DEV) {
         writeSave = () => { };
@@ -52,5 +53,22 @@
         btn('+30 s', () => { if (S && S.state === 'play' && !S.finale) jumpTo(Math.min(S.t + 30, 899)); });
         btn('Al Mandinga', () => { if (S && S.state === 'play' && !S.finale && !S.endless) jumpTo(895); });
         btn('Horda', () => { if (S && S.state === 'play') devHorde(200); });
+        // interruptores para diagnosticar en el celular: apagar una parte del dibujo y mirar cuánto baja "fuera del JS"
+        const ORIG = { blitEnemy, drawGround, drawTexts, updateHUD, drawMarks };
+        const NOOP = { blitEnemy: () => { }, drawGround: () => { cx.fillStyle = MAP().bg; cx.fillRect(S.player.x - 2000, S.player.y - 2000, 4000, 4000); }, drawTexts: () => { }, updateHUD: () => { }, drawMarks: () => { } };
+        const setFn = (k, on) => { const f = on ? ORIG[k] : NOOP[k]; if (k === 'blitEnemy') blitEnemy = f; else if (k === 'drawGround') drawGround = f; else if (k === 'drawTexts') drawTexts = f; else if (k === 'updateHUD') updateHUD = f; else drawMarks = f; };
+        const sw = document.createElement('div'); sw.style.cssText = 'display:flex;flex-wrap:wrap;gap:4px;max-width:46vw';
+        for (const [name, fn] of [['enemigos', 'blitEnemy'], ['suelo', 'drawGround'], ['números', 'drawTexts'], ['HUD', 'updateHUD'], ['marcas', 'drawMarks'], ['sombras'], ['efectos'], ['partículas']]) {
+          const b = document.createElement('button'); b.textContent = name; b.style.cssText = 'padding:5px 7px;background:#0c1120cc;color:#9fe08a;border:1px solid #5a7a4a;border-radius:4px;font:11px monospace';
+          b.addEventListener('pointerdown', e => e.stopPropagation());
+          b.addEventListener('click', e => {
+            e.stopPropagation(); const off = !DEV.off.has(name);
+            if (off) DEV.off.add(name); else DEV.off.delete(name);
+            if (fn) setFn(fn, !off);
+            b.style.color = off ? '#ff6b6b' : '#9fe08a'; b.style.textDecoration = off ? 'line-through' : '';
+          });
+          sw.appendChild(b);
+        }
+        pn.appendChild(sw);
         document.body.appendChild(pn);
       }

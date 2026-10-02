@@ -333,9 +333,11 @@
             cx.globalAlpha = .55 + .35 * Math.sin(S.t * 20) * k; cx.strokeStyle = '#ff5a3c'; cx.beginPath(); cx.arc(m.jtx, m.jty, MF.R, 0, TAU); cx.stroke(); cx.globalAlpha = 1; }
         } }
         drawMounts();
-        cx.fillStyle = 'rgba(0,0,0,.25)'; cx.beginPath();
-        for (const e of S.enemies) { if (ETYPES[e.type].fly || !vis(e.x, e.y)) continue; cx.moveTo(e.x + e.r, e.y + e.r * .9); cx.ellipse(e.x, e.y + e.r * .9, e.r, e.r * .35, 0, 0, TAU); }
-        cx.fill();
+        if (!(DEV && DEV.off.has('sombras'))) {
+          cx.fillStyle = 'rgba(0,0,0,.25)'; cx.beginPath();
+          for (const e of S.enemies) { if (ETYPES[e.type].fly || !vis(e.x, e.y)) continue; cx.moveTo(e.x + e.r, e.y + e.r * .9); cx.ellipse(e.x, e.y + e.r * .9, e.r, e.r * .35, 0, 0, TAU); }
+          cx.fill();
+        }
         gSync();
         for (const e of S.enemies) {
           if (!vis(e.x, e.y)) continue;
@@ -439,6 +441,7 @@
         }
 
         for (const f of S.fx) {
+          if (DEV && DEV.off.has('efectos')) break;
           // culling: el rayo baja desde 360 arriba y los anillos pueden ser enormes, así que se mira su alcance
           const ext = f.type === 'ring' ? f.R + 8 : f.type === 'bolt' ? 360 : f.type === 'slash' ? 80 : 0;
           if (Math.abs(f.x - P.x) > hw + ext || Math.abs(f.y - P.y) > hh + ext) continue;
@@ -508,6 +511,7 @@
         wReset();
         // partículas: las comunes van en lotes por color y opacidad (un fill por lote); las que brillan, un drawImage cada una
         for (const p of S.parts) {
+          if (DEV && DEV.off.has('partículas')) break;
           if (!vis(p.x, p.y)) continue;
           const a = clamp(p.life / p.max, 0, 1);
           if (p.glow) { const q = Math.ceil(a * 6); if (q > 0) GLOW_B.add(p.col + q, p.col, q / 6, p); continue; }
