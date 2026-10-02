@@ -51,3 +51,16 @@ No usa dependencias. Todo el JS se concatena en orden de nombre dentro de un ún
 | `31-loop` | `frame()` y arranque |
 
 Para agregar un archivo nuevo, ponele un número que lo ubique después de lo que usa al cargarse.
+
+## Rendimiento
+
+En el peor caso (cientos de enemigos y muchas armas) la lógica (`update`) cuesta poco; lo caro es la cantidad de llamadas al canvas. En `14-render` hay ayudas para dibujar en lote y conviene usarlas en código nuevo de dibujo:
+
+- `wSet(x, y, sx, sy, rot)` pone la transformación de un objeto con un solo `setTransform` (sin `save`/`restore`); `wReset()` vuelve a la matriz del mundo. Solo valen dentro de `drawWorld`.
+- `mkBatch()` agrupa por color y opacidad para hacer un `fill` por grupo (partículas, huellas).
+- `dotSpr`, `zoneSpr`, `trailSpr`: degradados y resplandores horneados una vez, en vez de crearlos cada frame.
+- Números de daño: atlas de dígitos (`drawTxt`), sin `fillText`/`strokeText` por número.
+
+En `00-base`, `RES_K` es la resolución dinámica (`31-loop` la baja si el promedio pasa de ~21 ms por frame) y `PART_K` escala los topes de partículas según la calidad.
+
+Para medir: `python tools/bench.py` (ver el encabezado del archivo).

@@ -61,17 +61,19 @@
       }
       function LSPR() { return glowSpr('#ffffff'); }
 
-      // dibuja un enemigo con su animación
+      // dibuja un enemigo con su animación. Dentro de drawWorld (BM) usa setTransform directo: sin save/translate/scale/restore
       function blitEnemy(e, sp, sz, bob) {
         const T = ETYPES[e.type];
         if (sp.frames.length > 1 && T.fly) {
-          const fr = sp.frames[((S.t * 9 + e.wob * 4) | 0) % sp.frames.length];
-          cx.save(); cx.translate(e.x, e.y + bob); cx.rotate(clamp((e.mvx || 0) / 140, -1, 1) * .28);
+          const fr = sp.frames[((S.t * 9 + e.wob * 4) | 0) % sp.frames.length], rot = clamp((e.mvx || 0) / 140, -1, 1) * .28;
+          if (BM) { wSet(e.x, e.y + bob, 1, 1, rot); gA(.9); cx.drawImage(e.flash > 0 ? fr.flash : fr.img, -sz / 2, -sz / 2, sz, sz); gA(1); return; }
+          cx.save(); cx.translate(e.x, e.y + bob); cx.rotate(rot);
           cx.globalAlpha = .9; cx.drawImage(e.flash > 0 ? fr.flash : fr.img, -sz / 2, -sz / 2, sz, sz); cx.globalAlpha = 1; cx.restore();
         } else if (sp.frames.length > 1) {
           const fz = S.freezeT > 0, fr = sp.frames[fz ? 0 : ((S.t * 8 + e.wob * 3) | 0) % sp.frames.length], sq = fz ? 0 : Math.sin(S.t * 16 + e.wob) * .02, fl = (e.mvx || 0) < -5 ? -1 : 1;
+          if (BM) { wSet(e.x, e.y, fl * (1 - sq), 1 + sq, 0); cx.drawImage(e.flash > 0 ? fr.flash : fr.img, -sz / 2, -sz / 2, sz, sz); return; }
           cx.save(); cx.translate(e.x, e.y); cx.scale(fl * (1 - sq), 1 + sq); cx.drawImage(e.flash > 0 ? fr.flash : fr.img, -sz / 2, -sz / 2, sz, sz); cx.restore();
-        } else cx.drawImage(e.flash > 0 ? sp.flash : sp.img, e.x - sz / 2, e.y - sz / 2 + bob, sz, sz);
+        } else { if (BM) wReset(); cx.drawImage(e.flash > 0 ? sp.flash : sp.img, e.x - sz / 2, e.y - sz / 2 + bob, sz, sz); }
       }
       // capa sobre la oscuridad: números de daño y textos flotantes
       function drawOverlay(sx, sy) {

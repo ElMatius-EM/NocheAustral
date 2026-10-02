@@ -98,7 +98,7 @@
       $('optNums').addEventListener('change', () => { SAVE.opts.nums = $('optNums').checked; writeSave(); });
       $('optShake').addEventListener('change', () => { SAVE.opts.shake = $('optShake').checked; writeSave(); });
       $('optDark').addEventListener('change', () => { SAVE.opts.dark = $('optDark').checked; writeSave(); });
-      $('optLow').addEventListener('change', () => { SAVE.opts.gfx = $('optLow').checked ? 'bajo' : 'alto'; GFX_LOW = SAVE.opts.gfx === 'bajo'; writeSave(); resize(); });
+      $('optLow').addEventListener('change', () => { SAVE.opts.gfx = $('optLow').checked ? 'bajo' : 'alto'; GFX_LOW = SAVE.opts.gfx === 'bajo'; RES_K = 1; writeSave(); resize(); });
       $('optFps').addEventListener('change', () => { SAVE.opts.fps = $('optFps').checked; writeSave(); $('fpsMeter').classList.toggle('on', SAVE.opts.fps); });
       $('optFastChest').addEventListener('change', () => { SAVE.opts.fastChest = $('optFastChest').checked; writeSave(); });
       $('optGlass').addEventListener('change', () => { SAVE.opts.clearUI = $('optGlass').checked; document.documentElement.classList.toggle('clear', SAVE.opts.clearUI); writeSave(); });

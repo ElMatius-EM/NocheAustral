@@ -13,10 +13,20 @@
           FPSM.n = 0; FPSM.worst = 0; FPSM.t0 = now;
         }
       }
+      /* resolución dinámica: si durante la partida el promedio pasa de ~21 ms por frame (menos de 48 fps),
+         baja la resolución interna un escalón (2x → 1,5x → 1x). Solo baja y no se guarda: cada sesión arranca en alta. */
+      const AUTO = { acc: 0, n: 0 };
+      function autoRes(raw) {
+        if (!S || S.state !== 'play' || GFX_LOW || DPR <= 1 || raw > 120) { AUTO.acc = AUTO.n = 0; return; }
+        AUTO.acc += raw; AUTO.n++;
+        if (AUTO.acc < 2500) return;
+        const avg = AUTO.acc / AUTO.n; AUTO.acc = AUTO.n = 0;
+        if (avg > 21) { RES_K = Math.max(.5, RES_K - .25); resize(); }
+      }
       function frame(now) {
         const raw = now - last;
         let dt = raw / 1000; last = now;
-        fpsTick(now, raw);
+        fpsTick(now, raw); autoRes(raw);
         if (dt > 1 / 20) dt = 1 / 20; if (dt < 0) dt = 0;
         if (S && S.state === 'play') { if (S.hitstop > 0) { S.hitstop -= dt; if (S.shake > 0) S.shake = Math.max(0, S.shake - dt); } else update(dt); }
         render(dt);

@@ -148,15 +148,21 @@
       }
       function drawMarks() {
         const P = S.player, hw = W / 2 / ZOOM + 40, hh = H / 2 / ZOOM + 40;
+        // huellas y manchas en lotes por color y opacidad: un fill por lote en vez de uno por marca
         for (const m of S.marks) {
           if (Math.abs(m.x - P.x) > hw || Math.abs(m.y - P.y) > hh) continue;
-          cx.globalAlpha = m.al * Math.min(1, m.life / (m.max * .45)); cx.fillStyle = m.col; cx.beginPath();
-          if (m.k === 'foot') cx.ellipse(m.x, m.y, 4, 2.1, m.ang, 0, TAU);
-          else if (m.k === 'hoof') { const nx = -Math.sin(m.ang) * 3, ny = Math.cos(m.ang) * 3; cx.ellipse(m.x + nx, m.y + ny, 2.6, 2.3, 0, 0, TAU); cx.moveTo(m.x - nx + 2.6, m.y - ny); cx.ellipse(m.x - nx, m.y - ny, 2.6, 2.3, 0, 0, TAU); }
-          else if (m.k === 'paw') { for (const [a, d] of [[0, 0], [-.7, 3.2], [.7, 3.2]]) { const px = m.x + Math.cos(m.ang + a) * d, py = m.y + Math.sin(m.ang + a) * d; cx.moveTo(px + 1.6, py); cx.arc(px, py, a ? 1.2 : 1.9, 0, TAU); } }
-          else { cx.ellipse(m.x, m.y, m.r, m.r * .55, 0, 0, TAU); }
-          cx.fill();
+          const q = Math.min(8, Math.ceil(m.al * Math.min(1, m.life / (m.max * .45)) * 8)); if (q > 0) MARK_B.add(m.col + q, m.col, q / 8, m);
         }
+        MARK_B.each(g => {
+          cx.globalAlpha = g.a; cx.fillStyle = g.col; cx.beginPath();
+          for (const m of g.l) {
+            if (m.k === 'foot') { cx.moveTo(m.x + 4 * Math.cos(m.ang), m.y + 4 * Math.sin(m.ang)); cx.ellipse(m.x, m.y, 4, 2.1, m.ang, 0, TAU); }
+            else if (m.k === 'hoof') { const nx = -Math.sin(m.ang) * 3, ny = Math.cos(m.ang) * 3; cx.moveTo(m.x + nx + 2.6, m.y + ny); cx.ellipse(m.x + nx, m.y + ny, 2.6, 2.3, 0, 0, TAU); cx.moveTo(m.x - nx + 2.6, m.y - ny); cx.ellipse(m.x - nx, m.y - ny, 2.6, 2.3, 0, 0, TAU); }
+            else if (m.k === 'paw') { for (const [a, d] of [[0, 0], [-.7, 3.2], [.7, 3.2]]) { const px = m.x + Math.cos(m.ang + a) * d, py = m.y + Math.sin(m.ang + a) * d, r = a ? 1.2 : 1.9; cx.moveTo(px + r, py); cx.arc(px, py, r, 0, TAU); } }
+            else { cx.moveTo(m.x + m.r, m.y); cx.ellipse(m.x, m.y, m.r, m.r * .55, 0, 0, TAU); }
+          }
+          cx.fill();
+        });
         cx.globalAlpha = 1;
         const Pl = TPAL(); cx.strokeStyle = Pl.glint; cx.lineWidth = 1.2;
         for (const r of S.ripples) { const k = 1 - r.life / r.max, R = 3 + k * 15; cx.globalAlpha = (1 - k) * .55; cx.beginPath(); cx.ellipse(r.x, r.y, R, R * .45, 0, 0, TAU); cx.stroke(); }
