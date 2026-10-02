@@ -4,7 +4,9 @@
       /* ---- equilibrio ----
          La vida de los enemigos escala con el tiempo y con el nivel del jugador; el daño enemigo crece más rápido después del minuto 8.
          Élites, mini-jefes y jefes tienen un piso de vida calculado con el daño por segundo real del jugador (dpsEMA). */
-      const BAL = { lvlHp: .012, lateDmg: .012, floorElite: 10, floorMini: 9, floorBoss: 18, auraVsElite: .6, healCap: 4, capElite: 12, capMini: 20, capBoss: 35 };
+      // dens: fracción de enemigos comunes respecto del diseño original; cada uno tiene 1/dens de vida y da 1/dens de experiencia
+      // y de chance de drop, así la horda pesa lo mismo con menos cuerpos (menos lógica, dibujo y píxeles en el celular)
+      const BAL = { dens: .75, lvlHp: .012, lateDmg: .012, floorElite: 10, floorMini: 9, floorBoss: 18, auraVsElite: .6, healCap: 4, capElite: 12, capMini: 20, capBoss: 35 };
       function hpMult() { if (S.mode === 'campo') return 1.2; const m = S.t / 60; return (1 + m * .3 + m * m * .025) * (1 + Math.max(0, S.level - 15) * BAL.lvlHp); }
       function dmgMult() { if (S.mode === 'campo') return 1; const m = S.t / 60; return 1 + m * .06 + Math.max(0, m - 8) ** 2 * BAL.lateDmg; }
       const AURA = new Set(['fogon', 'pava', 'fuego']);

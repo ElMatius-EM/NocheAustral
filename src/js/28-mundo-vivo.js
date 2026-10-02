@@ -103,7 +103,7 @@
         tBudgetEnd = performance.now() + (TCACHE.size < 8 ? 60 : 5);
         const x0 = Math.floor((px - hw) / TCH), x1 = Math.floor((px + hw) / TCH), y0 = Math.floor((py - hh) / TCH), y1 = Math.floor((py + hh) / TCH);
         cx.imageSmoothingEnabled = false;
-        for (let i = x0; i <= x1; i++) for (let j = y0; j <= y1; j++) { const c = terrChunk(i, j); if (c) cx.drawImage(c, i * TCH, j * TCH, TCH + .7, TCH + .7); }
+        for (let i = x0; i <= x1; i++) for (let j = y0; j <= y1; j++) { const c = terrChunk(i, j); if (c) cx.drawImage(c, i * TCH, j * TCH, TCH + .7, TCH + .7); else { cx.fillStyle = MAP().bg; cx.fillRect(i * TCH, j * TCH, TCH + .7, TCH + .7); } }
         cx.imageSmoothingEnabled = true;
         // prearmado en segundo plano: avanza de a filas un chunk del anillo de afuera (primero hacia donde se mueve el
         // jugador), con un tope de tiempo por frame. Así el terreno ya está hecho cuando entra a la pantalla.

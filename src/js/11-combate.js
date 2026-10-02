@@ -93,11 +93,11 @@
         dropMats(e); if (e.boss && e.type !== 'mandinga') S.bossK++; else if (e.mini) S.miniK++; else if (e.elite && e.type !== 'mandinga') S.eliteK++;
         if (e.chest) { S.picks.push({ type: 'cofre', x: e.x, y: e.y, t: 0 }); S.fx.push({ type: 'ring', x: e.x, y: e.y, life: .6, max: .6, col: '#c9a45c', R: 80 }); }
         const r = Math.random();
-        const ar = S.arc.has('cuatroCopas') ? .012 : .005;
+        const ar = (S.arc.has('cuatroCopas') ? .012 : .005) / BAL.dens;
         if (r < ar) S.picks.push({ type: 'asado', x: e.x, y: e.y, t: 0 });
-        else if (r < ar + .0025) S.picks.push({ type: 'iman', x: e.x, y: e.y, t: 0 });
+        else if (r < ar + .0025 / BAL.dens) S.picks.push({ type: 'iman', x: e.x, y: e.y, t: 0 });
         if (e.elite && e.type !== 'mandinga') S.picks.push({ type: 'bolsa', x: e.x + 14, y: e.y, t: 0, v: Math.round((e.boss ? 120 : rnd(25, 45)) * ST.greed) });
-        else if (S.mode !== 'campo' && Math.random() < .035 && S.picks.length < 250) S.picks.push({ type: 'oro', x: e.x, y: e.y, t: 0, v: Math.max(1, Math.round(ST.greed)) });
+        else if (S.mode !== 'campo' && Math.random() < .035 / BAL.dens && S.picks.length < 250) S.picks.push({ type: 'oro', x: e.x, y: e.y, t: 0, v: Math.max(1, Math.round(ST.greed)) });
       }
       function swing(w, s, dir, yo) {
         const P = S.player, A = s.area * ST.area, ww = 150 * A, hh = 34 * A;
@@ -134,7 +134,7 @@
         const d = Math.max(1, raw * (1 - armorRed()) * ST.taken); P.hp -= d;
         if (NI('h4a') && !S.secondWind && P.hp > 0 && P.hp < ST.maxHp * .25) { S.secondWind = true; P.iframe = 3; P.hp = Math.min(ST.maxHp, P.hp + ST.maxHp * .3); banner('Segundo aire'); S.fx.push({ type: 'ring', x: P.x, y: P.y, life: .6, max: .6, col: '#8fe07a', R: 120 }); sfx(440, .3, 'triangle', .05, 2); }
         if (contact) P.touchIF = CONTACT_IFRAME; else P.iframe = .3;
-        S.shake = Math.min(1, S.shake + .35); S.hurtFlash = .25; S.hitstop = Math.max(S.hitstop, .04);
+        S.shake = Math.min(1, S.shake + .35); if (d >= ST.maxHp * .06) S.hurtFlash = .25; S.hitstop = Math.max(S.hitstop, .04);  // el flash es una capa a pantalla completa: solo golpes que pesan
         addText(P.x, P.y - 26, Math.round(d), '#ff6b6b');
         sfx(90, .15, 'square', .05, .6);
       }

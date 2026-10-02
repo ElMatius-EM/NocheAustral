@@ -11,7 +11,11 @@
       let RES_K = 1, PART_K = 1;
       function resize() {
         // en gráficos bajos se dibuja a 1 píxel por píxel CSS: en pantallas de alta densidad es 4 veces menos trabajo
-        DPR = GFX_LOW ? 1 : Math.max(1, Math.min(window.devicePixelRatio || 1, 2) * RES_K);
+        // si la resolución dinámica baja de 1x se salta directo a 0,5x: escala entera (cada píxel interno = 2x2 de pantalla),
+        // nítida con image-rendering: pixelated y con 4 veces menos píxeles que 1x
+        const d = (GFX_LOW ? 1 : Math.min(window.devicePixelRatio || 1, 2)) * RES_K;
+        DPR = d >= 1 ? d : .5;
+        cv.style.imageRendering = DPR < 1 ? 'pixelated' : '';
         PART_K = GFX_LOW ? .45 : RES_K < 1 ? .7 : 1;
         W = window.innerWidth; H = window.innerHeight;
         cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);

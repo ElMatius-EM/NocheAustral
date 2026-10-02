@@ -82,11 +82,13 @@
       }
       // número completo horneado en un canvas propio del texto (contornos y rellenos en una pasada):
       // se rearma solo si cambia el valor, el tamaño, el color o la escala; dibujarlo es un solo drawImage
+      // los canvas de los números se reciclan: crear uno nuevo por golpe en el celular es caro (contexto + textura nueva)
+      const NUM_POOL = [];
       function numSpr(h, str, col, fi) {
         const key = TXT_KEY + '|' + fi + '|' + col + '|' + str;
         let c = h._c; if (c && c.key === key) return c;
         const D = digitSet(col, fi); let w = 0; for (let i = 0; i < str.length; i++) w += D.adv[str[i]];
-        if (!c) c = h._c = document.createElement('canvas');
+        if (!c) { c = h._c = NUM_POOL.pop() || document.createElement('canvas'); c.key = null; }
         c.width = Math.ceil(w) + D.pad * 2 + 1; c.height = D.h; // reasignar el tamaño también limpia
         const g = c.getContext('2d');
         for (let row = 0; row < 2; row++) {
@@ -538,7 +540,8 @@
       function render(dt) {
         const pOn = SAVE.opts.fps; let t0 = pOn ? performance.now() : 0;
         cx.setTransform(DPR, 0, 0, DPR, 0, 0);
-        cx.fillStyle = MAP().bg; cx.fillRect(0, 0, W, H);
+        // en partida el terreno tapa toda la pantalla (y pinta el fondo solo donde falta un chunk): no hace falta otra capa
+        if (!S) { cx.fillStyle = MAP().bg; cx.fillRect(0, 0, W, H); }
         demoT += dt;
         if (!S && PU) { drawPuesto(dt); return; }
         if (!S) { drawTitleScene(dt); cx.drawImage(vignette, 0, 0, W, H); drawCharPreview(); return; }
@@ -555,7 +558,7 @@
         if (pOn) t0 = prf('mundo', t0);
         drawOverlay(sx, sy);
         if (S && S.weather) drawWeather(dt);
-        cx.drawImage(vignette, 0, 0, W, H);
+        if (RES_K >= 1) cx.drawImage(vignette, 0, 0, W, H);  // si el equipo ya bajó la resolución, se ahorra esta capa entera
         if (!S) return;
         if (S.freezeT > 0) { cx.fillStyle = 'rgba(120,190,255,.10)'; cx.fillRect(0, 0, W, H); }
         if (S.whiteFlash > 0) { cx.fillStyle = `rgba(255,250,235,${Math.min(.6, S.whiteFlash * 1.6)})`; cx.fillRect(0, 0, W, H); }

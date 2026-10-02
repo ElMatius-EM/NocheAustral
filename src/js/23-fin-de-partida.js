@@ -28,7 +28,7 @@
           if (e.mini) SAVE.trophies['mini_' + e.type] = 1;
           return;
         }
-        const d = MAT_DROP[e.type]; if (d && Math.random() < d[1]) push(d[0], 1);
+        const d = MAT_DROP[e.type]; if (d && Math.random() < d[1] / (S.mode === 'campo' ? 1 : BAL.dens)) push(d[0], 1);
       }
       function runFama() {
         if (!S) return 0;

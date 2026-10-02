@@ -6,7 +6,8 @@
       function spawnEnemy(type, x, y, opt) {
         const T = ETYPES[type], m = S.t / 60, hm = hpMult();
         const e = freeE.pop() || {};
-        e.type = type; e.x = x; e.y = y; e.r = T.r; e.hp = e.maxHp = T.hp * hm; e.spd = T.spd * rnd(.82, 1.18) * (S.hyper ? 1.25 : 1); e.dmg = T.dmg * dmgMult(); e.xp = S.mode === 'campo' ? 0 : T.xp;
+        const dk = S.mode === 'campo' ? 1 : BAL.dens;
+        e.type = type; e.x = x; e.y = y; e.r = T.r; e.hp = e.maxHp = T.hp * hm / dk; e.spd = T.spd * rnd(.82, 1.18) * (S.hyper ? 1.25 : 1); e.dmg = T.dmg * dmgMult(); e.xp = S.mode === 'campo' ? 0 : T.xp / dk; e.lodP = (Math.random() * 2) | 0;
         e.dead = false; e.gone = false; e.dmgTxt = null; e.mini = false; e.capT = 0; e.cw = 0; e.cdmg = 0; e.howl = undefined; e.enr = false; e.flash = 0; e.kx = 0; e.ky = 0; e.imm = {}; e.slowT = 0; e.elite = false; e.boss = false; e.chest = false; e.fight = false; e.jph = null; e.z = 0;
         e.vx = 0; e.vy = 0; e.life = 0; e.straight = false; e.prop = !!T.prop; e.shoot = rnd(1.5, 3); e.scale = 1; e.oa = Math.random() * TAU; e.orad = rnd(80, 260); e.odir = Math.random() < .5 ? -1 : 1; e.phase = null; e.ch = undefined; e.summon = 6; e.aimT = 0; e.wob = Math.random() * TAU; e._wtT = 0; e._wet = false; e._md = 0;
         if (opt) Object.assign(e, opt);
@@ -46,12 +47,12 @@
         if (S.finale === 'done') return;  // ya cayó el Mandinga: solo falta la pantalla final
         const m = minute();
         // en la pelea final el protagonista es el Mandinga: pocos enemigos de relleno
-        const alive = S.enemies.length, minCount = S.finale ? 40 : Math.min(8 + m * 15 + m * m * .5, 380);
-        S.spawnAcc += dt * (.7 + m * .38) * (alive < minCount ? 2.2 : 1) * (S.hyper ? 1.3 : 1) * (S.finale ? .3 : 1);
+        const alive = S.enemies.length, minCount = S.finale ? 40 : Math.min(8 + m * 15 + m * m * .5, 380) * BAL.dens;
+        S.spawnAcc += dt * (.7 + m * .38) * BAL.dens * (alive < minCount ? 2.2 : 1) * (S.hyper ? 1.3 : 1) * (S.finale ? .3 : 1);
         S.spawnAcc = Math.min(S.spawnAcc, 6);
         while (S.spawnAcc >= 1) {
           S.spawnAcc -= 1;
-          if (S.enemies.length >= (S.finale ? 120 : 420)) break;
+          if (S.enemies.length >= (S.finale ? 120 : 420 * BAL.dens)) break;
           const [x, y] = S.player.moving && Math.random() < .5 ? spawnAhead() : spawnPos();
           const WV = MAPS[bioKey(x, y)].waves; spawnEnemy(pickW(WV[Math.min(m, WV.length - 1)]), x, y);  // cada bioma aparece con su gente
         }
@@ -75,20 +76,20 @@
           sfx(110, .5, 'sawtooth', .06, .5);
         } else if (type === 'swarm') {
           const a = Math.random() * TAU, d = viewR() + 30, cxp = P.x - Math.cos(a) * d, cyp = P.y - Math.sin(a) * d, px = -Math.sin(a), py = Math.cos(a);
-          const cnt = Math.min(18 + m * 2, 44);
+          const cnt = Math.round(Math.min(18 + m * 2, 44) * BAL.dens);
           for (let i = 0; i < cnt; i++) {
             const o = (i - cnt / 2) * 14 + rnd(-6, 6), back = rnd(0, 90);
             spawnEnemy(M.swarm, cxp + px * o - Math.cos(a) * back, cyp + py * o - Math.sin(a) * back, { straight: true, vx: Math.cos(a) * 120, vy: Math.sin(a) * 120, life: 18 });
           }
           banner(M.txt.swarm);
         } else if (type === 'ring') {
-          const n = Math.min(26 + m * 2, 44), R = viewR() * .95;
+          const n = Math.round(Math.min(26 + m * 2, 44) * BAL.dens), R = viewR() * .95, n2 = Math.round(24 * BAL.dens);
           for (let i = 0; i < n; i++) { const a = i / n * TAU; spawnEnemy(M.ring, P.x + Math.cos(a) * R, P.y + Math.sin(a) * R, { spd: ETYPES[M.ring].spd * .8 }); }
-          if (m >= 9) for (let i = 0; i < 24; i++) { const a = (i + .5) / 24 * TAU; spawnEnemy(M.ring2, P.x + Math.cos(a) * R * 1.35, P.y + Math.sin(a) * R * 1.35, { spd: ETYPES[M.ring2].spd * .9 }); }
+          if (m >= 9) for (let i = 0; i < n2; i++) { const a = (i + .5) / n2 * TAU; spawnEnemy(M.ring2, P.x + Math.cos(a) * R * 1.35, P.y + Math.sin(a) * R * 1.35, { spd: ETYPES[M.ring2].spd * .9 }); }
           if (m >= 9) spawnEscort(m);
           banner(m >= 9 ? M.txt.ring2 : M.txt.ring);
         } else if (type === 'rush') {
-          const a = Math.random() * TAU, d = viewR() + 40, cnt = Math.min(20 + m * 2, 48);
+          const a = Math.random() * TAU, d = viewR() + 40, cnt = Math.round(Math.min(20 + m * 2, 48) * BAL.dens);
           for (let i = 0; i < cnt; i++) {
             const aa = a + rnd(-.5, .5), dd = d + rnd(0, 160);
             spawnEnemy(M.rush, P.x + Math.cos(aa) * dd, P.y + Math.sin(aa) * dd, { spd: ETYPES[M.rush].spd * 1.35 });

@@ -99,7 +99,7 @@
         for (const p of S.proj) {
           if (p.dead) continue;
           p.life -= dt; if (p.life <= 0) { p.dead = true; continue; }
-          if (p.kind === 'cross') { p.vx += p.ax * dt; p.vy += p.ay * dt; p.rot += dt * 14; if (S.parts.length < 520 * PART_K && Math.random() < dt * 30) S.parts.push({ x: p.x + rnd(-4, 4), y: p.y + rnd(-4, 4), vx: rnd(-15, 15), vy: rnd(-15, 15), life: rnd(.25, .45), max: .45, col: p.w.evo ? '#cfe6ff' : '#ffe9a8', size: rnd(1.5, 2.8), glow: true }); }
+          if (p.kind === 'cross') { p.vx += p.ax * dt; p.vy += p.ay * dt; p.rot += dt * 14; if (S.parts.length < 520 * PART_K && Math.random() < dt * 14) S.parts.push({ x: p.x + rnd(-4, 4), y: p.y + rnd(-4, 4), vx: rnd(-15, 15), vy: rnd(-15, 15), life: rnd(.25, .45), max: .45, col: p.w.evo ? '#cfe6ff' : '#ffe9a8', size: rnd(1.5, 2.8), glow: true }); }
           else if (p.g) { p.vy += p.g * dt; p.rot = Math.atan2(p.vy, p.vx); }
           p.x += p.vx * dt; p.y += p.vy * dt;
           forNear(p.x, p.y, p.r, e => {
@@ -144,8 +144,14 @@
 
         const far = (viewR() + 40) * 1.3, bastos = S.arc.has('anchoBastos'), hwS = W / 2 / ZOOM, hhS = H / 2 / ZOOM;
         let aimCount = 0, aimNew = 0; S.aimN = S.aimN || 0; S.shotCD = (S.shotCD || 0) - dt;
+        // los comunes fuera de pantalla se actualizan cada dos frames (con el doble de dt) y sin separación entre ellos:
+        // son más de la mitad de la horda y nadie los ve, así que la lógica casi se reduce a la mitad sin cambiar nada visible
+        const lodF = S.lodF = ((S.lodF || 0) + 1) & 1, offX = hwS + 90, offY = hhS + 90, dt1 = dt;
         for (const e of S.enemies) {
           if (e.dead) continue;
+          const off = !e.elite && !e.prop && (Math.abs(e.x - P.x) > offX || Math.abs(e.y - P.y) > offY);
+          if (off && e.lodP !== lodF) continue;
+          const dt = off ? dt1 * 2 : dt1;
           if (e.prop) { e.flash -= dt; if (Math.abs(e.x - P.x) + Math.abs(e.y - P.y) > far * 2.2) { e.dead = true; e.gone = true; } continue; }
           if (S.freezeT > 0 && e.type !== 'mandinga') { e.flash -= dt; e.x += e.kx * dt; e.y += e.ky * dt; e.kx *= .9; e.ky *= .9; continue; }
           e.flash -= dt; e.slowT -= dt;
@@ -241,7 +247,7 @@
           }
           e.x += e.kx * dt; e.y += e.ky * dt;
           const k = Math.max(0, 1 - dt * 7); e.kx *= k; e.ky *= k;
-          if (!e.boss) {
+          if (!e.boss && !off) {
             let c = 0;
             forNear(e.x, e.y, e.r * 2, o => {
               if (o === e) return;
@@ -306,7 +312,7 @@
           t.life -= dt; if (t.pop > 0) t.pop -= dt;
           if (t.e && !t.e.dead && t.e.dmgTxt === t && S.t - t.last < AGG_GAP_AURA) { t.x = t.e.x; t.y = t.e.y - t.e.r - 4; }
           else { t.e = null; t.y -= 38 * dt; }
-          if (t.life <= 0) t.dead = true;
+          if (t.life <= 0) { t.dead = true; if (t._c) { NUM_POOL.push(t._c); t._c = null; } }
         }
         compact(S.texts);
         for (const f of S.fx) { f.life -= dt; if (f.life <= 0) f.dead = true; else if (f.type === 'death') { f.x += f.vx * dt; f.y += f.vy * dt; const d = Math.max(0, 1 - dt * 5); f.vx *= d; f.vy *= d; f.rot += f.spin * dt; } }

@@ -1,0 +1,226 @@
+diff -ru a/src/js/00-base.js b/src/js/00-base.js
+--- a/src/js/00-base.js	2026-10-02 21:54:35.456586690 +0000
++++ b/src/js/00-base.js	2026-10-02 21:54:35.460004148 +0000
+@@ -11,7 +11,11 @@
+       let RES_K = 1, PART_K = 1;
+       function resize() {
+         // en gráficos bajos se dibuja a 1 píxel por píxel CSS: en pantallas de alta densidad es 4 veces menos trabajo
+-        DPR = GFX_LOW ? 1 : Math.max(1, Math.min(window.devicePixelRatio || 1, 2) * RES_K);
++        // si la resolución dinámica baja de 1x se salta directo a 0,5x: escala entera (cada píxel interno = 2x2 de pantalla),
++        // nítida con image-rendering: pixelated y con 4 veces menos píxeles que 1x
++        const d = (GFX_LOW ? 1 : Math.min(window.devicePixelRatio || 1, 2)) * RES_K;
++        DPR = d >= 1 ? d : .5;
++        cv.style.imageRendering = DPR < 1 ? 'pixelated' : '';
+         PART_K = GFX_LOW ? .45 : RES_K < 1 ? .7 : 1;
+         W = window.innerWidth; H = window.innerHeight;
+         cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
+diff -ru a/src/js/02-datos.js b/src/js/02-datos.js
+--- a/src/js/02-datos.js	2026-10-02 21:54:35.456646048 +0000
++++ b/src/js/02-datos.js	2026-10-02 21:54:35.460062601 +0000
+@@ -117,7 +117,7 @@
+           evo: { rad: 128, dmg: 15, tick: .45, slow: true },
+           update(w, dt) {
+             const s = st(w), P = S.player, R = s.rad * ST.area; w.R = R; if (w.pulse > 0) w.pulse -= dt;
+-            if (S.parts.length < 520 * PART_K && Math.random() < dt * (w.evo ? 22 : 12)) { const a = Math.random() * TAU, d = R * rnd(.35, 1); S.parts.push({ x: P.x + Math.cos(a) * d, y: P.y + Math.sin(a) * d * .9, vx: rnd(-12, 12), vy: rnd(-70, -35), life: rnd(.4, .8), max: .8, col: Math.random() < .5 ? '#ffb040' : '#ff7a2a', size: rnd(1.5, 3), glow: true }); }
++            if (S.parts.length < 520 * PART_K && Math.random() < dt * (w.evo ? 13 : 7)) { const a = Math.random() * TAU, d = R * rnd(.35, 1); S.parts.push({ x: P.x + Math.cos(a) * d, y: P.y + Math.sin(a) * d * .9, vx: rnd(-12, 12), vy: rnd(-70, -35), life: rnd(.4, .8), max: .8, col: Math.random() < .5 ? '#ffb040' : '#ff7a2a', size: rnd(1.5, 3), glow: true }); }
+             if (w.evo && S.ebul.length) clearBullets(b => { const dx = b.x - P.x, dy = b.y - P.y; return dx * dx + dy * dy < (R + b.r) * (R + b.r); });
+             if (s.slow) forNear(P.x, P.y, R, e => { const rr = R + e.r; if (!e.elite && dist2(e, P.x, P.y) < rr * rr) e.slowT = .25; });
+             w.cd -= dt;
+diff -ru a/src/js/09-estado.js b/src/js/09-estado.js
+--- a/src/js/09-estado.js	2026-10-02 21:54:35.456974027 +0000
++++ b/src/js/09-estado.js	2026-10-02 21:54:35.460360662 +0000
+@@ -4,7 +4,9 @@
+       /* ---- equilibrio ----
+          La vida de los enemigos escala con el tiempo y con el nivel del jugador; el daño enemigo crece más rápido después del minuto 8.
+          Élites, mini-jefes y jefes tienen un piso de vida calculado con el daño por segundo real del jugador (dpsEMA). */
+-      const BAL = { lvlHp: .012, lateDmg: .012, floorElite: 10, floorMini: 9, floorBoss: 18, auraVsElite: .6, healCap: 4, capElite: 12, capMini: 20, capBoss: 35 };
++      // dens: fracción de enemigos comunes respecto del diseño original; cada uno tiene 1/dens de vida y da 1/dens de experiencia
++      // y de chance de drop, así la horda pesa lo mismo con menos cuerpos (menos lógica, dibujo y píxeles en el celular)
++      const BAL = { dens: .75, lvlHp: .012, lateDmg: .012, floorElite: 10, floorMini: 9, floorBoss: 18, auraVsElite: .6, healCap: 4, capElite: 12, capMini: 20, capBoss: 35 };
+       function hpMult() { if (S.mode === 'campo') return 1.2; const m = S.t / 60; return (1 + m * .3 + m * m * .025) * (1 + Math.max(0, S.level - 15) * BAL.lvlHp); }
+       function dmgMult() { if (S.mode === 'campo') return 1; const m = S.t / 60; return 1 + m * .06 + Math.max(0, m - 8) ** 2 * BAL.lateDmg; }
+       const AURA = new Set(['fogon', 'pava', 'fuego']);
+diff -ru a/src/js/10-spawns.js b/src/js/10-spawns.js
+--- a/src/js/10-spawns.js	2026-10-02 21:54:35.457003188 +0000
++++ b/src/js/10-spawns.js	2026-10-02 21:54:35.460390925 +0000
+@@ -6,7 +6,8 @@
+       function spawnEnemy(type, x, y, opt) {
+         const T = ETYPES[type], m = S.t / 60, hm = hpMult();
+         const e = freeE.pop() || {};
+-        e.type = type; e.x = x; e.y = y; e.r = T.r; e.hp = e.maxHp = T.hp * hm; e.spd = T.spd * rnd(.82, 1.18) * (S.hyper ? 1.25 : 1); e.dmg = T.dmg * dmgMult(); e.xp = S.mode === 'campo' ? 0 : T.xp;
++        const dk = S.mode === 'campo' ? 1 : BAL.dens;
++        e.type = type; e.x = x; e.y = y; e.r = T.r; e.hp = e.maxHp = T.hp * hm / dk; e.spd = T.spd * rnd(.82, 1.18) * (S.hyper ? 1.25 : 1); e.dmg = T.dmg * dmgMult(); e.xp = S.mode === 'campo' ? 0 : T.xp / dk; e.lodP = (Math.random() * 2) | 0;
+         e.dead = false; e.gone = false; e.dmgTxt = null; e.mini = false; e.capT = 0; e.cw = 0; e.cdmg = 0; e.howl = undefined; e.enr = false; e.flash = 0; e.kx = 0; e.ky = 0; e.imm = {}; e.slowT = 0; e.elite = false; e.boss = false; e.chest = false; e.fight = false; e.jph = null; e.z = 0;
+         e.vx = 0; e.vy = 0; e.life = 0; e.straight = false; e.prop = !!T.prop; e.shoot = rnd(1.5, 3); e.scale = 1; e.oa = Math.random() * TAU; e.orad = rnd(80, 260); e.odir = Math.random() < .5 ? -1 : 1; e.phase = null; e.ch = undefined; e.summon = 6; e.aimT = 0; e.wob = Math.random() * TAU; e._wtT = 0; e._wet = false; e._md = 0;
+         if (opt) Object.assign(e, opt);
+@@ -46,12 +47,12 @@
+         if (S.finale === 'done') return;  // ya cayó el Mandinga: solo falta la pantalla final
+         const m = minute();
+         // en la pelea final el protagonista es el Mandinga: pocos enemigos de relleno
+-        const alive = S.enemies.length, minCount = S.finale ? 40 : Math.min(8 + m * 15 + m * m * .5, 380);
+-        S.spawnAcc += dt * (.7 + m * .38) * (alive < minCount ? 2.2 : 1) * (S.hyper ? 1.3 : 1) * (S.finale ? .3 : 1);
++        const alive = S.enemies.length, minCount = S.finale ? 40 : Math.min(8 + m * 15 + m * m * .5, 380) * BAL.dens;
++        S.spawnAcc += dt * (.7 + m * .38) * BAL.dens * (alive < minCount ? 2.2 : 1) * (S.hyper ? 1.3 : 1) * (S.finale ? .3 : 1);
+         S.spawnAcc = Math.min(S.spawnAcc, 6);
+         while (S.spawnAcc >= 1) {
+           S.spawnAcc -= 1;
+-          if (S.enemies.length >= (S.finale ? 120 : 420)) break;
++          if (S.enemies.length >= (S.finale ? 120 : 420 * BAL.dens)) break;
+           const [x, y] = S.player.moving && Math.random() < .5 ? spawnAhead() : spawnPos();
+           const WV = MAPS[bioKey(x, y)].waves; spawnEnemy(pickW(WV[Math.min(m, WV.length - 1)]), x, y);  // cada bioma aparece con su gente
+         }
+@@ -75,20 +76,20 @@
+           sfx(110, .5, 'sawtooth', .06, .5);
+         } else if (type === 'swarm') {
+           const a = Math.random() * TAU, d = viewR() + 30, cxp = P.x - Math.cos(a) * d, cyp = P.y - Math.sin(a) * d, px = -Math.sin(a), py = Math.cos(a);
+-          const cnt = Math.min(18 + m * 2, 44);
++          const cnt = Math.round(Math.min(18 + m * 2, 44) * BAL.dens);
+           for (let i = 0; i < cnt; i++) {
+             const o = (i - cnt / 2) * 14 + rnd(-6, 6), back = rnd(0, 90);
+             spawnEnemy(M.swarm, cxp + px * o - Math.cos(a) * back, cyp + py * o - Math.sin(a) * back, { straight: true, vx: Math.cos(a) * 120, vy: Math.sin(a) * 120, life: 18 });
+           }
+           banner(M.txt.swarm);
+         } else if (type === 'ring') {
+-          const n = Math.min(26 + m * 2, 44), R = viewR() * .95;
++          const n = Math.round(Math.min(26 + m * 2, 44) * BAL.dens), R = viewR() * .95, n2 = Math.round(24 * BAL.dens);
+           for (let i = 0; i < n; i++) { const a = i / n * TAU; spawnEnemy(M.ring, P.x + Math.cos(a) * R, P.y + Math.sin(a) * R, { spd: ETYPES[M.ring].spd * .8 }); }
+-          if (m >= 9) for (let i = 0; i < 24; i++) { const a = (i + .5) / 24 * TAU; spawnEnemy(M.ring2, P.x + Math.cos(a) * R * 1.35, P.y + Math.sin(a) * R * 1.35, { spd: ETYPES[M.ring2].spd * .9 }); }
++          if (m >= 9) for (let i = 0; i < n2; i++) { const a = (i + .5) / n2 * TAU; spawnEnemy(M.ring2, P.x + Math.cos(a) * R * 1.35, P.y + Math.sin(a) * R * 1.35, { spd: ETYPES[M.ring2].spd * .9 }); }
+           if (m >= 9) spawnEscort(m);
+           banner(m >= 9 ? M.txt.ring2 : M.txt.ring);
+         } else if (type === 'rush') {
+-          const a = Math.random() * TAU, d = viewR() + 40, cnt = Math.min(20 + m * 2, 48);
++          const a = Math.random() * TAU, d = viewR() + 40, cnt = Math.round(Math.min(20 + m * 2, 48) * BAL.dens);
+           for (let i = 0; i < cnt; i++) {
+             const aa = a + rnd(-.5, .5), dd = d + rnd(0, 160);
+             spawnEnemy(M.rush, P.x + Math.cos(aa) * dd, P.y + Math.sin(aa) * dd, { spd: ETYPES[M.rush].spd * 1.35 });
+diff -ru a/src/js/11-combate.js b/src/js/11-combate.js
+--- a/src/js/11-combate.js	2026-10-02 21:54:35.457033253 +0000
++++ b/src/js/11-combate.js	2026-10-02 21:54:35.460422711 +0000
+@@ -93,11 +93,11 @@
+         dropMats(e); if (e.boss && e.type !== 'mandinga') S.bossK++; else if (e.mini) S.miniK++; else if (e.elite && e.type !== 'mandinga') S.eliteK++;
+         if (e.chest) { S.picks.push({ type: 'cofre', x: e.x, y: e.y, t: 0 }); S.fx.push({ type: 'ring', x: e.x, y: e.y, life: .6, max: .6, col: '#c9a45c', R: 80 }); }
+         const r = Math.random();
+-        const ar = S.arc.has('cuatroCopas') ? .012 : .005;
++        const ar = (S.arc.has('cuatroCopas') ? .012 : .005) / BAL.dens;
+         if (r < ar) S.picks.push({ type: 'asado', x: e.x, y: e.y, t: 0 });
+-        else if (r < ar + .0025) S.picks.push({ type: 'iman', x: e.x, y: e.y, t: 0 });
++        else if (r < ar + .0025 / BAL.dens) S.picks.push({ type: 'iman', x: e.x, y: e.y, t: 0 });
+         if (e.elite && e.type !== 'mandinga') S.picks.push({ type: 'bolsa', x: e.x + 14, y: e.y, t: 0, v: Math.round((e.boss ? 120 : rnd(25, 45)) * ST.greed) });
+-        else if (S.mode !== 'campo' && Math.random() < .035 && S.picks.length < 250) S.picks.push({ type: 'oro', x: e.x, y: e.y, t: 0, v: Math.max(1, Math.round(ST.greed)) });
++        else if (S.mode !== 'campo' && Math.random() < .035 / BAL.dens && S.picks.length < 250) S.picks.push({ type: 'oro', x: e.x, y: e.y, t: 0, v: Math.max(1, Math.round(ST.greed)) });
+       }
+       function swing(w, s, dir, yo) {
+         const P = S.player, A = s.area * ST.area, ww = 150 * A, hh = 34 * A;
+@@ -134,7 +134,7 @@
+         const d = Math.max(1, raw * (1 - armorRed()) * ST.taken); P.hp -= d;
+         if (NI('h4a') && !S.secondWind && P.hp > 0 && P.hp < ST.maxHp * .25) { S.secondWind = true; P.iframe = 3; P.hp = Math.min(ST.maxHp, P.hp + ST.maxHp * .3); banner('Segundo aire'); S.fx.push({ type: 'ring', x: P.x, y: P.y, life: .6, max: .6, col: '#8fe07a', R: 120 }); sfx(440, .3, 'triangle', .05, 2); }
+         if (contact) P.touchIF = CONTACT_IFRAME; else P.iframe = .3;
+-        S.shake = Math.min(1, S.shake + .35); S.hurtFlash = .25; S.hitstop = Math.max(S.hitstop, .04);
++        S.shake = Math.min(1, S.shake + .35); if (d >= ST.maxHp * .06) S.hurtFlash = .25; S.hitstop = Math.max(S.hitstop, .04);  // el flash es una capa a pantalla completa: solo golpes que pesan
+         addText(P.x, P.y - 26, Math.round(d), '#ff6b6b');
+         sfx(90, .15, 'square', .05, .6);
+       }
+diff -ru a/src/js/13-update.js b/src/js/13-update.js
+--- a/src/js/13-update.js	2026-10-02 21:54:35.457098771 +0000
++++ b/src/js/13-update.js	2026-10-02 21:54:35.460695409 +0000
+@@ -99,7 +99,7 @@
+         for (const p of S.proj) {
+           if (p.dead) continue;
+           p.life -= dt; if (p.life <= 0) { p.dead = true; continue; }
+-          if (p.kind === 'cross') { p.vx += p.ax * dt; p.vy += p.ay * dt; p.rot += dt * 14; if (S.parts.length < 520 * PART_K && Math.random() < dt * 30) S.parts.push({ x: p.x + rnd(-4, 4), y: p.y + rnd(-4, 4), vx: rnd(-15, 15), vy: rnd(-15, 15), life: rnd(.25, .45), max: .45, col: p.w.evo ? '#cfe6ff' : '#ffe9a8', size: rnd(1.5, 2.8), glow: true }); }
++          if (p.kind === 'cross') { p.vx += p.ax * dt; p.vy += p.ay * dt; p.rot += dt * 14; if (S.parts.length < 520 * PART_K && Math.random() < dt * 14) S.parts.push({ x: p.x + rnd(-4, 4), y: p.y + rnd(-4, 4), vx: rnd(-15, 15), vy: rnd(-15, 15), life: rnd(.25, .45), max: .45, col: p.w.evo ? '#cfe6ff' : '#ffe9a8', size: rnd(1.5, 2.8), glow: true }); }
+           else if (p.g) { p.vy += p.g * dt; p.rot = Math.atan2(p.vy, p.vx); }
+           p.x += p.vx * dt; p.y += p.vy * dt;
+           forNear(p.x, p.y, p.r, e => {
+@@ -144,8 +144,14 @@
+ 
+         const far = (viewR() + 40) * 1.3, bastos = S.arc.has('anchoBastos'), hwS = W / 2 / ZOOM, hhS = H / 2 / ZOOM;
+         let aimCount = 0, aimNew = 0; S.aimN = S.aimN || 0; S.shotCD = (S.shotCD || 0) - dt;
++        // los comunes fuera de pantalla se actualizan cada dos frames (con el doble de dt) y sin separación entre ellos:
++        // son más de la mitad de la horda y nadie los ve, así que la lógica casi se reduce a la mitad sin cambiar nada visible
++        const lodF = S.lodF = ((S.lodF || 0) + 1) & 1, offX = hwS + 90, offY = hhS + 90, dt1 = dt;
+         for (const e of S.enemies) {
+           if (e.dead) continue;
++          const off = !e.elite && !e.prop && (Math.abs(e.x - P.x) > offX || Math.abs(e.y - P.y) > offY);
++          if (off && e.lodP !== lodF) continue;
++          const dt = off ? dt1 * 2 : dt1;
+           if (e.prop) { e.flash -= dt; if (Math.abs(e.x - P.x) + Math.abs(e.y - P.y) > far * 2.2) { e.dead = true; e.gone = true; } continue; }
+           if (S.freezeT > 0 && e.type !== 'mandinga') { e.flash -= dt; e.x += e.kx * dt; e.y += e.ky * dt; e.kx *= .9; e.ky *= .9; continue; }
+           e.flash -= dt; e.slowT -= dt;
+@@ -241,7 +247,7 @@
+           }
+           e.x += e.kx * dt; e.y += e.ky * dt;
+           const k = Math.max(0, 1 - dt * 7); e.kx *= k; e.ky *= k;
+-          if (!e.boss) {
++          if (!e.boss && !off) {
+             let c = 0;
+             forNear(e.x, e.y, e.r * 2, o => {
+               if (o === e) return;
+diff -ru a/src/js/14-render.js b/src/js/14-render.js
+--- a/src/js/14-render.js	2026-10-02 21:54:35.457158979 +0000
++++ b/src/js/14-render.js	2026-10-02 21:54:35.461459682 +0000
+@@ -540,7 +540,8 @@
+       function render(dt) {
+         const pOn = SAVE.opts.fps; let t0 = pOn ? performance.now() : 0;
+         cx.setTransform(DPR, 0, 0, DPR, 0, 0);
+-        cx.fillStyle = MAP().bg; cx.fillRect(0, 0, W, H);
++        // en partida el terreno tapa toda la pantalla (y pinta el fondo solo donde falta un chunk): no hace falta otra capa
++        if (!S) { cx.fillStyle = MAP().bg; cx.fillRect(0, 0, W, H); }
+         demoT += dt;
+         if (!S && PU) { drawPuesto(dt); return; }
+         if (!S) { drawTitleScene(dt); cx.drawImage(vignette, 0, 0, W, H); drawCharPreview(); return; }
+@@ -557,7 +558,7 @@
+         if (pOn) t0 = prf('mundo', t0);
+         drawOverlay(sx, sy);
+         if (S && S.weather) drawWeather(dt);
+-        cx.drawImage(vignette, 0, 0, W, H);
++        if (RES_K >= 1) cx.drawImage(vignette, 0, 0, W, H);  // si el equipo ya bajó la resolución, se ahorra esta capa entera
+         if (!S) return;
+         if (S.freezeT > 0) { cx.fillStyle = 'rgba(120,190,255,.10)'; cx.fillRect(0, 0, W, H); }
+         if (S.whiteFlash > 0) { cx.fillStyle = `rgba(255,250,235,${Math.min(.6, S.whiteFlash * 1.6)})`; cx.fillRect(0, 0, W, H); }
+diff -ru a/src/js/23-fin-de-partida.js b/src/js/23-fin-de-partida.js
+--- a/src/js/23-fin-de-partida.js	2026-10-02 21:54:35.458146158 +0000
++++ b/src/js/23-fin-de-partida.js	2026-10-02 21:54:35.461085747 +0000
+@@ -28,7 +28,7 @@
+           if (e.mini) SAVE.trophies['mini_' + e.type] = 1;
+           return;
+         }
+-        const d = MAT_DROP[e.type]; if (d && Math.random() < d[1]) push(d[0], 1);
++        const d = MAT_DROP[e.type]; if (d && Math.random() < d[1] / (S.mode === 'campo' ? 1 : BAL.dens)) push(d[0], 1);
+       }
+       function runFama() {
+         if (!S) return 0;
+diff -ru a/src/js/28-mundo-vivo.js b/src/js/28-mundo-vivo.js
+--- a/src/js/28-mundo-vivo.js	2026-10-02 21:54:35.458446236 +0000
++++ b/src/js/28-mundo-vivo.js	2026-10-02 21:54:35.461273365 +0000
+@@ -103,7 +103,7 @@
+         tBudgetEnd = performance.now() + (TCACHE.size < 8 ? 60 : 5);
+         const x0 = Math.floor((px - hw) / TCH), x1 = Math.floor((px + hw) / TCH), y0 = Math.floor((py - hh) / TCH), y1 = Math.floor((py + hh) / TCH);
+         cx.imageSmoothingEnabled = false;
+-        for (let i = x0; i <= x1; i++) for (let j = y0; j <= y1; j++) { const c = terrChunk(i, j); if (c) cx.drawImage(c, i * TCH, j * TCH, TCH + .7, TCH + .7); }
++        for (let i = x0; i <= x1; i++) for (let j = y0; j <= y1; j++) { const c = terrChunk(i, j); if (c) cx.drawImage(c, i * TCH, j * TCH, TCH + .7, TCH + .7); else { cx.fillStyle = MAP().bg; cx.fillRect(i * TCH, j * TCH, TCH + .7, TCH + .7); } }
+         cx.imageSmoothingEnabled = true;
+         // prearmado en segundo plano: avanza de a filas un chunk del anillo de afuera (primero hacia donde se mueve el
+         // jugador), con un tope de tiempo por frame. Así el terreno ya está hecho cuando entra a la pantalla.
+diff -ru a/src/js/31-loop.js b/src/js/31-loop.js
+--- a/src/js/31-loop.js	2026-10-02 21:54:35.458583003 +0000
++++ b/src/js/31-loop.js	2026-10-02 21:54:35.461432122 +0000
+@@ -24,14 +24,14 @@
+         }
+       }
+       /* resolución dinámica: si durante la partida el promedio pasa de ~21 ms por frame (menos de 48 fps),
+-         baja la resolución interna un escalón (2x → 1,5x → 1x). Solo baja y no se guarda: cada sesión arranca en alta. */
++         baja la resolución interna un escalón (2x → 1,5x → 1x → 0,5x). Solo baja y no se guarda: cada sesión arranca en alta. */
+       const AUTO = { acc: 0, n: 0 };
+       function autoRes(raw) {
+-        if (!S || S.state !== 'play' || GFX_LOW || DPR <= 1 || raw > 120) { AUTO.acc = AUTO.n = 0; return; }
++        if (!S || S.state !== 'play' || DPR <= .5 || raw > 120) { AUTO.acc = AUTO.n = 0; return; }
+         AUTO.acc += raw; AUTO.n++;
+         if (AUTO.acc < 2500) return;
+         const avg = AUTO.acc / AUTO.n; AUTO.acc = AUTO.n = 0;
+-        if (avg > 21) { RES_K = Math.max(.5, RES_K - .25); resize(); }
++        if (avg > 21) { RES_K = Math.max(.25, RES_K - .25); resize(); }
+       }
+       function frame(now) {
+         const raw = now - last;
