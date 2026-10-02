@@ -51,8 +51,17 @@
   <div id="fgame" class="fgame"><canvas id="fbar" width="220" height="26"></canvas><small id="fmsg">${full ? 'Tenés el máximo de facones: fundí uno para hacer lugar.' : 'Martillá cuando la marca pase por el centro.'}</small></div>
   <button class="btn main" id="forgeGo" ${ok ? '' : 'disabled'}>Forjar<kbd>Enter</kbd></button></div></div>
   ${lv < 2 ? `<div class="cards" style="margin-top:8px">${obraCard('fragua')}</div>` : ''}
+  <h3 class="subh">Herramientas de campo</h3><p class="sub">Para Recorrer el campo: ahí no andan las armas de la noche.</p><div class="cards">${toolCards()}</div>
   <h3 class="subh">Tus facones</h3><div class="cards">${SAVE.knives.length ? SAVE.knives.map((kn, i) => `<div class="card${SAVE.knife === i ? ' sel' : ''}"><img class="kimg" src="${knifeURL(kn)}" alt=""><span class="ct"><strong>${kn.name}</strong><small>Calidad ${QUAL[kn.q].name}: ${knifeDesc(kn)}</small></span><span class="kbtns"><button class="btn" data-kequip="${i}">${SAVE.knife === i ? 'Guardar' : 'Equipar'}</button><button class="btn" data-kmelt="${i}">Fundir</button></span></div>`).join('') : '<p class="sub">Todavía no forjaste ninguno.</p>'}</div>
   <div class="btns"><button class="btn" data-pu-close>Volver<kbd>Esc</kbd></button></div>`;
+      }
+      function toolCards() {
+        return TOOL_ORDER.map(id => {
+          const lv = toolLv(id), nx = TOOLS[id].lv[lv + 1], cur = TOOLS[id].lv[lv];
+          if (!nx) return `<div class="card done"><img class="rimg" src="${toolURL(id)}" alt=""><span class="ct"><strong>✓ ${cur.name}</strong><small>${cur.desc}</small></span></div>`;
+          const ok = canPay(nx.cost);
+          return `<button class="card${ok ? '' : ' poor'}" data-tool="${id}"><img class="rimg" src="${toolURL(id)}" alt=""><span class="ct"><strong>${lv ? 'Mejorar a' : 'Hacer'}: ${nx.name}</strong><small>${nx.desc}</small><span class="costs">${costHTML(nx.cost)}</span></span></button>`;
+        }).join('');
       }
       function corralHTML() {
         const lv = SAVE.puesto.corral;

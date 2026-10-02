@@ -10,6 +10,7 @@
           if (T.closest('#nireReset')) { for (const id in SAVE.nire) SAVE.fama += NIRE_COST[NIRE[id].t]; SAVE.nire = {}; writeSave(); rerenderNireInfo(); } return;
         }
         if (PU.ui === 'fragua') {
+          const tb = T.closest('[data-tool]'); if (tb) { const id = tb.dataset.tool, nx = TOOLS[id].lv[toolLv(id) + 1]; if (nx && canPay(nx.cost)) { pay(nx.cost); SAVE.tools[id]++; writeSave(); sfx(900, .08, 'square', .04, .4); setTimeout(() => sfx(523, .2, 'triangle', .05), 120); banner(nx.name + ': listo para el campo'); renderPuPanel(); } else sfx(120, .12, 'square', .03); return; }
           const pt = T.closest('[data-part]'); if (pt && !PU.forge) { const [k, id] = pt.dataset.part.split(':'); PU.forgeSel.name = ($('kname').value || ''); PU.forgeSel[k] = id; renderPuPanel(); return; }
           if (T.closest('#forgeGo')) { if (PU.forge) forgeHit(); else forgeStart(); return; }
           const eq = T.closest('[data-kequip]'); if (eq) { const i = +eq.dataset.kequip; SAVE.knife = SAVE.knife === i ? -1 : i; writeSave(); renderPuPanel(); return; }

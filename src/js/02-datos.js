@@ -10,6 +10,12 @@
         cuero: { name: 'Cuero', r: 19, hp: 80, spd: 36, dmg: 14, xp: 6, w: 3.6, col: '#7a5a3a', eye: '#ff5a3c' },
         basilisco: { name: 'Basilisco', r: 12, hp: 26, spd: 48, dmg: 9, xp: 3, w: 1.4, col: '#6f8f3a', eye: '#ffe066', ranged: true, shotCol: '#c8f59a', shotGlow: 'rgba(140,220,90,.35)' },
         caleuche: { name: 'Caleuche', r: 30, hp: 60, spd: 58, dmg: 18, xp: 0, w: 99, col: '#2a3a4e', eye: '#9fe8ff', volley: true },
+        // bosque andino. charge: embestida propia de bichos comunes [alcance, apunte s, velocidad, duración s, espera mín, espera máx]
+        bandurria: { name: 'Bandurria', r: 9, hp: 5, spd: 94, dmg: 5, xp: 1, w: .5, col: '#8a8270', eye: '#ffd23c', erratic: true, fly: true, nf: 6 },
+        chancho: { name: 'Chancho cimarrón', r: 11, hp: 15, spd: 70, dmg: 8, xp: 2, w: 1.3, col: '#6e5444', eye: '#ff7a3c' },
+        puma: { name: 'Puma', r: 13, hp: 26, spd: 64, dmg: 11, xp: 3, w: 1.5, col: '#b08a5a', eye: '#ffe066', charge: [250, .4, 540, .3, 2.5, 4] },
+        jabali: { name: 'Jabalí', r: 15, hp: 40, spd: 50, dmg: 12, xp: 4, w: 2.5, col: '#4a3e36', eye: '#ff5a3c', charge: [320, .65, 430, .5, 4, 6] },
+        cuchivilu: { name: 'Cuchivilu', r: 22, hp: 60, spd: 56, dmg: 18, xp: 0, w: 99, col: '#4e6a4a', eye: '#ffd23c' },
         farol: { name: 'Farol', r: 10, hp: 1, spd: 0, dmg: 0, xp: 0, w: 99, col: '#3a2e22', eye: '#ffcf6a', prop: true }
       };
       const WAVES = [

@@ -77,6 +77,11 @@
         cuero: { where: 'Glaciar', desc: 'Criatura de lagos y ríos del sur, como un cuero de vaca estirado con garras en el borde. Envuelve a sus presas.' },
         basilisco: { where: 'Glaciar', desc: 'El basilisco chilote nace de un huevo de gallo: mitad gallo, mitad serpiente. Escupe desde lejos.' },
         caleuche: { where: 'Glaciar (jefe)', desc: 'Barco fantasma de Chiloé tripulado por brujos. Navega iluminado entre la niebla y larga ánimas a bordo.' },
+        bandurria: { where: 'Bosque andino', desc: 'Ave de pico curvo que anda en bandada. De noche, algo las espanta y vuelan en contra de todo.' },
+        chancho: { where: 'Bosque andino', desc: 'Chanchos que se escaparon de los puestos y se hicieron monte. Andan en piara y no le temen a nada.' },
+        puma: { where: 'Bosque andino', desc: 'El león de la cordillera. Acecha quieto y salta de golpe, corto y rápido.' },
+        jabali: { where: 'Bosque andino', desc: 'Lo trajeron para cazar y se adueñó del bosque. Se frena, raspa la tierra y embiste en línea recta.' },
+        cuchivilu: { where: 'Bosque andino (jefe)', desc: 'Mitad chancho, mitad serpiente, de los mitos mapuches de lagos y mallines. Llama a la piara cuando lo apuran.' },
         mandinga: { where: 'Cualquier mapa, después del amanecer', desc: 'El diablo del campo, que ofrece pactos a los paisanos. No se lo puede vencer: solo huir.' }
       };
       const hasAch = id => !!SAVE.ach[id];

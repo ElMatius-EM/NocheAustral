@@ -300,6 +300,65 @@
           for (let i = 0; i < 6; i++) { b.rect(-.85 + i * .34, .26, .14, .14, T.eye, 1); b.dot(-.83 + i * .34, .28, '#ffffff', 1); }
           for (let i = 0; i < 7; i++) b.ellD(-1.3 + i * .43, .78 + Math.sin(i * 2.1) * .05, .32, .13, [210, 235, 250], 2, .45, i & 1);
         },
+        /* ---- bosque andino: animales de perfil, mirando a la derecha (se voltean al moverse) ---- */
+        bandurria(b, T, ph) {
+          const c = T.col, f = Math.sin(ph), wy = -.15 - f * .75;
+          b.poly([[-.25, -.1], [.25, -.12], [-.05 + f * .1, wy], [-.45, wy + .1]], dk(c, .25));
+          b.ell(-.1, 0, .62, .3, c); b.ell(-.7, .05, .22, .12, dk(c, .2));
+          b.ell(.5, -.28, .22, .2, '#c89a5a'); b.line([[.3, -.08], [.45, -.2]], .16, '#c89a5a');
+          b.line(qb([.66, -.3], [1.0, -.3], [1.25, .05], 5), .06, '#2a2420');
+          b.dot(.56, -.33, T.eye, 1);
+          b.poly([[-.2, 0], [.2, -.02], [0 - f * .1, .2 + f * .55], [-.4, .15 + f * .5]], lt(c, .1)); b.line([[0 - f * .1, .2 + f * .55], [-.4, .15 + f * .5]], .06, '#1e1a16', 1);
+        },
+        chancho(b, T, ph) {
+          const c = T.col, cD = dk(c, .3), sn = '#c8908a';
+          for (const [x, off, col] of [[-.55, Math.PI, cD], [.45, 0, cD], [-.38, 0, c], [.62, Math.PI, c]]) { const o = Math.sin(ph + off); b.line([[x, .3], [x + o * .14, .82]], .17, col); b.ell(x + o * .14 + .03, .84, .1, .05, '#2a1d14'); }
+          b.ell(0, .12, .88, .52, c);
+          for (const [x, y] of [[-.4, -.05], [.1, .2], [-.15, .35]]) b.ell(x, y, .18, .12, dk(c, .22), 1);
+          b.tex(c, (x, y) => hash(x * 5, y * 3 + 4) < .12 ? lt(c, .12) : null);
+          b.ell(.82, .02, .34, .3, c); b.ell(1.12, .1, .14, .14, sn); b.dot(1.15, .07, '#5a3a32', 1);
+          b.poly([[.66, -.2], [.86, -.42], [.9, -.12]], cD); b.dot(.9, -.06, T.eye, 1);
+          b.line(qb([-.86, 0], [-1.05, -.2], [-.98, .1], 3), .05, cD);
+        },
+        puma(b, T, ph) {
+          const c = T.col, cD = dk(c, .28), cL = '#e0cba8';
+          b.line(qb([-.82, -.05], [-1.55, .15], [-1.65, -.45], 6), .16, c); b.ell(-1.65, -.5, .12, .12, '#3a2a1e');
+          for (const [x, off, col] of [[-.55, Math.PI, cD], [.6, 0, cD], [-.38, 0, c], [.76, Math.PI, c]]) { const o = Math.sin(ph + off); b.line([[x, .12], [x + o * .2, .76 - Math.max(0, -o) * .08]], .16, col); b.ell(x + o * .2 + .05, .78, .12, .06, col); }
+          b.ell(0, .02, .95, .4, c); b.ell(.08, .2, .72, .18, cL);
+          b.tex(c, (x, y) => hash(x * 3, y * 5 + 2) < .1 ? dk(c, .12) : null);
+          b.ell(.98, -.32, .38, .32, c); b.ell(1.2, -.2, .2, .15, cL); b.dot(1.37, -.25, '#3a2a2a', 1);
+          b.poly([[.76, -.52], [.82, -.8], [.96, -.6]], c); b.poly([[1.0, -.6], [1.1, -.82], [1.18, -.58]], c);
+          b.ell(1.08, -.4, .07, .06, T.eye, 1); b.line([[1.22, -.1], [1.36, -.08]], .04, cL, 1);
+        },
+        jabali(b, T, ph) {
+          const c = T.col, cD = dk(c, .3), br = '#221a16';
+          for (const [x, off, col] of [[-.6, Math.PI, cD], [.5, 0, cD], [-.42, 0, c], [.66, Math.PI, c]]) { const o = Math.sin(ph + off); b.line([[x, .3], [x + o * .14, .84]], .18, col); b.ell(x + o * .14 + .03, .86, .11, .05, '#1a1410'); }
+          b.ell(-.05, .1, .95, .58, c);
+          for (let i = 0; i < 10; i++) { const x = -.85 + i * .19, y0 = -.4 + Math.abs(x + .1) * .14; b.line([[x, y0 + .08], [x - .06, y0 - .2]], .08, br); }
+          b.tex(c, (x, y) => hash(x * 5, y * 3 + 7) < .2 ? dk(c, .18) : hash(x, y * 7) < .05 ? lt(c, .15) : null);
+          b.poly([[.6, -.36], [1.3, -.02], [1.4, .32], [.68, .44]], c);
+          b.ell(1.42, .16, .12, .16, '#8a6a5a'); b.dot(1.46, .12, '#2a1a1a', 1);
+          b.line([[1.18, .32], [1.32, .06]], .07, '#ece4cc', 1);
+          b.poly([[.7, -.32], [.8, -.62], [.92, -.3]], cD); b.ell(.98, -.08, .07, .06, T.eye, 1);
+          b.line(qb([-.98, 0], [-1.16, -.12], [-1.1, .16], 3), .06, cD);
+        },
+        cuchivilu(b, T, ph) {
+          const sc = T.col, scD = dk(sc, .3), pig = '#9a6a5a', pigD = dk(pig, .25), w = Math.sin(ph) * .12;
+          // cuerpo de serpiente que se enrosca hacia atrás
+          const body = qb([.1, .2], [-1.1, .75 + w], [-1.85, -.15 - w], 12);
+          b.line(body, .5, sc, 0, 1, .12);
+          for (let i = 1; i < body.length - 1; i += 2) b.ell(body[i][0], body[i][1] - .12, .14, .08, lt(sc, .2), 1);
+          for (let i = 0; i < body.length; i += 2) b.line([[body[i][0], body[i][1] - .2], [body[i][0] - .08, body[i][1] - .42]], .06, scD);
+          b.tex(sc, (x, y) => ((x + y) % 3 === 0) ? scD : null);
+          // patas delanteras de chancho
+          for (const [x, off] of [[.15, 0], [.45, Math.PI]]) { const o = Math.sin(ph + off); b.line([[x, .3], [x + o * .16, .86]], .2, pigD); b.ell(x + o * .16 + .03, .88, .12, .06, '#1a1410'); }
+          b.ell(.35, .02, .62, .55, pig); b.tex(pig, (x, y) => hash(x * 3, y * 5 + 11) < .14 ? pigD : null);
+          // cabeza con trompa, colmillos y ojos encendidos
+          b.ell(.95, -.15, .45, .4, pig); b.ell(1.36, -.02, .2, .22, '#d8988a'); b.dot(1.4, -.08, '#3a1a1a', 1); b.dot(1.4, .05, '#3a1a1a', 1);
+          b.line([[1.2, .18], [1.38, -.18]], .08, '#ece4cc', 1); b.line([[1.05, .2], [1.12, -.05]], .06, '#ece4cc', 1);
+          b.poly([[.72, -.42], [.76, -.8], [.95, -.48]], pigD);
+          b.ell(1.06, -.3, .1, .08, T.eye, 1); b.dot(1.08, -.31, '#ffffff', 1);
+        },
         farol(b, T, ph) {
           b.ellD(0, -.6, 2.0, 2.0, [255, 200, 110], 2, .16, 0);
           b.ellD(0, -.6, 1.3, 1.3, [255, 210, 130], 2, .24, 1);
@@ -376,10 +435,10 @@
         else if (cf.hat === 'pluma') { b.ell(0, -11, 12, 2, cf.hatCol); b.ell(0, -13.2, 5, 3, cf.hatCol); b.rect(-5, -12.2, 10, 1.2, cf.band); b.line([[3, -13], [7, -18], [9.4, -19.6]], 1.3, '#f4efe0', 0, 1, .5); }
       }
 
-      const WALK = new Set(['sombra', 'calavera', 'lobizon', 'bruja', 'cuero', 'basilisco']);
+      const WALK = new Set(['sombra', 'calavera', 'lobizon', 'bruja', 'cuero', 'basilisco', 'chancho', 'puma', 'jabali', 'cuchivilu']);
       function makeSprites() {
         for (const k in ETYPES) {
-          const T = ETYPES[k], G = Math.round(T.r * 4.6 / PXS), u = T.r / PXS, nf = k === 'anima' ? 8 : k === 'chonchon' ? 6 : WALK.has(k) ? 4 : 1, frames = [];
+          const T = ETYPES[k], G = Math.round(T.r * 4.6 / PXS), u = T.r / PXS, nf = T.nf || (k === 'anima' ? 8 : k === 'chonchon' ? 6 : WALK.has(k) ? 4 : 1), frames = [];
           for (let fi = 0; fi < nf; fi++) { const b = PixBuf(G, u); PIX[k](b, T, fi / nf * TAU); frames.push(pixFinish(b)); }
           SPR[k] = { img: frames[0].img, flash: frames[0].flash, frames, size: G * PXS };
         }

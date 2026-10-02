@@ -41,12 +41,17 @@
         }
         if (S.state === 'pause') { if (!e.repeat && conf) resume(); return; }
         if (S.state === 'play' && (k === ' ' || k === 'shift')) { if (!e.repeat) tryDash(); return; }
+        if (S.state === 'play' && S.mode === 'campo') {
+          if (k === 'e' || k === 'j') { if (!e.repeat) toolDown(); return; }
+          if (k === 'q' || k === 'tab') { e.preventDefault(); if (!e.repeat) toolNext(); return; }
+          if (k >= '1' && k <= '3') { if (!e.repeat) toolPick(toolsOwned()[+k - 1]); return; }
+        }
         if (S.state === 'play' && k === 'h') { if (!e.repeat) { whistle(); if (S && S.mode !== 'campo') $('whBtn').classList.remove('on'); } return; }
         keys.add(k);
       });
       $('dashBtn').addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); tryDash(); });
       $('whBtn').addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); whistle(); if (S && S.mode !== 'campo') $('whBtn').classList.remove('on'); });
-      window.addEventListener('keyup', e => keys.delete(e.key.toLowerCase()));
+      window.addEventListener('keyup', e => { const k = e.key.toLowerCase(); keys.delete(k); if (k === 'e' || k === 'j') toolUp(); });
       window.addEventListener('blur', () => { keys.clear(); joy = null; });
       document.addEventListener('visibilitychange', () => { if (document.hidden) { writeSave(); pause(); } });
       addEventListener('pagehide', writeSave);

@@ -25,6 +25,8 @@
         burst(P.x, P.y + 10, 8, '#c9b894', 120);
         sfx(520, .12, 'sawtooth', .03, .35);
       }
+      // jefes que embisten y llaman a su manada: [comunes, grandes] y el cartel al enfurecerse
+      const BOSS_PACK = { lobizon: { pack: ['sombra', 'lobizon'], enr: 'El Lobizón Mayor se enfurece' }, cuchivilu: { pack: ['chancho', 'jabali'], enr: 'El Cuchivilu se enfurece y llama a la piara' } };
       // el Paisano Viejo ve venir las hordas unos segundos antes
       const AVISOS = { swarm: 'Algo viene volando del lado del monte', rush: 'Tiembla la tierra: se viene una estampida', ring: 'Te están cerrando el cerco', boss: 'Huele a jefe: se viene algo grande' };
       function update(dt) {
@@ -43,7 +45,7 @@
           if (S.arc.has('caballoBastos')) { S.trailT -= dt; if (S.trailT <= 0) { S.trailT = .035; S.zones.push({ x: P.x, y: P.y, R: 24, life: 2.2, max: 2.2, tick: 0, dmg: 8 + 3 * S.t / 60, w: PWF, fire: true }); } }
         } else {
           if (P.moving) { P.fx = ix / l; P.fy = iy / l; if (Math.abs(ix) > .1) P.face = ix > 0 ? 1 : -1; }
-          const RM = S.ride && MOUNTS[S.ride.kind], spd = (RM ? ST.speed * RM.spd * (S.ride.spdK || 1) : ST.speed) * (S.pWet ? (RM ? .82 : (MAP().ice ? .78 : .72)) : 1);
+          const RM = S.ride && MOUNTS[S.ride.kind], spd = (RM ? ST.speed * RM.spd * (S.ride.spdK || 1) : ST.speed) * (S.pWet ? (RM ? .82 : (MAP().ice ? .78 : .72)) : 1) * (S.weather && S.weather.type === 'lluvia' ? 1 - .12 * (S.weather.k || 0) : 1);
           const k = Math.min(1, (RM ? RM.acc * (MAP().ice ? .45 : 1) * (S.ride.buck ? .35 : 1) : MAP().ice ? 3.2 : 30) * dt);
           P.vx += (ix * spd - P.vx) * k; P.vy += (iy * spd - P.vy) * k;
           P.x += P.vx * dt; P.y += P.vy * dt;
@@ -84,14 +86,14 @@
 
         // en el campo las armas descansan si no hay nada cerca
         if (S.mode === 'campo') { const ne = nearest(P.x, P.y); S.armed = !!(ne && dist2(ne, P.x, P.y) < 360 * 360); }
-        if (!S.ride && (S.mode !== 'campo' || S.armed)) for (const w of S.weapons) {
+        if (!S.ride && S.mode !== 'campo') for (const w of S.weapons) {  // en el campo se trabaja con herramientas (31-campo-kit)
           const d = WEAPONS[w.id];
           if (d.update) d.update(w, dt);
           else { w.cd -= dt; if (w.cd <= 0) { const s = st(w); w.cd = s.cd * ST.cd; d.fire(w, s); } }
         }
 
         updateMounts(dt);
-        if (S.mode === 'campo') { updateCampo(dt); if (!S || S.state !== 'play') return; }
+        if (S.mode === 'campo') { updateCampo(dt); if (!S || S.state !== 'play') return; updateKit(dt); }
 
         for (const p of S.proj) {
           if (p.dead) continue;
@@ -169,7 +171,16 @@
               else if (e.phase === 'dash') { sp = 0; e.x += e.cdx * 430 * dt; e.y += e.cdy * 430 * dt; e.mvx = e.cdx * 430; if (e.ch <= 0) { e.phase = null; e.ch = rnd(3.5, 5.5); } }
               else if (e.ch <= 0 && d < 330) { e.phase = 'aim'; e.ch = .75; e.cdx = dx; e.cdy = dy; sfx(240, .4, 'square', .025, .5); }
             }
-            if (e.boss && e.type === 'lobizon') {
+            // embestida propia (jabalí, puma): igual que la de las élites pero con sus tiempos
+            const CHG = ETYPES[e.type].charge;
+            if (CHG && (!e.elite || e.mini)) {
+              const [rng, aim, cs, cdur, c0, c1] = CHG; e.ch = (e.ch === undefined ? rnd(c0 * .5, c1) : e.ch) - dt; e.dashLen = cs * cdur + e.r;
+              if (e.phase === 'aim') { sp = 0; if (e.ch <= 0) { e.phase = 'dash'; e.ch = cdur; if (Math.abs(e.x - P.x) < hwS && Math.abs(e.y - P.y) < hhS) sfx(e.type === 'puma' ? 520 : 130, .18, 'sawtooth', .025, .5); } }
+              else if (e.phase === 'dash') { sp = 0; e.x += e.cdx * cs * dt; e.y += e.cdy * cs * dt; e.mvx = e.cdx * cs; if (e.ch <= 0) { e.phase = null; e.ch = rnd(c0, c1); } }
+              else if (e.ch <= 0 && d < rng) { e.phase = 'aim'; e.ch = aim; e.cdx = dx; e.cdy = dy; }
+            }
+            const PACK = BOSS_PACK[e.type];
+            if (e.boss && PACK) {
               e.ch = (e.ch === undefined ? 3 : e.ch) - dt; e.dashLen = 560 * .55 + e.r;
               if (e.phase === 'aim') { sp = 0; if (e.ch <= 0) { e.phase = 'dash'; e.ch = .55; sfx(90, .3, 'sawtooth', .06, .5); S.shake = Math.min(1, S.shake + .3); } }
               else if (e.phase === 'dash') { const ds = e.enr ? 660 : 560; sp = 0; e.x += e.cdx * ds * dt; e.y += e.cdy * ds * dt; e.mvx = e.cdx * ds; if (e.ch <= 0) { e.phase = null; e.ch = e.enr ? rnd(2, 3) : rnd(3.5, 5); } }
@@ -179,11 +190,11 @@
               if (!e.phase && e.howl <= 0) {
                 e.howl = e.enr ? rnd(6, 8) : rnd(9, 12);
                 const nS = 6, nL = e.enr ? 3 : 1;
-                for (let i = 0; i < nS + nL; i++) { const a = i / (nS + nL) * TAU, R_ = e.r + 40; spawnEnemy(i < nS ? 'sombra' : 'lobizon', e.x + Math.cos(a) * R_, e.y + Math.sin(a) * R_, { spd: ETYPES[i < nS ? 'sombra' : 'lobizon'].spd * 1.15 }); }
+                for (let i = 0; i < nS + nL; i++) { const a = i / (nS + nL) * TAU, R_ = e.r + 40, tp = PACK.pack[i < nS ? 0 : 1]; spawnEnemy(tp, e.x + Math.cos(a) * R_, e.y + Math.sin(a) * R_, { spd: ETYPES[tp].spd * 1.15 }); }
                 S.fx.push({ type: 'ring', x: e.x, y: e.y, life: .7, max: .7, col: 'rgba(255,90,60,.8)', R: e.r + 90 });
                 S.shake = Math.min(1, S.shake + .4); sfx(110, .9, 'sawtooth', .06, .4); sfx(165, .8, 'sawtooth', .03, .5);
               }
-              if (!e.enr && e.hp < e.maxHp * .5) { e.enr = true; banner('El Lobizón Mayor se enfurece'); sfx(80, .8, 'sawtooth', .07, .4); }
+              if (!e.enr && e.hp < e.maxHp * .5) { e.enr = true; banner(PACK.enr); sfx(80, .8, 'sawtooth', .07, .4); }
             }
             if (e.boss && e.type === 'caleuche') {
               e.summon -= dt;

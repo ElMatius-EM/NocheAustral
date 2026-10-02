@@ -23,12 +23,12 @@
           weapons: [], passives: [], level: 1, xp: 0, xpNext: xpNeed(1), kills: 0,
           enemies: [], proj: [], ebul: [], gems: [], picks: [], parts: [], texts: [], fx: [], timers: [],
           rerolls: 3 + shopLvl('otramano') + (NI('p3') ? 1 : 0), spawnAcc: 0, bigGem: null, dmgBy: {}, shake: 0, hurtFlash: 0, endless: false, nextMandinga: 0,
-          pendingLevels: 0, pendingChests: 0, mat: { cuero: 0, hueso: 0, hierro: 0 }, matBanked: {}, famaGiven: 0, eliteK: 0, miniK: 0, bossK: 0, whistled: false, tamed: null, horseKept: false, secondWind: false, mounts: [], ride: null, herdSeed: (Math.random() * 1e5) | 0, terrSeed: (Math.random() * 997) | 0, marks: [], ripples: [], crit: [], critT: 1.5, tw: [], twT: 0, ani: new Map(), aniScan: 0, aniNear: null, aniTip: false, wetTip: false, pWet: false, stepAcc: 0, stepSide: 1, splT: 0, birdT: 0, crkT: 2, star: null, howlT: -99, herdCD: new Map(), herdAct: new Set(), herdScan: 0, tumble: 0, herdTip: false, events: buildEvents(), cracks: [], crackNext: 100, endAcc: 0, invDirty: true, choiceLock: 0
+          pendingLevels: 0, pendingChests: 0, mat: Object.fromEntries(MAT_KEYS.map(m => [m, 0])), matBanked: {}, famaGiven: 0, eliteK: 0, miniK: 0, bossK: 0, whistled: false, tamed: null, horseKept: false, secondWind: false, mounts: [], ride: null, herdSeed: (Math.random() * 1e5) | 0, terrSeed: (Math.random() * 997) | 0, marks: [], ripples: [], crit: [], critT: 1.5, tw: [], twT: 0, ani: new Map(), aniScan: 0, aniNear: null, aniTip: false, wetTip: false, pWet: false, stepAcc: 0, stepSide: 1, splT: 0, birdT: 0, crkT: 2, star: null, howlT: -99, herdCD: new Map(), herdAct: new Set(), herdScan: 0, tumble: 0, herdTip: false, events: buildEvents(), cracks: [], crackNext: 100, endAcc: 0, invDirty: true, choiceLock: 0
         };
         if (S.mode === 'campo') {
           // mundo persistente: terreno y potreros salen de la semilla guardada, sin eventos, sin cartas ni noche cerrada
           S.events = []; S.hyper = false; S.herdSeed = SAVE.campo.seed; S.terrSeed = SAVE.campo.seed % 997;
-          S.campoTaken = new Set(); S.leftHome = false; S.gath = null; S.armed = false; campoCache.clear();
+          S.campoTaken = new Set(); S.leftHome = false; S.gath = null; S.armed = false; campoCache.clear(); kitInit();
         }
         // lo preparado en el fogón se gasta en la primera noche que sale del Puesto (no en el campo ni en partida rápida)
         if (S.mode !== 'campo' && viaPuesto && SAVE.comida && FOGON_REC[SAVE.comida]) { S.comida = { id: SAVE.comida, until: CHARS[charId].fogon ? 900 : COMIDA_T, done: false }; SAVE.comida = null; writeSave(); }
@@ -102,13 +102,16 @@
       const OBS_CELL = 340, obsCache = new Map();
       function obsChunk(ix, iy) {
         const key = gk(ix, iy); let a = obsCache.get(key); if (a) return a; a = [];
-        const h0 = hash(ix * 31 + 7, iy * 17 + 3), n = h0 < .3 ? 0 : h0 < .78 ? 1 : 2;
+        // cada bioma decide cuántos obstáculos entran por celda (el bosque, varios árboles juntos)
+        const MC = MAPS[bioKey((ix + .5) * OBS_CELL, (iy + .5) * OBS_CELL)], h0 = hash(ix * 31 + 7, iy * 17 + 3), gap = MC.obsGap === undefined ? 70 : MC.obsGap;
+        const n = MC.obsN ? 1 + Math.floor(h0 * MC.obsN) : h0 < .3 ? 0 : h0 < .78 ? 1 : 2;
         for (let i = 0; i < n; i++) {
           const h1 = hash(ix * 13 + i * 7, iy * 29 - i * 3), h2 = hash(ix * 5 - i * 11, iy * 7 + i * 19), h3 = hash(ix + i * 23, iy * 3 - i);
           const x = (ix + .15 + h1 * .7) * OBS_CELL, y = (iy + .15 + h2 * .7) * OBS_CELL, r = 20 + h3 * 30;
           if (Math.hypot(x, y) < 260) continue;
-          if (a.some(o => Math.hypot(o.x - x, o.y - y) < o.r + r + 70)) continue;
-          a.push({ x, y, r, kind: MAPS[bioKey(x, y)].obs[h3 < .55 ? 0 : 1], seed: Math.floor(h1 * 1000) });
+          const id = 'o' + key + ':' + i; if (S.mode === 'campo' && nodeTaken(id)) continue;  // talado en el campo: rebrota como los recursos
+          if (a.some(o => Math.hypot(o.x - x, o.y - y) < o.r + r + gap)) continue;
+          a.push({ ck: key, id, x, y, r, kind: (MO => MO.obs[h3 < (MO.obsW || .55) ? 0 : 1])(MAPS[bioKey(x, y)]), seed: Math.floor(h1 * 1000) });
         }
         if (obsCache.size > 4000) obsCache.clear();
         obsCache.set(key, a); return a;

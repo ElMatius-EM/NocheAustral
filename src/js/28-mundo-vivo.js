@@ -5,6 +5,10 @@
           dry: '#3b3f2a', dark: '#121a17', salt: '#454c47', rim: '#223f2e', wet: '#10302f', deep: '#0c2429', glint: '#7fb4b8', mark: '#4a4230',
           reed: '#5f7a42', reedTip: '#8a6a3e', bird: '#5b5147', birdHead: '#c9a46a', birdWing: '#3e3731', hare: '#8a7a5e', hareBelly: '#bba98a'
         },
+        bosque: {
+          dry: '#4a3a22', dark: '#0f1a0e', salt: '#35562c', rim: '#1f3f2c', wet: '#0f2a26', deep: '#0b2024', glint: '#7fb4b8', mark: '#3a3224',
+          reed: '#4f7a3a', reedTip: '#7a5a32', bird: '#4a4038', birdHead: '#b08a5a', birdWing: '#2e2a24', hare: '#6a5a44', hareBelly: '#9a8a6a'
+        },
         glaciar: {
           dry: '#24344d', dark: '#121b29', salt: '#2e3f56', rim: '#465d78', wet: '#637c97', deep: '#7189a4', glint: '#dfeaf6', mark: '#34495f',
           reed: null, bird: '#e6eef5', birdHead: '#f4f8fb', birdWing: '#8b99a8', hare: '#dfe6ec', hareBelly: '#ffffff'
@@ -38,7 +42,7 @@
           if (reg) { const m = bioMix(x, y); usePal(m[0] === m[1] ? m[0] : bioPick(m, hx, hy, x, y)); }
           let r = bg[0], gg = bg[1], b = bg[2];
           const mix = (cc, k) => { r += (cc[0] - r) * k; gg += (cc[1] - gg) * k; b += (cc[2] - b) * k; };
-          const tn = vnoise(x, y, 620, o + 7) + dn; if (tn < .44) mix(dry, q((.44 - tn) / .14) * .7);
+          const tn = vnoise(x, y, 620, o + 7) + dn, dT = pk === 'bosque' ? .56 : .44; if (tn < dT) mix(dry, q((dT - tn) / .14) * .7);
           const dk_ = vnoise(x, y, 410, o + 11) + dn; if (dk_ > .6) mix(dark, q((dk_ - .6) / .12) * .75);
           const sl = vnoise(x, y, 520, o + 19) + dn; if (sl > .74) mix(salt, q((sl - .74) / .1) * (ice ? .6 : .55));
           if (x * x + y * y > 220 * 220) {

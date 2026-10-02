@@ -19,7 +19,7 @@ No usa dependencias. Todo el JS se concatena en orden de nombre dentro de un ún
 | `00-base` | Canvas, `$`, `rnd`, `clamp`, resize |
 | `01-audio` | Web Audio, efectos y música |
 | `02-datos` | `ETYPES`, `WAVES`, `PASSIVES`, `WEAPONS`, `CHARS`, `ARCANAS`, `BAL` |
-| `03-mapas` | `MAPS` |
+| `03-mapas` | `MAPS`, oleadas por mapa y biomas de las regiones (`bioMix`, `MAP`, `MAPR`) |
 | `04-guardado-logros` | `SAVE`, Tienda, lista de logros (`ACH`) |
 | `05-iconos` | Íconos procedurales |
 | `06-sprites` | `PixBuf`, `pixSprite`, sprites de personajes y enemigos |
@@ -47,6 +47,7 @@ No usa dependencias. Todo el JS se concatena en orden de nombre dentro de un ún
 | `28-mundo-vivo` | Terreno, mallines, marcas, animitas, fauna |
 | `29-luz` | Iluminación nocturna |
 | `30-ambiente` | Viento de fondo |
+| `30b-campo-kit` | Recorrer el campo: herramientas (cuchillo, hacha, lazo), tala y fauna |
 | `31-loop` | `frame()` y arranque |
 
 Para agregar un archivo nuevo, ponele un número que lo ubique después de lo que usa al cargarse.

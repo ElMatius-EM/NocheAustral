@@ -3,9 +3,9 @@
          Monedas: oro (Almacén y obras del puesto), fama (Ñire) y materiales
          (cuero, hueso, hierro: fragua, corral y obras). Todo vive en SAVE.
          ===================================================================== */
-      const MATS = { cuero: { name: 'cuero', col: '#b0703e' }, hueso: { name: 'hueso', col: '#e8e0c8' }, hierro: { name: 'hierro', col: '#9aa4b4' } };
-      const MAT_KEYS = ['cuero', 'hueso', 'hierro'];
-      const MAT_DROP = { calavera: ['hueso', .04], bruja: ['hueso', .05], lobizon: ['cuero', .08], chonchon: ['hueso', .02], cuero: ['cuero', .08], basilisco: ['hueso', .05], anima: ['hierro', .004], sombra: ['hierro', .003] };
+      const MATS = { cuero: { name: 'cuero', col: '#b0703e' }, hueso: { name: 'hueso', col: '#e8e0c8' }, hierro: { name: 'hierro', col: '#9aa4b4' }, carne: { name: 'carne', col: '#c8584a' }, lena: { name: 'leña', col: '#a07a4a' } };
+      const MAT_KEYS = ['cuero', 'hueso', 'hierro', 'carne', 'lena'];  // carne y leña salen solo del campo (cazar y talar)
+      const MAT_DROP = { calavera: ['hueso', .04], bruja: ['hueso', .05], lobizon: ['cuero', .08], chonchon: ['hueso', .02], cuero: ['cuero', .08], basilisco: ['hueso', .05], anima: ['hierro', .004], sombra: ['hierro', .003], bandurria: ['hueso', .02], chancho: ['hueso', .04], puma: ['cuero', .06], jabali: ['cuero', .08] };
 
       /* ---------------- guardado: campos nuevos y migración ---------------- */
       /* ---------------- Recorrer el campo: constantes (antes de normSave) ---------------- */
@@ -13,7 +13,8 @@
       function normSave() {
         SAVE.campo = Object.assign({ seed: 1 + ((Math.random() * 99999) | 0), taken: {}, salidas: 0, tiempo: 0 }, SAVE.campo || {});
         { const now = Date.now(); for (const k in SAVE.campo.taken) if (now - SAVE.campo.taken[k] > CAMPO_REGROW) delete SAVE.campo.taken[k]; }
-        SAVE.mat = Object.assign({ cuero: 0, hueso: 0, hierro: 0 }, SAVE.mat || {});
+        SAVE.mat = Object.assign({ cuero: 0, hueso: 0, hierro: 0, carne: 0, lena: 0 }, SAVE.mat || {});
+        SAVE.tools = Object.assign({ cuchillo: 1, hacha: 0, lazo: 0 }, SAVE.tools || {});
         SAVE.puesto = Object.assign({ rancho: 1, fragua: 0, corral: 0, fogon: 0 }, SAVE.puesto || {});
         SAVE.nire = SAVE.nire || {}; SAVE.trophies = SAVE.trophies || {};
         SAVE.knives = SAVE.knives || []; SAVE.horses = SAVE.horses || [];
@@ -152,9 +153,9 @@
          (Recorrer el campo no la gasta) y dura la primera mitad de esa noche. Para sumar una receta: una línea acá. */
       const COMIDA_T = 450;
       const FOGON_REC = {
-        mate: { name: 'Mate amargo', fx: '+10% de recarga', desc: 'Las armas recargan 10% más rápido.', end: 'Se enfrió el mate', cost: { oro: 60, hueso: 1 }, lvl: 0, apply: p => { p.cd *= .9; } },
-        tortas: { name: 'Tortas fritas', fx: '+10% de velocidad', desc: 'Te movés 10% más rápido.', end: 'Se terminaron las tortas fritas', cost: { oro: 80, cuero: 2 }, lvl: 1, apply: p => { p.speed *= 1.1; } },
-        cordero: { name: 'Cordero al asador', fx: '+15% de vida máxima', desc: '+15% de vida máxima.', end: 'Se te bajó el asado', cost: { oro: 120, hueso: 3 }, lvl: 1, apply: p => { p.maxHp *= 1.15; } }
+        mate: { name: 'Mate amargo', fx: '+10% de recarga', desc: 'Las armas recargan 10% más rápido.', end: 'Se enfrió el mate', cost: { oro: 40, lena: 1 }, lvl: 0, apply: p => { p.cd *= .9; } },
+        tortas: { name: 'Tortas fritas', fx: '+10% de velocidad', desc: 'Te movés 10% más rápido.', end: 'Se terminaron las tortas fritas', cost: { oro: 50, carne: 1, lena: 1 }, lvl: 1, apply: p => { p.speed *= 1.1; } },
+        cordero: { name: 'Cordero al asador', fx: '+15% de vida máxima', desc: '+15% de vida máxima.', end: 'Se te bajó el asado', cost: { oro: 60, carne: 3, lena: 2 }, lvl: 1, apply: p => { p.maxHp *= 1.15; } }
       };
       if (SAVE.comida && !FOGON_REC[SAVE.comida]) { SAVE.comida = null; writeSave(); }
       const TROFEOS = [
@@ -162,6 +163,8 @@
         { id: 'caleuche', name: 'Farol del Caleuche', how: 'Derrotá al jefe del Glaciar.' },
         { id: 'mini_bruja', name: 'Escoba de la Salamanca', how: 'Derrotá a la Bruja de la Salamanca.' },
         { id: 'mini_basilisco', name: 'Huevo del Basilisco', how: 'Derrotá al Basilisco Viejo.' },
+        { id: 'cuchivilu', name: 'Colmillo del Cuchivilu', how: 'Derrotá al jefe del Bosque andino.' },
+        { id: 'mini_puma', name: 'Cuero del Puma Viejo', how: 'Derrotá al Puma Viejo.' },
         { id: 'amanecer', name: 'Primer sol', how: 'Sobreviví hasta el amanecer.' },
         { id: 'herradura', name: 'Herradura de domador', how: 'Amansá 5 animales (logro Domador).' },
         { id: 'mandinga', name: 'Cuerno del Mandinga', how: 'Escapale al Mandinga 2 minutos después del amanecer.' }
@@ -184,6 +187,8 @@
         return MAT_SPR[m] = pixSprite(24, 1, b => {
           if (m === 'cuero') { b.poly([[-7, -4], [-3, -7], [3, -6], [7, -3], [6, 4], [1, 7], [-5, 6], [-8, 1]], '#b0703e'); b.tex('#b0703e', (x, y) => hash(x * 3, y * 5) < .18 ? [140, 86, 46] : null); b.line([[-4, -2], [3, 3]], .8, '#7a4a26', 1); }
           else if (m === 'hueso') { b.line([[-6, 4], [6, -4]], 3, '#e8e0c8'); for (const [x, y] of [[-7, 3], [-5.5, 5.5], [7, -3], [5.5, -5.5]]) b.ell(x, y, 2, 2, '#e8e0c8'); }
+          else if (m === 'carne') { b.ell(1, 0, 7, 5, '#a83a2a'); b.ell(0, -1, 5.4, 3.6, '#c8584a', 1); b.ell(-1, -2, 2.2, 1.2, '#e8a090', 1); b.line([[-8, 5], [-4, 2]], 2, '#e8e0c8'); b.ell(-8.4, 5.4, 1.4, 1.4, '#e8e0c8'); }
+          else if (m === 'lena') { for (const [y, c] of [[3, '#6a4a2a'], [-1, '#8a6a44'], [-4.5, '#7a5a38']]) { b.line([[-7, y], [7, y - 1]], 3, c); b.ell(7, y - 1, 1.6, 1.6, '#c89060'); b.dot(7, y - 1, '#8a5a34', 1); } }
           else { b.poly([[-7, 1], [-4, -4], [7, -4], [4, 1]], '#b8c2d0'); b.poly([[-7, 1], [4, 1], [4, 5], [-7, 5]], '#7a8496'); b.poly([[4, 1], [7, -4], [7, 0], [4, 5]], '#5a6272'); }
         });
       }

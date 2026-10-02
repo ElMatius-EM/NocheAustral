@@ -1,4 +1,21 @@
       /* ---------------- mapas ---------------- */
+      const WAVES3 = [
+        { bandurria: 1 },
+        { bandurria: 3, chancho: 1 },
+        { chancho: 3, bandurria: 2 },
+        { chancho: 2, bandurria: 2, puma: 1 },
+        { puma: 2, chancho: 3 },
+        { jabali: 1, chancho: 3, bandurria: 2 },
+        { puma: 2, jabali: 1, anima: 2 },
+        { chancho: 4, jabali: 2 },
+        { jabali: 2, puma: 2, bandurria: 2 },
+        { bandurria: 3, chancho: 3, jabali: 2 },
+        { puma: 3, jabali: 2, sombra: 2 },
+        { chancho: 4, jabali: 3, puma: 1 },
+        { jabali: 4, puma: 3 },
+        { bandurria: 3, chancho: 2, jabali: 3, puma: 2 },
+        { jabali: 5, puma: 3, chancho: 3 }
+      ];
       const WAVES2 = [
         { chonchon: 1 },
         { chonchon: 3, anima: 1 },
@@ -33,28 +50,37 @@
           txt: { swarm: 'Una bandada de chonchones cruza el hielo', ring: 'Los chonchones te rodean', ring2: 'Doble cerco: chonchones y cueros', rush: '¡Avalancha de calaveras!', win: 'Amaneció sobre el glaciar' },
           music: { root: 5, tempo: 96 }
         },
+        bosque: {
+          name: 'Bosque andino', desc: 'Lengas y coihues al pie de la cordillera, con lluvia fina. Bandurrias, chanchos cimarrones, pumas, jabalíes y el Cuchivilu.', waves: WAVES3, lock: 'min10',
+          bg: '#1e2c17', tuft: '#4a7a3c', stone: '#3e4a40', spot: '#c8463a', bone: '#6b6858', decor: 'grass', ice: false, obsN: 4, obsGap: 26, obsW: .75,
+          swarm: 'bandurria', ring: 'chancho', ring2: 'puma', rush: 'jabali', elites: ['chancho', 'puma', 'jabali'], boss: 'cuchivilu', bossName: 'el Cuchivilu', bossScale: 2.2, mini: 'puma', miniName: 'el Puma Viejo',
+          weather: 'lluvia', obs: ['lenga', 'tronco'],
+          txt: { swarm: 'Una bandada de bandurrias se larga del monte', ring: 'Una piara de cimarrones te rodea', ring2: 'Doble cerco: chanchos y pumas', rush: '¡Estampida de jabalíes!', win: 'Amaneció en el bosque' },
+          music: { root: 7, tempo: 92 }
+        },
         /* región: no tiene enemigos propios; mezcla biomas (otros mapas) según dónde estés */
         patagonia: {
-          name: 'Patagonia', desc: 'De la estepa al hielo: el pastizal se corta en lenguas de glaciar a medida que te alejás. Cada zona trae sus enemigos.', lock: 'min10',
-          region: { biomes: ['estepa', 'glaciar'], cuts: [.52] },
+          name: 'Patagonia', desc: 'De la estepa a la cordillera: alejándote del fogón el pastizal da paso al bosque andino y, más allá, al hielo. Cada zona trae sus enemigos.', lock: 'min10',
+          region: { biomes: ['estepa', 'bosque', 'glaciar'], cuts: [.44, .58] },
           music: { root: 2, tempo: 100 }
         }
       };
       MAPS.estepa.enter = 'Volvés al pastizal de la estepa';
       MAPS.glaciar.enter = 'El suelo se congela: entrás al glaciar';
+      MAPS.bosque.enter = 'Huele a lenga mojada: entrás al bosque';
 
       /* ---------------- biomas ----------------
          En una región, un ruido de baja frecuencia (escala BIO_SCALE) ordena los biomas como una temperatura:
          cada corte de region.cuts separa uno del siguiente, con una franja de mezcla de ±BIO_BAND.
          Cerca del punto de partida siempre domina el primero. MAP() devuelve el bioma donde está el jugador
          (con histéresis para que no titile en el borde); MAPR() el mapa elegido (nombre, música, récord). */
-      const BIO_SCALE = 2400, BIO_BAND = .05;
+      const BIO_SCALE = 1500, BIO_BAND = .04;
       const MAPR = () => MAPS[S ? S.map : 'estepa'];
       const MAP = () => MAPS[S ? (S.bio || S.map) : 'estepa'];
       const REGION = () => S && MAPS[S.map] && MAPS[S.map].region;
       function bioMix(x, y) {
         const R = REGION(); if (!R) return [S.map, S.map, 0];
-        const o = S.terrSeed, home = Math.max(0, 1 - Math.hypot(x, y) / 2400) * .7;
+        const o = S.terrSeed, home = Math.max(0, 1 - Math.hypot(x, y) / 1300) * .45;
         const n = vnoise(x, y, BIO_SCALE, o + 41) * .75 + vnoise(x, y, BIO_SCALE * .3, o + 43) * .25 - home;
         const B = R.biomes, C = R.cuts;
         for (let i = 0; i < C.length; i++) {

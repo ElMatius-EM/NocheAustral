@@ -77,6 +77,7 @@
       function drawOverlay(sx, sy) {
         const P = S.player;
         cx.save(); cx.translate(W / 2 + sx, H / 2 + sy); cx.scale(ZOOM, ZOOM); cx.translate(-P.x, -P.y);
+        if (S.mode === 'campo') drawKitTop();
         drawTexts();
         cx.restore();
       }

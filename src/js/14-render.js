@@ -25,16 +25,17 @@
       }
       function drawObstacle(o) { dimg(obsSprite(o), o.x, o.y); }
       function drawWeather(dt) {
-        const w = S.weather, k = w.k || 0, vent = w.type === 'ventisca', st = S.streaks, want = vent ? 170 : 70;
+        const w = S.weather, k = w.k || 0, vent = w.type === 'ventisca', rain = w.type === 'lluvia', st = S.streaks, want = vent ? 170 : rain ? 140 : 70;
+        if (rain) cx.fillStyle = `rgba(20,30,40,${.18 * k})`, cx.fillRect(0, 0, W, H);
         while (st.length < want) st.push({ x: Math.random() * W, y: Math.random() * H, l: rnd(12, 42), v: rnd(.7, 1.3) });
         if (vent) { const g = cx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * .14, W / 2, H / 2, Math.max(W, H) * .62); g.addColorStop(0, 'rgba(205,222,240,0)'); g.addColorStop(1, `rgba(205,222,240,${.88 * k})`); cx.fillStyle = g; cx.fillRect(0, 0, W, H); }
-        const sp = vent ? 520 : 720, mv = S.state === 'play' ? dt : 0;
-        cx.strokeStyle = vent ? `rgba(248,252,255,${.85 * k})` : `rgba(225,212,178,${.4 * k})`; cx.lineWidth = vent ? 2.6 : 1.5; cx.lineCap = 'round'; cx.beginPath();
+        const sp = vent ? 520 : rain ? 900 : 720, mv = S.state === 'play' ? dt : 0;
+        cx.strokeStyle = vent ? `rgba(248,252,255,${.85 * k})` : rain ? `rgba(170,200,225,${.45 * k})` : `rgba(225,212,178,${.4 * k})`; cx.lineWidth = vent ? 2.6 : rain ? 1.2 : 1.5; cx.lineCap = 'round'; cx.beginPath();
         for (const p of st) {
           p.x += w.dx * sp * p.v * mv; p.y += w.dy * sp * p.v * mv + (vent ? 45 * mv : 0);
           if (p.x < -60) p.x += W + 120; else if (p.x > W + 60) p.x -= W + 120;
           if (p.y < -60) p.y += H + 120; else if (p.y > H + 60) p.y -= H + 120;
-          const L = vent ? 3 : p.l; cx.moveTo(p.x, p.y); cx.lineTo(p.x - w.dx * L, p.y - w.dy * L);
+          const L = vent ? 3 : rain ? p.l * .7 : p.l; cx.moveTo(p.x, p.y); cx.lineTo(p.x - w.dx * L, p.y - w.dy * L);
         }
         cx.stroke(); cx.lineCap = 'butt';
       }

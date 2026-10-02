@@ -10,10 +10,10 @@
       function startCampo() {
         initAudio(); if (AC && AC.state === 'suspended') AC.resume();
         const ch = SAVE.lastChar && CHARS[SAVE.lastChar] ? SAVE.lastChar : 'baqueano';
-        newGame(ch, 'estepa', 'campo');
-        hide('startOv'); $('hud').classList.add('on', 'campo'); $('dashBtn').classList.add('on');
+        newGame(ch, 'patagonia', 'campo');  // el campo es una región: estepa, bosque y glaciar según dónde andes
+        hide('startOv'); $('hud').classList.add('on', 'campo'); $('dashBtn').classList.add('on'); $('toolBtn').classList.add('on'); $('toolSw').classList.toggle('on', toolsOwned().length > 1);
         $('whBtn').classList.toggle('on', !!SAVE.horses[SAVE.horse]);
-        banner(SAVE.campo.salidas ? 'Salís a recorrer el campo' : 'Recorré el campo tranquilo. Para volver, quedate un momento en la tranquera');
+        banner(SAVE.campo.salidas ? 'Salís a recorrer el campo' : 'Recorré el campo tranquilo. E usa la herramienta; para volver, quedate un momento en la tranquera');
       }
       function campoNode(ix, iy) {
         const key = ix + ',' + iy; if (campoCache.has(key)) return campoCache.get(key);
@@ -79,7 +79,7 @@
         }
         SAVE.campo.salidas++; SAVE.campo.tiempo += Math.floor(S.t); writeSave();
         S.state = 'end'; joy = null;
-        hide('pauseOv'); $('hud').classList.remove('on', 'campo'); $('dashBtn').classList.remove('on'); $('whBtn').classList.remove('on'); $('combo').classList.remove('on'); hud.comboOn = false; hud.bossOn = false; $('bossbar').classList.remove('on');
+        hide('pauseOv'); $('hud').classList.remove('on', 'campo'); $('dashBtn').classList.remove('on'); $('whBtn').classList.remove('on'); $('toolBtn').classList.remove('on'); $('toolSw').classList.remove('on'); $('combo').classList.remove('on'); hud.comboOn = false; hud.bossOn = false; $('bossbar').classList.remove('on');
         S = null; musicStop();
         enterPuesto(); PU.y = 352;
         const msg = (faint ? 'Te desmayaste y te trajeron al puesto. ' : 'Volviste al puesto. ') + (got.length ? 'Juntaste ' + got.join(', ') + '.' : 'No juntaste nada esta vez.');
@@ -117,6 +117,7 @@
       function drawCampo(vis, hw, hh) {
         const P = S.player;
         forCampoNodes(P.x, P.y, Math.max(hw, hh) + 40, n => { if (vis(n.x, n.y)) dimg(campoSpr(n.kind), n.x, n.y); });
+        drawFauna(vis);
         dimg(sprTranquera(0), CAMPO_HOME.x, CAMPO_HOME.y);
         drawFarol(CAMPO_HOME.x + 26, CAMPO_HOME.y - 40, S.t);
         const g = S.gath;

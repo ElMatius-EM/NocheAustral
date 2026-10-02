@@ -1435,7 +1435,7 @@
       transition: color .1s, transform .1s
     }
 
-    #hud.campo .xpbar, #hud.campo .kills, #hud.campo #invP, #hud.campo #invA { display: none; }
+    #hud.campo .xpbar, #hud.campo .kills, #hud.campo #invP, #hud.campo #invA, #hud.campo #invW { display: none; }
     .tm.main {
       font-size: clamp(36px, 5vw, 48px);
       color: var(--bronce);
@@ -2383,6 +2383,130 @@
         opacity: .45
       }
     }
+
+    /* ---------------- herramientas del campo ---------------- */
+    .toolBar {
+      display: none;
+      gap: 6px;
+      align-items: center;
+      margin-top: 6px
+    }
+
+    #hud.campo .toolBar {
+      display: flex
+    }
+
+    .tslot {
+      position: relative;
+      width: 38px;
+      height: 38px;
+      border: 2px solid var(--linea);
+      border-radius: 3px;
+      background: rgba(12, 17, 32, .6);
+      display: grid;
+      place-items: center
+    }
+
+    .tslot.on {
+      border-color: var(--bronce);
+      background: rgba(201, 164, 92, .22)
+    }
+
+    .tslot img {
+      width: 30px;
+      height: 30px;
+      image-rendering: pixelated
+    }
+
+    .tslot kbd {
+      position: absolute;
+      right: -3px;
+      bottom: -5px;
+      font-size: 10px;
+      padding: 0 3px
+    }
+
+    .thint {
+      font-size: 12px;
+      color: var(--luna2);
+      text-shadow: 0 2px 0 #000;
+      margin-left: 4px
+    }
+
+    @media (pointer:coarse) {
+      .thint {
+        display: none
+      }
+    }
+
+    #toolBtn,
+    #toolSw {
+      position: fixed;
+      display: none;
+      border-radius: 50%;
+      border: 3px solid var(--bronce);
+      background: rgba(20, 27, 45, .8);
+      color: var(--luna);
+      touch-action: none
+    }
+
+    #toolBtn {
+      right: calc(env(safe-area-inset-right, 0px) + 108px);
+      bottom: calc(env(safe-area-inset-bottom, 0px) + 22px);
+      width: 70px;
+      height: 70px
+    }
+
+    #toolBtn img {
+      width: 44px;
+      height: 44px;
+      image-rendering: pixelated
+    }
+
+    #toolSw {
+      right: calc(env(safe-area-inset-right, 0px) + 126px);
+      bottom: calc(env(safe-area-inset-bottom, 0px) + 102px);
+      width: 40px;
+      height: 40px;
+      font-size: 18px
+    }
+
+    @media (pointer:coarse) {
+
+      #hud.on~#toolBtn.on,
+      #hud.on~#toolSw.on {
+        display: block
+      }
+    }
+
+    /* con cinco materiales las fichas del puesto no entran en una fila del celular: se achican un poco más */
+    @media (max-width:520px) {
+      #puChips {
+        gap: 2px;
+        flex-wrap: nowrap;
+        min-width: 0;
+        justify-content: flex-end
+      }
+
+      #puChips .chip {
+        border-width: 4px;
+        padding: 0 2px;
+        font-size: 11px;
+        gap: 2px
+      }
+
+      #puChips .ico {
+        width: 12px;
+        height: 12px
+      }
+    }
+
+    @media (max-width:380px) {
+      #puChips {
+        flex-wrap: wrap;
+        row-gap: 3px
+      }
+    }
   </style>
 </head>
 
@@ -2406,6 +2530,7 @@
             id="goldN">0</span></span><span class="kills" id="kills">☠ 0</span><button id="pauseBtn"
           aria-label="Pausar">❚❚</button></div>
     </div>
+    <div class="toolBar" id="toolBar"></div>
     <div class="comidaB" id="comidaB"><img id="comidaI" alt=""><span id="comidaT"></span></div>
   </div>
   <div id="combo"><span id="comboN">×0</span><small>combo</small>
@@ -2415,6 +2540,8 @@
   </div>
   <button id="dashBtn" aria-label="Dash">Dash</button>
   <button id="whBtn" aria-label="Silbar al caballo">🐎</button>
+  <button id="toolBtn" aria-label="Usar herramienta"></button>
+  <button id="toolSw" aria-label="Cambiar herramienta">⇄</button>
   <div id="bossbar"><span id="bossName"></span>
     <div class="bb">
       <div id="bossFill"></div>
@@ -2700,6 +2827,12 @@
         cuero: { name: 'Cuero', r: 19, hp: 80, spd: 36, dmg: 14, xp: 6, w: 3.6, col: '#7a5a3a', eye: '#ff5a3c' },
         basilisco: { name: 'Basilisco', r: 12, hp: 26, spd: 48, dmg: 9, xp: 3, w: 1.4, col: '#6f8f3a', eye: '#ffe066', ranged: true, shotCol: '#c8f59a', shotGlow: 'rgba(140,220,90,.35)' },
         caleuche: { name: 'Caleuche', r: 30, hp: 60, spd: 58, dmg: 18, xp: 0, w: 99, col: '#2a3a4e', eye: '#9fe8ff', volley: true },
+        // bosque andino. charge: embestida propia de bichos comunes [alcance, apunte s, velocidad, duración s, espera mín, espera máx]
+        bandurria: { name: 'Bandurria', r: 9, hp: 5, spd: 94, dmg: 5, xp: 1, w: .5, col: '#8a8270', eye: '#ffd23c', erratic: true, fly: true, nf: 6 },
+        chancho: { name: 'Chancho cimarrón', r: 11, hp: 15, spd: 70, dmg: 8, xp: 2, w: 1.3, col: '#6e5444', eye: '#ff7a3c' },
+        puma: { name: 'Puma', r: 13, hp: 26, spd: 64, dmg: 11, xp: 3, w: 1.5, col: '#b08a5a', eye: '#ffe066', charge: [250, .4, 540, .3, 2.5, 4] },
+        jabali: { name: 'Jabalí', r: 15, hp: 40, spd: 50, dmg: 12, xp: 4, w: 2.5, col: '#4a3e36', eye: '#ff5a3c', charge: [320, .65, 430, .5, 4, 6] },
+        cuchivilu: { name: 'Cuchivilu', r: 22, hp: 60, spd: 56, dmg: 18, xp: 0, w: 99, col: '#4e6a4a', eye: '#ffd23c' },
         farol: { name: 'Farol', r: 10, hp: 1, spd: 0, dmg: 0, xp: 0, w: 99, col: '#3a2e22', eye: '#ffcf6a', prop: true }
       };
       const WAVES = [
@@ -2943,6 +3076,23 @@
       };
 
       /* ---------------- mapas ---------------- */
+      const WAVES3 = [
+        { bandurria: 1 },
+        { bandurria: 3, chancho: 1 },
+        { chancho: 3, bandurria: 2 },
+        { chancho: 2, bandurria: 2, puma: 1 },
+        { puma: 2, chancho: 3 },
+        { jabali: 1, chancho: 3, bandurria: 2 },
+        { puma: 2, jabali: 1, anima: 2 },
+        { chancho: 4, jabali: 2 },
+        { jabali: 2, puma: 2, bandurria: 2 },
+        { bandurria: 3, chancho: 3, jabali: 2 },
+        { puma: 3, jabali: 2, sombra: 2 },
+        { chancho: 4, jabali: 3, puma: 1 },
+        { jabali: 4, puma: 3 },
+        { bandurria: 3, chancho: 2, jabali: 3, puma: 2 },
+        { jabali: 5, puma: 3, chancho: 3 }
+      ];
       const WAVES2 = [
         { chonchon: 1 },
         { chonchon: 3, anima: 1 },
@@ -2977,28 +3127,37 @@
           txt: { swarm: 'Una bandada de chonchones cruza el hielo', ring: 'Los chonchones te rodean', ring2: 'Doble cerco: chonchones y cueros', rush: '¡Avalancha de calaveras!', win: 'Amaneció sobre el glaciar' },
           music: { root: 5, tempo: 96 }
         },
+        bosque: {
+          name: 'Bosque andino', desc: 'Lengas y coihues al pie de la cordillera, con lluvia fina. Bandurrias, chanchos cimarrones, pumas, jabalíes y el Cuchivilu.', waves: WAVES3, lock: 'min10',
+          bg: '#1e2c17', tuft: '#4a7a3c', stone: '#3e4a40', spot: '#c8463a', bone: '#6b6858', decor: 'grass', ice: false, obsN: 4, obsGap: 26, obsW: .75,
+          swarm: 'bandurria', ring: 'chancho', ring2: 'puma', rush: 'jabali', elites: ['chancho', 'puma', 'jabali'], boss: 'cuchivilu', bossName: 'el Cuchivilu', bossScale: 2.2, mini: 'puma', miniName: 'el Puma Viejo',
+          weather: 'lluvia', obs: ['lenga', 'tronco'],
+          txt: { swarm: 'Una bandada de bandurrias se larga del monte', ring: 'Una piara de cimarrones te rodea', ring2: 'Doble cerco: chanchos y pumas', rush: '¡Estampida de jabalíes!', win: 'Amaneció en el bosque' },
+          music: { root: 7, tempo: 92 }
+        },
         /* región: no tiene enemigos propios; mezcla biomas (otros mapas) según dónde estés */
         patagonia: {
-          name: 'Patagonia', desc: 'De la estepa al hielo: el pastizal se corta en lenguas de glaciar a medida que te alejás. Cada zona trae sus enemigos.', lock: 'min10',
-          region: { biomes: ['estepa', 'glaciar'], cuts: [.52] },
+          name: 'Patagonia', desc: 'De la estepa a la cordillera: alejándote del fogón el pastizal da paso al bosque andino y, más allá, al hielo. Cada zona trae sus enemigos.', lock: 'min10',
+          region: { biomes: ['estepa', 'bosque', 'glaciar'], cuts: [.44, .58] },
           music: { root: 2, tempo: 100 }
         }
       };
       MAPS.estepa.enter = 'Volvés al pastizal de la estepa';
       MAPS.glaciar.enter = 'El suelo se congela: entrás al glaciar';
+      MAPS.bosque.enter = 'Huele a lenga mojada: entrás al bosque';
 
       /* ---------------- biomas ----------------
          En una región, un ruido de baja frecuencia (escala BIO_SCALE) ordena los biomas como una temperatura:
          cada corte de region.cuts separa uno del siguiente, con una franja de mezcla de ±BIO_BAND.
          Cerca del punto de partida siempre domina el primero. MAP() devuelve el bioma donde está el jugador
          (con histéresis para que no titile en el borde); MAPR() el mapa elegido (nombre, música, récord). */
-      const BIO_SCALE = 2400, BIO_BAND = .05;
+      const BIO_SCALE = 1500, BIO_BAND = .04;
       const MAPR = () => MAPS[S ? S.map : 'estepa'];
       const MAP = () => MAPS[S ? (S.bio || S.map) : 'estepa'];
       const REGION = () => S && MAPS[S.map] && MAPS[S.map].region;
       function bioMix(x, y) {
         const R = REGION(); if (!R) return [S.map, S.map, 0];
-        const o = S.terrSeed, home = Math.max(0, 1 - Math.hypot(x, y) / 2400) * .7;
+        const o = S.terrSeed, home = Math.max(0, 1 - Math.hypot(x, y) / 1300) * .45;
         const n = vnoise(x, y, BIO_SCALE, o + 41) * .75 + vnoise(x, y, BIO_SCALE * .3, o + 43) * .25 - home;
         const B = R.biomes, C = R.cuts;
         for (let i = 0; i < C.length; i++) {
@@ -3107,6 +3266,11 @@
         cuero: { where: 'Glaciar', desc: 'Criatura de lagos y ríos del sur, como un cuero de vaca estirado con garras en el borde. Envuelve a sus presas.' },
         basilisco: { where: 'Glaciar', desc: 'El basilisco chilote nace de un huevo de gallo: mitad gallo, mitad serpiente. Escupe desde lejos.' },
         caleuche: { where: 'Glaciar (jefe)', desc: 'Barco fantasma de Chiloé tripulado por brujos. Navega iluminado entre la niebla y larga ánimas a bordo.' },
+        bandurria: { where: 'Bosque andino', desc: 'Ave de pico curvo que anda en bandada. De noche, algo las espanta y vuelan en contra de todo.' },
+        chancho: { where: 'Bosque andino', desc: 'Chanchos que se escaparon de los puestos y se hicieron monte. Andan en piara y no le temen a nada.' },
+        puma: { where: 'Bosque andino', desc: 'El león de la cordillera. Acecha quieto y salta de golpe, corto y rápido.' },
+        jabali: { where: 'Bosque andino', desc: 'Lo trajeron para cazar y se adueñó del bosque. Se frena, raspa la tierra y embiste en línea recta.' },
+        cuchivilu: { where: 'Bosque andino (jefe)', desc: 'Mitad chancho, mitad serpiente, de los mitos mapuches de lagos y mallines. Llama a la piara cuando lo apuran.' },
         mandinga: { where: 'Cualquier mapa, después del amanecer', desc: 'El diablo del campo, que ofrece pactos a los paisanos. No se lo puede vencer: solo huir.' }
       };
       const hasAch = id => !!SAVE.ach[id];
@@ -3704,6 +3868,65 @@
           for (let i = 0; i < 6; i++) { b.rect(-.85 + i * .34, .26, .14, .14, T.eye, 1); b.dot(-.83 + i * .34, .28, '#ffffff', 1); }
           for (let i = 0; i < 7; i++) b.ellD(-1.3 + i * .43, .78 + Math.sin(i * 2.1) * .05, .32, .13, [210, 235, 250], 2, .45, i & 1);
         },
+        /* ---- bosque andino: animales de perfil, mirando a la derecha (se voltean al moverse) ---- */
+        bandurria(b, T, ph) {
+          const c = T.col, f = Math.sin(ph), wy = -.15 - f * .75;
+          b.poly([[-.25, -.1], [.25, -.12], [-.05 + f * .1, wy], [-.45, wy + .1]], dk(c, .25));
+          b.ell(-.1, 0, .62, .3, c); b.ell(-.7, .05, .22, .12, dk(c, .2));
+          b.ell(.5, -.28, .22, .2, '#c89a5a'); b.line([[.3, -.08], [.45, -.2]], .16, '#c89a5a');
+          b.line(qb([.66, -.3], [1.0, -.3], [1.25, .05], 5), .06, '#2a2420');
+          b.dot(.56, -.33, T.eye, 1);
+          b.poly([[-.2, 0], [.2, -.02], [0 - f * .1, .2 + f * .55], [-.4, .15 + f * .5]], lt(c, .1)); b.line([[0 - f * .1, .2 + f * .55], [-.4, .15 + f * .5]], .06, '#1e1a16', 1);
+        },
+        chancho(b, T, ph) {
+          const c = T.col, cD = dk(c, .3), sn = '#c8908a';
+          for (const [x, off, col] of [[-.55, Math.PI, cD], [.45, 0, cD], [-.38, 0, c], [.62, Math.PI, c]]) { const o = Math.sin(ph + off); b.line([[x, .3], [x + o * .14, .82]], .17, col); b.ell(x + o * .14 + .03, .84, .1, .05, '#2a1d14'); }
+          b.ell(0, .12, .88, .52, c);
+          for (const [x, y] of [[-.4, -.05], [.1, .2], [-.15, .35]]) b.ell(x, y, .18, .12, dk(c, .22), 1);
+          b.tex(c, (x, y) => hash(x * 5, y * 3 + 4) < .12 ? lt(c, .12) : null);
+          b.ell(.82, .02, .34, .3, c); b.ell(1.12, .1, .14, .14, sn); b.dot(1.15, .07, '#5a3a32', 1);
+          b.poly([[.66, -.2], [.86, -.42], [.9, -.12]], cD); b.dot(.9, -.06, T.eye, 1);
+          b.line(qb([-.86, 0], [-1.05, -.2], [-.98, .1], 3), .05, cD);
+        },
+        puma(b, T, ph) {
+          const c = T.col, cD = dk(c, .28), cL = '#e0cba8';
+          b.line(qb([-.82, -.05], [-1.55, .15], [-1.65, -.45], 6), .16, c); b.ell(-1.65, -.5, .12, .12, '#3a2a1e');
+          for (const [x, off, col] of [[-.55, Math.PI, cD], [.6, 0, cD], [-.38, 0, c], [.76, Math.PI, c]]) { const o = Math.sin(ph + off); b.line([[x, .12], [x + o * .2, .76 - Math.max(0, -o) * .08]], .16, col); b.ell(x + o * .2 + .05, .78, .12, .06, col); }
+          b.ell(0, .02, .95, .4, c); b.ell(.08, .2, .72, .18, cL);
+          b.tex(c, (x, y) => hash(x * 3, y * 5 + 2) < .1 ? dk(c, .12) : null);
+          b.ell(.98, -.32, .38, .32, c); b.ell(1.2, -.2, .2, .15, cL); b.dot(1.37, -.25, '#3a2a2a', 1);
+          b.poly([[.76, -.52], [.82, -.8], [.96, -.6]], c); b.poly([[1.0, -.6], [1.1, -.82], [1.18, -.58]], c);
+          b.ell(1.08, -.4, .07, .06, T.eye, 1); b.line([[1.22, -.1], [1.36, -.08]], .04, cL, 1);
+        },
+        jabali(b, T, ph) {
+          const c = T.col, cD = dk(c, .3), br = '#221a16';
+          for (const [x, off, col] of [[-.6, Math.PI, cD], [.5, 0, cD], [-.42, 0, c], [.66, Math.PI, c]]) { const o = Math.sin(ph + off); b.line([[x, .3], [x + o * .14, .84]], .18, col); b.ell(x + o * .14 + .03, .86, .11, .05, '#1a1410'); }
+          b.ell(-.05, .1, .95, .58, c);
+          for (let i = 0; i < 10; i++) { const x = -.85 + i * .19, y0 = -.4 + Math.abs(x + .1) * .14; b.line([[x, y0 + .08], [x - .06, y0 - .2]], .08, br); }
+          b.tex(c, (x, y) => hash(x * 5, y * 3 + 7) < .2 ? dk(c, .18) : hash(x, y * 7) < .05 ? lt(c, .15) : null);
+          b.poly([[.6, -.36], [1.3, -.02], [1.4, .32], [.68, .44]], c);
+          b.ell(1.42, .16, .12, .16, '#8a6a5a'); b.dot(1.46, .12, '#2a1a1a', 1);
+          b.line([[1.18, .32], [1.32, .06]], .07, '#ece4cc', 1);
+          b.poly([[.7, -.32], [.8, -.62], [.92, -.3]], cD); b.ell(.98, -.08, .07, .06, T.eye, 1);
+          b.line(qb([-.98, 0], [-1.16, -.12], [-1.1, .16], 3), .06, cD);
+        },
+        cuchivilu(b, T, ph) {
+          const sc = T.col, scD = dk(sc, .3), pig = '#9a6a5a', pigD = dk(pig, .25), w = Math.sin(ph) * .12;
+          // cuerpo de serpiente que se enrosca hacia atrás
+          const body = qb([.1, .2], [-1.1, .75 + w], [-1.85, -.15 - w], 12);
+          b.line(body, .5, sc, 0, 1, .12);
+          for (let i = 1; i < body.length - 1; i += 2) b.ell(body[i][0], body[i][1] - .12, .14, .08, lt(sc, .2), 1);
+          for (let i = 0; i < body.length; i += 2) b.line([[body[i][0], body[i][1] - .2], [body[i][0] - .08, body[i][1] - .42]], .06, scD);
+          b.tex(sc, (x, y) => ((x + y) % 3 === 0) ? scD : null);
+          // patas delanteras de chancho
+          for (const [x, off] of [[.15, 0], [.45, Math.PI]]) { const o = Math.sin(ph + off); b.line([[x, .3], [x + o * .16, .86]], .2, pigD); b.ell(x + o * .16 + .03, .88, .12, .06, '#1a1410'); }
+          b.ell(.35, .02, .62, .55, pig); b.tex(pig, (x, y) => hash(x * 3, y * 5 + 11) < .14 ? pigD : null);
+          // cabeza con trompa, colmillos y ojos encendidos
+          b.ell(.95, -.15, .45, .4, pig); b.ell(1.36, -.02, .2, .22, '#d8988a'); b.dot(1.4, -.08, '#3a1a1a', 1); b.dot(1.4, .05, '#3a1a1a', 1);
+          b.line([[1.2, .18], [1.38, -.18]], .08, '#ece4cc', 1); b.line([[1.05, .2], [1.12, -.05]], .06, '#ece4cc', 1);
+          b.poly([[.72, -.42], [.76, -.8], [.95, -.48]], pigD);
+          b.ell(1.06, -.3, .1, .08, T.eye, 1); b.dot(1.08, -.31, '#ffffff', 1);
+        },
         farol(b, T, ph) {
           b.ellD(0, -.6, 2.0, 2.0, [255, 200, 110], 2, .16, 0);
           b.ellD(0, -.6, 1.3, 1.3, [255, 210, 130], 2, .24, 1);
@@ -3780,10 +4003,10 @@
         else if (cf.hat === 'pluma') { b.ell(0, -11, 12, 2, cf.hatCol); b.ell(0, -13.2, 5, 3, cf.hatCol); b.rect(-5, -12.2, 10, 1.2, cf.band); b.line([[3, -13], [7, -18], [9.4, -19.6]], 1.3, '#f4efe0', 0, 1, .5); }
       }
 
-      const WALK = new Set(['sombra', 'calavera', 'lobizon', 'bruja', 'cuero', 'basilisco']);
+      const WALK = new Set(['sombra', 'calavera', 'lobizon', 'bruja', 'cuero', 'basilisco', 'chancho', 'puma', 'jabali', 'cuchivilu']);
       function makeSprites() {
         for (const k in ETYPES) {
-          const T = ETYPES[k], G = Math.round(T.r * 4.6 / PXS), u = T.r / PXS, nf = k === 'anima' ? 8 : k === 'chonchon' ? 6 : WALK.has(k) ? 4 : 1, frames = [];
+          const T = ETYPES[k], G = Math.round(T.r * 4.6 / PXS), u = T.r / PXS, nf = T.nf || (k === 'anima' ? 8 : k === 'chonchon' ? 6 : WALK.has(k) ? 4 : 1), frames = [];
           for (let fi = 0; fi < nf; fi++) { const b = PixBuf(G, u); PIX[k](b, T, fi / nf * TAU); frames.push(pixFinish(b)); }
           SPR[k] = { img: frames[0].img, flash: frames[0].flash, frames, size: G * PXS };
         }
@@ -3832,6 +4055,23 @@
             const a = hash(sd, i + 9) * TAU, d = hash(sd, i + 20) * .72, x = Math.cos(a) * d, y = Math.sin(a) * d * .8 - .1;
             b.ell(x, y, .1, .1, '#6a4a9a', 1); b.dot(x - .04, y - .04, '#b89ae0', 1);
           }
+        },
+        lenga(b, sd) {
+          b.ellD(.1, .55, 1.1, .4, [0, 0, 0], 2, .32, 0); b.ell(.1, .55, .9, .3, [0, 0, 0], 2, .3);
+          b.rect(-.16, -.3, .32, .88, '#4a3424'); b.tex('#4a3424', (x, y) => hash(x, y * 3 + sd) < .25 ? [58, 40, 28] : null);
+          const G = ['#2f4a2c', '#3d5e36', '#4f7238'], R = ['#8a3222', '#b8482a', '#d8743a'], oto = hash(sd, 99) < .4;
+          for (let i = 0; i < 13; i++) { const a = hash(sd, i) * TAU, d = hash(sd, i + 30) * .78; b.ell(Math.cos(a) * d, -.86 + Math.sin(a) * d * .62, .5, .4, oto && i % 3 === 0 ? R[i % 3] : G[i % 3]); }
+          b.ell(-.25, -1.2, .5, .32, oto ? R[2] : G[2]); b.ell(.35, -1.05, .36, .26, G[2]);
+          b.tex(G[0], (x, y) => hash(x * 5 + sd, y * 3) < .2 ? [36, 58, 34] : null);
+          b.tex(G[1], (x, y) => hash(x * 3, y * 5 + sd) < .14 ? [86, 122, 70] : null);
+        },
+        tronco(b, sd) {
+          b.ellD(.05, .35, 1.25, .35, [0, 0, 0], 2, .3, 0);
+          b.line([[-1.1, .1], [1.0, -.05]], .55, '#5a3a22');
+          b.tex('#5a3a22', (x, y) => y % 3 === 0 ? [74, 48, 28] : hash(x, y * 3 + sd) < .1 ? [110, 76, 46] : null);
+          b.ell(1.0, -.05, .22, .3, '#c89060'); b.ell(1.0, -.05, .11, .15, '#a07048', 1);
+          for (let i = 0; i < 6; i++) b.ell(-.9 + i * .33, -.14 + hash(sd, i) * .06, .18, .08, '#4f7238', 1);
+          b.line([[-.3, -.12], [-.5, -.5], [-.36, -.72]], .06, '#4a3424');
         },
         seraque(b, sd) {
           b.ellD(.1, .52, 1.0, .36, [20, 40, 70], 2, .32, 0); b.ell(.1, .52, .85, .28, [20, 40, 70], 2, .32);
@@ -4159,12 +4399,12 @@
           weapons: [], passives: [], level: 1, xp: 0, xpNext: xpNeed(1), kills: 0,
           enemies: [], proj: [], ebul: [], gems: [], picks: [], parts: [], texts: [], fx: [], timers: [],
           rerolls: 3 + shopLvl('otramano') + (NI('p3') ? 1 : 0), spawnAcc: 0, bigGem: null, dmgBy: {}, shake: 0, hurtFlash: 0, endless: false, nextMandinga: 0,
-          pendingLevels: 0, pendingChests: 0, mat: { cuero: 0, hueso: 0, hierro: 0 }, matBanked: {}, famaGiven: 0, eliteK: 0, miniK: 0, bossK: 0, whistled: false, tamed: null, horseKept: false, secondWind: false, mounts: [], ride: null, herdSeed: (Math.random() * 1e5) | 0, terrSeed: (Math.random() * 997) | 0, marks: [], ripples: [], crit: [], critT: 1.5, tw: [], twT: 0, ani: new Map(), aniScan: 0, aniNear: null, aniTip: false, wetTip: false, pWet: false, stepAcc: 0, stepSide: 1, splT: 0, birdT: 0, crkT: 2, star: null, howlT: -99, herdCD: new Map(), herdAct: new Set(), herdScan: 0, tumble: 0, herdTip: false, events: buildEvents(), cracks: [], crackNext: 100, endAcc: 0, invDirty: true, choiceLock: 0
+          pendingLevels: 0, pendingChests: 0, mat: Object.fromEntries(MAT_KEYS.map(m => [m, 0])), matBanked: {}, famaGiven: 0, eliteK: 0, miniK: 0, bossK: 0, whistled: false, tamed: null, horseKept: false, secondWind: false, mounts: [], ride: null, herdSeed: (Math.random() * 1e5) | 0, terrSeed: (Math.random() * 997) | 0, marks: [], ripples: [], crit: [], critT: 1.5, tw: [], twT: 0, ani: new Map(), aniScan: 0, aniNear: null, aniTip: false, wetTip: false, pWet: false, stepAcc: 0, stepSide: 1, splT: 0, birdT: 0, crkT: 2, star: null, howlT: -99, herdCD: new Map(), herdAct: new Set(), herdScan: 0, tumble: 0, herdTip: false, events: buildEvents(), cracks: [], crackNext: 100, endAcc: 0, invDirty: true, choiceLock: 0
         };
         if (S.mode === 'campo') {
           // mundo persistente: terreno y potreros salen de la semilla guardada, sin eventos, sin cartas ni noche cerrada
           S.events = []; S.hyper = false; S.herdSeed = SAVE.campo.seed; S.terrSeed = SAVE.campo.seed % 997;
-          S.campoTaken = new Set(); S.leftHome = false; S.gath = null; S.armed = false; campoCache.clear();
+          S.campoTaken = new Set(); S.leftHome = false; S.gath = null; S.armed = false; campoCache.clear(); kitInit();
         }
         // lo preparado en el fogón se gasta en la primera noche que sale del Puesto (no en el campo ni en partida rápida)
         if (S.mode !== 'campo' && viaPuesto && SAVE.comida && FOGON_REC[SAVE.comida]) { S.comida = { id: SAVE.comida, until: CHARS[charId].fogon ? 900 : COMIDA_T, done: false }; SAVE.comida = null; writeSave(); }
@@ -4238,13 +4478,16 @@
       const OBS_CELL = 340, obsCache = new Map();
       function obsChunk(ix, iy) {
         const key = gk(ix, iy); let a = obsCache.get(key); if (a) return a; a = [];
-        const h0 = hash(ix * 31 + 7, iy * 17 + 3), n = h0 < .3 ? 0 : h0 < .78 ? 1 : 2;
+        // cada bioma decide cuántos obstáculos entran por celda (el bosque, varios árboles juntos)
+        const MC = MAPS[bioKey((ix + .5) * OBS_CELL, (iy + .5) * OBS_CELL)], h0 = hash(ix * 31 + 7, iy * 17 + 3), gap = MC.obsGap === undefined ? 70 : MC.obsGap;
+        const n = MC.obsN ? 1 + Math.floor(h0 * MC.obsN) : h0 < .3 ? 0 : h0 < .78 ? 1 : 2;
         for (let i = 0; i < n; i++) {
           const h1 = hash(ix * 13 + i * 7, iy * 29 - i * 3), h2 = hash(ix * 5 - i * 11, iy * 7 + i * 19), h3 = hash(ix + i * 23, iy * 3 - i);
           const x = (ix + .15 + h1 * .7) * OBS_CELL, y = (iy + .15 + h2 * .7) * OBS_CELL, r = 20 + h3 * 30;
           if (Math.hypot(x, y) < 260) continue;
-          if (a.some(o => Math.hypot(o.x - x, o.y - y) < o.r + r + 70)) continue;
-          a.push({ x, y, r, kind: MAPS[bioKey(x, y)].obs[h3 < .55 ? 0 : 1], seed: Math.floor(h1 * 1000) });
+          const id = 'o' + key + ':' + i; if (S.mode === 'campo' && nodeTaken(id)) continue;  // talado en el campo: rebrota como los recursos
+          if (a.some(o => Math.hypot(o.x - x, o.y - y) < o.r + r + gap)) continue;
+          a.push({ ck: key, id, x, y, r, kind: (MO => MO.obs[h3 < (MO.obsW || .55) ? 0 : 1])(MAPS[bioKey(x, y)]), seed: Math.floor(h1 * 1000) });
         }
         if (obsCache.size > 4000) obsCache.clear();
         obsCache.set(key, a); return a;
@@ -4286,8 +4529,8 @@
         if (!S.weather) {
           if (S.t >= S.weatherNext) {
             const a = Math.random() * TAU, type = M.weather;
-            S.weather = { type, t: 0, dur: type === 'ventisca' ? 11 : 8, dx: Math.cos(a), dy: Math.sin(a) };
-            banner(type === 'ventisca' ? 'Ventisca: casi no se ve' : 'Sopla el viento patagónico');
+            S.weather = { type, t: 0, dur: type === 'ventisca' ? 11 : type === 'lluvia' ? 14 : 8, dx: type === 'lluvia' ? Math.cos(a) * .18 : Math.cos(a), dy: type === 'lluvia' ? 1 : Math.sin(a) };
+            banner(type === 'ventisca' ? 'Ventisca: casi no se ve' : type === 'lluvia' ? 'Se larga a llover: el barro te frena' : 'Sopla el viento patagónico');
             sfx(140, 1.2, 'sawtooth', .03, .6);
           }
           return;
@@ -4296,6 +4539,7 @@
         if (w.t >= w.dur) { S.weather = null; S.weatherNext = S.t + rnd(60, 95); return; }
         const k = Math.sin(Math.min(1, w.t / 1.2, (w.dur - w.t) / 1.2) * Math.PI / 2), f = (w.type === 'viento' ? 90 : 55) * k;
         w.k = k;
+        if (w.type === 'lluvia') return;  // la lluvia no empuja: frena (ver mudK en el movimiento)
         if (P.dashT <= 0) { P.x += w.dx * f * dt; P.y += w.dy * f * dt; }
         for (const e of S.enemies) { if (e.dead || e.prop || e.boss) continue; const g = f * .8 / Math.max(1, ETYPES[e.type].w) * dt; e.x += w.dx * g; e.y += w.dy * g; }
       }
@@ -4806,6 +5050,8 @@
         burst(P.x, P.y + 10, 8, '#c9b894', 120);
         sfx(520, .12, 'sawtooth', .03, .35);
       }
+      // jefes que embisten y llaman a su manada: [comunes, grandes] y el cartel al enfurecerse
+      const BOSS_PACK = { lobizon: { pack: ['sombra', 'lobizon'], enr: 'El Lobizón Mayor se enfurece' }, cuchivilu: { pack: ['chancho', 'jabali'], enr: 'El Cuchivilu se enfurece y llama a la piara' } };
       // el Paisano Viejo ve venir las hordas unos segundos antes
       const AVISOS = { swarm: 'Algo viene volando del lado del monte', rush: 'Tiembla la tierra: se viene una estampida', ring: 'Te están cerrando el cerco', boss: 'Huele a jefe: se viene algo grande' };
       function update(dt) {
@@ -4824,7 +5070,7 @@
           if (S.arc.has('caballoBastos')) { S.trailT -= dt; if (S.trailT <= 0) { S.trailT = .035; S.zones.push({ x: P.x, y: P.y, R: 24, life: 2.2, max: 2.2, tick: 0, dmg: 8 + 3 * S.t / 60, w: PWF, fire: true }); } }
         } else {
           if (P.moving) { P.fx = ix / l; P.fy = iy / l; if (Math.abs(ix) > .1) P.face = ix > 0 ? 1 : -1; }
-          const RM = S.ride && MOUNTS[S.ride.kind], spd = (RM ? ST.speed * RM.spd * (S.ride.spdK || 1) : ST.speed) * (S.pWet ? (RM ? .82 : (MAP().ice ? .78 : .72)) : 1);
+          const RM = S.ride && MOUNTS[S.ride.kind], spd = (RM ? ST.speed * RM.spd * (S.ride.spdK || 1) : ST.speed) * (S.pWet ? (RM ? .82 : (MAP().ice ? .78 : .72)) : 1) * (S.weather && S.weather.type === 'lluvia' ? 1 - .12 * (S.weather.k || 0) : 1);
           const k = Math.min(1, (RM ? RM.acc * (MAP().ice ? .45 : 1) * (S.ride.buck ? .35 : 1) : MAP().ice ? 3.2 : 30) * dt);
           P.vx += (ix * spd - P.vx) * k; P.vy += (iy * spd - P.vy) * k;
           P.x += P.vx * dt; P.y += P.vy * dt;
@@ -4865,14 +5111,14 @@
 
         // en el campo las armas descansan si no hay nada cerca
         if (S.mode === 'campo') { const ne = nearest(P.x, P.y); S.armed = !!(ne && dist2(ne, P.x, P.y) < 360 * 360); }
-        if (!S.ride && (S.mode !== 'campo' || S.armed)) for (const w of S.weapons) {
+        if (!S.ride && S.mode !== 'campo') for (const w of S.weapons) {  // en el campo se trabaja con herramientas (31-campo-kit)
           const d = WEAPONS[w.id];
           if (d.update) d.update(w, dt);
           else { w.cd -= dt; if (w.cd <= 0) { const s = st(w); w.cd = s.cd * ST.cd; d.fire(w, s); } }
         }
 
         updateMounts(dt);
-        if (S.mode === 'campo') { updateCampo(dt); if (!S || S.state !== 'play') return; }
+        if (S.mode === 'campo') { updateCampo(dt); if (!S || S.state !== 'play') return; updateKit(dt); }
 
         for (const p of S.proj) {
           if (p.dead) continue;
@@ -4950,7 +5196,16 @@
               else if (e.phase === 'dash') { sp = 0; e.x += e.cdx * 430 * dt; e.y += e.cdy * 430 * dt; e.mvx = e.cdx * 430; if (e.ch <= 0) { e.phase = null; e.ch = rnd(3.5, 5.5); } }
               else if (e.ch <= 0 && d < 330) { e.phase = 'aim'; e.ch = .75; e.cdx = dx; e.cdy = dy; sfx(240, .4, 'square', .025, .5); }
             }
-            if (e.boss && e.type === 'lobizon') {
+            // embestida propia (jabalí, puma): igual que la de las élites pero con sus tiempos
+            const CHG = ETYPES[e.type].charge;
+            if (CHG && (!e.elite || e.mini)) {
+              const [rng, aim, cs, cdur, c0, c1] = CHG; e.ch = (e.ch === undefined ? rnd(c0 * .5, c1) : e.ch) - dt; e.dashLen = cs * cdur + e.r;
+              if (e.phase === 'aim') { sp = 0; if (e.ch <= 0) { e.phase = 'dash'; e.ch = cdur; if (Math.abs(e.x - P.x) < hwS && Math.abs(e.y - P.y) < hhS) sfx(e.type === 'puma' ? 520 : 130, .18, 'sawtooth', .025, .5); } }
+              else if (e.phase === 'dash') { sp = 0; e.x += e.cdx * cs * dt; e.y += e.cdy * cs * dt; e.mvx = e.cdx * cs; if (e.ch <= 0) { e.phase = null; e.ch = rnd(c0, c1); } }
+              else if (e.ch <= 0 && d < rng) { e.phase = 'aim'; e.ch = aim; e.cdx = dx; e.cdy = dy; }
+            }
+            const PACK = BOSS_PACK[e.type];
+            if (e.boss && PACK) {
               e.ch = (e.ch === undefined ? 3 : e.ch) - dt; e.dashLen = 560 * .55 + e.r;
               if (e.phase === 'aim') { sp = 0; if (e.ch <= 0) { e.phase = 'dash'; e.ch = .55; sfx(90, .3, 'sawtooth', .06, .5); S.shake = Math.min(1, S.shake + .3); } }
               else if (e.phase === 'dash') { const ds = e.enr ? 660 : 560; sp = 0; e.x += e.cdx * ds * dt; e.y += e.cdy * ds * dt; e.mvx = e.cdx * ds; if (e.ch <= 0) { e.phase = null; e.ch = e.enr ? rnd(2, 3) : rnd(3.5, 5); } }
@@ -4960,11 +5215,11 @@
               if (!e.phase && e.howl <= 0) {
                 e.howl = e.enr ? rnd(6, 8) : rnd(9, 12);
                 const nS = 6, nL = e.enr ? 3 : 1;
-                for (let i = 0; i < nS + nL; i++) { const a = i / (nS + nL) * TAU, R_ = e.r + 40; spawnEnemy(i < nS ? 'sombra' : 'lobizon', e.x + Math.cos(a) * R_, e.y + Math.sin(a) * R_, { spd: ETYPES[i < nS ? 'sombra' : 'lobizon'].spd * 1.15 }); }
+                for (let i = 0; i < nS + nL; i++) { const a = i / (nS + nL) * TAU, R_ = e.r + 40, tp = PACK.pack[i < nS ? 0 : 1]; spawnEnemy(tp, e.x + Math.cos(a) * R_, e.y + Math.sin(a) * R_, { spd: ETYPES[tp].spd * 1.15 }); }
                 S.fx.push({ type: 'ring', x: e.x, y: e.y, life: .7, max: .7, col: 'rgba(255,90,60,.8)', R: e.r + 90 });
                 S.shake = Math.min(1, S.shake + .4); sfx(110, .9, 'sawtooth', .06, .4); sfx(165, .8, 'sawtooth', .03, .5);
               }
-              if (!e.enr && e.hp < e.maxHp * .5) { e.enr = true; banner('El Lobizón Mayor se enfurece'); sfx(80, .8, 'sawtooth', .07, .4); }
+              if (!e.enr && e.hp < e.maxHp * .5) { e.enr = true; banner(PACK.enr); sfx(80, .8, 'sawtooth', .07, .4); }
             }
             if (e.boss && e.type === 'caleuche') {
               e.summon -= dt;
@@ -5118,16 +5373,17 @@
       }
       function drawObstacle(o) { dimg(obsSprite(o), o.x, o.y); }
       function drawWeather(dt) {
-        const w = S.weather, k = w.k || 0, vent = w.type === 'ventisca', st = S.streaks, want = vent ? 170 : 70;
+        const w = S.weather, k = w.k || 0, vent = w.type === 'ventisca', rain = w.type === 'lluvia', st = S.streaks, want = vent ? 170 : rain ? 140 : 70;
+        if (rain) cx.fillStyle = `rgba(20,30,40,${.18 * k})`, cx.fillRect(0, 0, W, H);
         while (st.length < want) st.push({ x: Math.random() * W, y: Math.random() * H, l: rnd(12, 42), v: rnd(.7, 1.3) });
         if (vent) { const g = cx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * .14, W / 2, H / 2, Math.max(W, H) * .62); g.addColorStop(0, 'rgba(205,222,240,0)'); g.addColorStop(1, `rgba(205,222,240,${.88 * k})`); cx.fillStyle = g; cx.fillRect(0, 0, W, H); }
-        const sp = vent ? 520 : 720, mv = S.state === 'play' ? dt : 0;
-        cx.strokeStyle = vent ? `rgba(248,252,255,${.85 * k})` : `rgba(225,212,178,${.4 * k})`; cx.lineWidth = vent ? 2.6 : 1.5; cx.lineCap = 'round'; cx.beginPath();
+        const sp = vent ? 520 : rain ? 900 : 720, mv = S.state === 'play' ? dt : 0;
+        cx.strokeStyle = vent ? `rgba(248,252,255,${.85 * k})` : rain ? `rgba(170,200,225,${.45 * k})` : `rgba(225,212,178,${.4 * k})`; cx.lineWidth = vent ? 2.6 : rain ? 1.2 : 1.5; cx.lineCap = 'round'; cx.beginPath();
         for (const p of st) {
           p.x += w.dx * sp * p.v * mv; p.y += w.dy * sp * p.v * mv + (vent ? 45 * mv : 0);
           if (p.x < -60) p.x += W + 120; else if (p.x > W + 60) p.x -= W + 120;
           if (p.y < -60) p.y += H + 120; else if (p.y > H + 60) p.y -= H + 120;
-          const L = vent ? 3 : p.l; cx.moveTo(p.x, p.y); cx.lineTo(p.x - w.dx * L, p.y - w.dy * L);
+          const L = vent ? 3 : rain ? p.l * .7 : p.l; cx.moveTo(p.x, p.y); cx.lineTo(p.x - w.dx * L, p.y - w.dy * L);
         }
         cx.stroke(); cx.lineCap = 'butt';
       }
@@ -6076,12 +6332,17 @@
         }
         if (S.state === 'pause') { if (!e.repeat && conf) resume(); return; }
         if (S.state === 'play' && (k === ' ' || k === 'shift')) { if (!e.repeat) tryDash(); return; }
+        if (S.state === 'play' && S.mode === 'campo') {
+          if (k === 'e' || k === 'j') { if (!e.repeat) toolDown(); return; }
+          if (k === 'q' || k === 'tab') { e.preventDefault(); if (!e.repeat) toolNext(); return; }
+          if (k >= '1' && k <= '3') { if (!e.repeat) toolPick(toolsOwned()[+k - 1]); return; }
+        }
         if (S.state === 'play' && k === 'h') { if (!e.repeat) { whistle(); if (S && S.mode !== 'campo') $('whBtn').classList.remove('on'); } return; }
         keys.add(k);
       });
       $('dashBtn').addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); tryDash(); });
       $('whBtn').addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); whistle(); if (S && S.mode !== 'campo') $('whBtn').classList.remove('on'); });
-      window.addEventListener('keyup', e => keys.delete(e.key.toLowerCase()));
+      window.addEventListener('keyup', e => { const k = e.key.toLowerCase(); keys.delete(k); if (k === 'e' || k === 'j') toolUp(); });
       window.addEventListener('blur', () => { keys.clear(); joy = null; });
       document.addEventListener('visibilitychange', () => { if (document.hidden) { writeSave(); pause(); } });
       addEventListener('pagehide', writeSave);
@@ -6293,7 +6554,7 @@
             sp = ST.speed * (a.sprint ? M.sprint : M.trot) * (d < TAME_R ? .85 : 1); ux = Math.cos(a.ang); uy = Math.sin(a.ang);
             if (d > 520) { a.calm += dt; if (a.calm > 2.5) { a.state = 'graze'; a.hx = a.x; a.hy = a.y; a.tx = a.x; a.ty = a.y; } } else a.calm = 0;
             if (d < TAME_R && S.rideCD > 0) { if (!S.rideCDTip) { S.rideCDTip = true; banner('Todavía estás molido de la última monta'); } }
-            else if (d < TAME_R) { a.tame += dt / (M.tame * (NI('b2') ? .72 : 1) * (CHARS[S.char].doma || 1)); if (a.tame >= 1) { startRide(a); continue; } }
+            else if (d < TAME_R && S.mode !== 'campo') { a.tame += dt / (M.tame * (NI('b2') ? .72 : 1) * (CHARS[S.char].doma || 1)); if (a.tame >= 1) { startRide(a); continue; } }
             else if (d > TAME_R * 1.5) a.tame = Math.max(0, a.tame - dt / 5);
           }
           const k = Math.min(1, (MAP().ice ? 3 : 8) * dt);
@@ -6608,9 +6869,9 @@
          Monedas: oro (Almacén y obras del puesto), fama (Ñire) y materiales
          (cuero, hueso, hierro: fragua, corral y obras). Todo vive en SAVE.
          ===================================================================== */
-      const MATS = { cuero: { name: 'cuero', col: '#b0703e' }, hueso: { name: 'hueso', col: '#e8e0c8' }, hierro: { name: 'hierro', col: '#9aa4b4' } };
-      const MAT_KEYS = ['cuero', 'hueso', 'hierro'];
-      const MAT_DROP = { calavera: ['hueso', .04], bruja: ['hueso', .05], lobizon: ['cuero', .08], chonchon: ['hueso', .02], cuero: ['cuero', .08], basilisco: ['hueso', .05], anima: ['hierro', .004], sombra: ['hierro', .003] };
+      const MATS = { cuero: { name: 'cuero', col: '#b0703e' }, hueso: { name: 'hueso', col: '#e8e0c8' }, hierro: { name: 'hierro', col: '#9aa4b4' }, carne: { name: 'carne', col: '#c8584a' }, lena: { name: 'leña', col: '#a07a4a' } };
+      const MAT_KEYS = ['cuero', 'hueso', 'hierro', 'carne', 'lena'];  // carne y leña salen solo del campo (cazar y talar)
+      const MAT_DROP = { calavera: ['hueso', .04], bruja: ['hueso', .05], lobizon: ['cuero', .08], chonchon: ['hueso', .02], cuero: ['cuero', .08], basilisco: ['hueso', .05], anima: ['hierro', .004], sombra: ['hierro', .003], bandurria: ['hueso', .02], chancho: ['hueso', .04], puma: ['cuero', .06], jabali: ['cuero', .08] };
 
       /* ---------------- guardado: campos nuevos y migración ---------------- */
       /* ---------------- Recorrer el campo: constantes (antes de normSave) ---------------- */
@@ -6618,7 +6879,8 @@
       function normSave() {
         SAVE.campo = Object.assign({ seed: 1 + ((Math.random() * 99999) | 0), taken: {}, salidas: 0, tiempo: 0 }, SAVE.campo || {});
         { const now = Date.now(); for (const k in SAVE.campo.taken) if (now - SAVE.campo.taken[k] > CAMPO_REGROW) delete SAVE.campo.taken[k]; }
-        SAVE.mat = Object.assign({ cuero: 0, hueso: 0, hierro: 0 }, SAVE.mat || {});
+        SAVE.mat = Object.assign({ cuero: 0, hueso: 0, hierro: 0, carne: 0, lena: 0 }, SAVE.mat || {});
+        SAVE.tools = Object.assign({ cuchillo: 1, hacha: 0, lazo: 0 }, SAVE.tools || {});
         SAVE.puesto = Object.assign({ rancho: 1, fragua: 0, corral: 0, fogon: 0 }, SAVE.puesto || {});
         SAVE.nire = SAVE.nire || {}; SAVE.trophies = SAVE.trophies || {};
         SAVE.knives = SAVE.knives || []; SAVE.horses = SAVE.horses || [];
@@ -6757,9 +7019,9 @@
          (Recorrer el campo no la gasta) y dura la primera mitad de esa noche. Para sumar una receta: una línea acá. */
       const COMIDA_T = 450;
       const FOGON_REC = {
-        mate: { name: 'Mate amargo', fx: '+10% de recarga', desc: 'Las armas recargan 10% más rápido.', end: 'Se enfrió el mate', cost: { oro: 60, hueso: 1 }, lvl: 0, apply: p => { p.cd *= .9; } },
-        tortas: { name: 'Tortas fritas', fx: '+10% de velocidad', desc: 'Te movés 10% más rápido.', end: 'Se terminaron las tortas fritas', cost: { oro: 80, cuero: 2 }, lvl: 1, apply: p => { p.speed *= 1.1; } },
-        cordero: { name: 'Cordero al asador', fx: '+15% de vida máxima', desc: '+15% de vida máxima.', end: 'Se te bajó el asado', cost: { oro: 120, hueso: 3 }, lvl: 1, apply: p => { p.maxHp *= 1.15; } }
+        mate: { name: 'Mate amargo', fx: '+10% de recarga', desc: 'Las armas recargan 10% más rápido.', end: 'Se enfrió el mate', cost: { oro: 40, lena: 1 }, lvl: 0, apply: p => { p.cd *= .9; } },
+        tortas: { name: 'Tortas fritas', fx: '+10% de velocidad', desc: 'Te movés 10% más rápido.', end: 'Se terminaron las tortas fritas', cost: { oro: 50, carne: 1, lena: 1 }, lvl: 1, apply: p => { p.speed *= 1.1; } },
+        cordero: { name: 'Cordero al asador', fx: '+15% de vida máxima', desc: '+15% de vida máxima.', end: 'Se te bajó el asado', cost: { oro: 60, carne: 3, lena: 2 }, lvl: 1, apply: p => { p.maxHp *= 1.15; } }
       };
       if (SAVE.comida && !FOGON_REC[SAVE.comida]) { SAVE.comida = null; writeSave(); }
       const TROFEOS = [
@@ -6767,6 +7029,8 @@
         { id: 'caleuche', name: 'Farol del Caleuche', how: 'Derrotá al jefe del Glaciar.' },
         { id: 'mini_bruja', name: 'Escoba de la Salamanca', how: 'Derrotá a la Bruja de la Salamanca.' },
         { id: 'mini_basilisco', name: 'Huevo del Basilisco', how: 'Derrotá al Basilisco Viejo.' },
+        { id: 'cuchivilu', name: 'Colmillo del Cuchivilu', how: 'Derrotá al jefe del Bosque andino.' },
+        { id: 'mini_puma', name: 'Cuero del Puma Viejo', how: 'Derrotá al Puma Viejo.' },
         { id: 'amanecer', name: 'Primer sol', how: 'Sobreviví hasta el amanecer.' },
         { id: 'herradura', name: 'Herradura de domador', how: 'Amansá 5 animales (logro Domador).' },
         { id: 'mandinga', name: 'Cuerno del Mandinga', how: 'Escapale al Mandinga 2 minutos después del amanecer.' }
@@ -6789,6 +7053,8 @@
         return MAT_SPR[m] = pixSprite(24, 1, b => {
           if (m === 'cuero') { b.poly([[-7, -4], [-3, -7], [3, -6], [7, -3], [6, 4], [1, 7], [-5, 6], [-8, 1]], '#b0703e'); b.tex('#b0703e', (x, y) => hash(x * 3, y * 5) < .18 ? [140, 86, 46] : null); b.line([[-4, -2], [3, 3]], .8, '#7a4a26', 1); }
           else if (m === 'hueso') { b.line([[-6, 4], [6, -4]], 3, '#e8e0c8'); for (const [x, y] of [[-7, 3], [-5.5, 5.5], [7, -3], [5.5, -5.5]]) b.ell(x, y, 2, 2, '#e8e0c8'); }
+          else if (m === 'carne') { b.ell(1, 0, 7, 5, '#a83a2a'); b.ell(0, -1, 5.4, 3.6, '#c8584a', 1); b.ell(-1, -2, 2.2, 1.2, '#e8a090', 1); b.line([[-8, 5], [-4, 2]], 2, '#e8e0c8'); b.ell(-8.4, 5.4, 1.4, 1.4, '#e8e0c8'); }
+          else if (m === 'lena') { for (const [y, c] of [[3, '#6a4a2a'], [-1, '#8a6a44'], [-4.5, '#7a5a38']]) { b.line([[-7, y], [7, y - 1]], 3, c); b.ell(7, y - 1, 1.6, 1.6, '#c89060'); b.dot(7, y - 1, '#8a5a34', 1); } }
           else { b.poly([[-7, 1], [-4, -4], [7, -4], [4, 1]], '#b8c2d0'); b.poly([[-7, 1], [4, 1], [4, 5], [-7, 5]], '#7a8496'); b.poly([[4, 1], [7, -4], [7, 0], [4, 5]], '#5a6272'); }
         });
       }
@@ -6848,10 +7114,10 @@
       function startCampo() {
         initAudio(); if (AC && AC.state === 'suspended') AC.resume();
         const ch = SAVE.lastChar && CHARS[SAVE.lastChar] ? SAVE.lastChar : 'baqueano';
-        newGame(ch, 'estepa', 'campo');
-        hide('startOv'); $('hud').classList.add('on', 'campo'); $('dashBtn').classList.add('on');
+        newGame(ch, 'patagonia', 'campo');  // el campo es una región: estepa, bosque y glaciar según dónde andes
+        hide('startOv'); $('hud').classList.add('on', 'campo'); $('dashBtn').classList.add('on'); $('toolBtn').classList.add('on'); $('toolSw').classList.toggle('on', toolsOwned().length > 1);
         $('whBtn').classList.toggle('on', !!SAVE.horses[SAVE.horse]);
-        banner(SAVE.campo.salidas ? 'Salís a recorrer el campo' : 'Recorré el campo tranquilo. Para volver, quedate un momento en la tranquera');
+        banner(SAVE.campo.salidas ? 'Salís a recorrer el campo' : 'Recorré el campo tranquilo. E usa la herramienta; para volver, quedate un momento en la tranquera');
       }
       function campoNode(ix, iy) {
         const key = ix + ',' + iy; if (campoCache.has(key)) return campoCache.get(key);
@@ -6917,7 +7183,7 @@
         }
         SAVE.campo.salidas++; SAVE.campo.tiempo += Math.floor(S.t); writeSave();
         S.state = 'end'; joy = null;
-        hide('pauseOv'); $('hud').classList.remove('on', 'campo'); $('dashBtn').classList.remove('on'); $('whBtn').classList.remove('on'); $('combo').classList.remove('on'); hud.comboOn = false; hud.bossOn = false; $('bossbar').classList.remove('on');
+        hide('pauseOv'); $('hud').classList.remove('on', 'campo'); $('dashBtn').classList.remove('on'); $('whBtn').classList.remove('on'); $('toolBtn').classList.remove('on'); $('toolSw').classList.remove('on'); $('combo').classList.remove('on'); hud.comboOn = false; hud.bossOn = false; $('bossbar').classList.remove('on');
         S = null; musicStop();
         enterPuesto(); PU.y = 352;
         const msg = (faint ? 'Te desmayaste y te trajeron al puesto. ' : 'Volviste al puesto. ') + (got.length ? 'Juntaste ' + got.join(', ') + '.' : 'No juntaste nada esta vez.');
@@ -6955,6 +7221,7 @@
       function drawCampo(vis, hw, hh) {
         const P = S.player;
         forCampoNodes(P.x, P.y, Math.max(hw, hh) + 40, n => { if (vis(n.x, n.y)) dimg(campoSpr(n.kind), n.x, n.y); });
+        drawFauna(vis);
         dimg(sprTranquera(0), CAMPO_HOME.x, CAMPO_HOME.y);
         drawFarol(CAMPO_HOME.x + 26, CAMPO_HOME.y - 40, S.t);
         const g = S.gath;
@@ -7541,6 +7808,8 @@
         else if (id === 'mini_basilisco') { R(-3, -4, 6, 8, '#e8e0c8'); R(-2, -5, 4, 1, '#e8e0c8'); R(-1, -2, 2, 2, '#8fb36a'); }
         else if (id === 'amanecer') { R(-3, -3, 6, 6, '#ffd070'); R(-5, -1, 2, 2, '#ffb040'); R(3, -1, 2, 2, '#ffb040'); R(-1, -5, 2, 2, '#ffb040'); R(-1, 3, 2, 2, '#ffb040'); }
         else if (id === 'herradura') { R(-4, -4, 2, 8, '#9aa4b4'); R(2, -4, 2, 8, '#9aa4b4'); R(-4, 3, 8, 2, '#9aa4b4'); }
+        else if (id === 'cuchivilu') { R(-4, -2, 8, 5, '#9a6a5a'); R(3, -1, 2, 3, '#d8988a'); R(2, 2, 1, 2, '#ece4cc'); R(-6, 0, 2, 3, '#4e6a4a'); }
+        else if (id === 'mini_puma') { R(-5, -3, 10, 6, '#b08a5a'); R(-6, -1, 2, 3, '#b08a5a'); R(4, -1, 2, 3, '#b08a5a'); R(-1, -4, 2, 2, '#e0cba8'); }
         else if (id === 'mandinga') { R(-3, 2, 3, 3, '#8a1424'); R(-2, -1, 3, 3, '#8a1424'); R(0, -4, 2, 3, '#b8322f'); R(1, -6, 1, 2, '#ffd23c'); }
       }
       function drawTrophyBoard() {
@@ -7990,8 +8259,17 @@
   <div id="fgame" class="fgame"><canvas id="fbar" width="220" height="26"></canvas><small id="fmsg">${full ? 'Tenés el máximo de facones: fundí uno para hacer lugar.' : 'Martillá cuando la marca pase por el centro.'}</small></div>
   <button class="btn main" id="forgeGo" ${ok ? '' : 'disabled'}>Forjar<kbd>Enter</kbd></button></div></div>
   ${lv < 2 ? `<div class="cards" style="margin-top:8px">${obraCard('fragua')}</div>` : ''}
+  <h3 class="subh">Herramientas de campo</h3><p class="sub">Para Recorrer el campo: ahí no andan las armas de la noche.</p><div class="cards">${toolCards()}</div>
   <h3 class="subh">Tus facones</h3><div class="cards">${SAVE.knives.length ? SAVE.knives.map((kn, i) => `<div class="card${SAVE.knife === i ? ' sel' : ''}"><img class="kimg" src="${knifeURL(kn)}" alt=""><span class="ct"><strong>${kn.name}</strong><small>Calidad ${QUAL[kn.q].name}: ${knifeDesc(kn)}</small></span><span class="kbtns"><button class="btn" data-kequip="${i}">${SAVE.knife === i ? 'Guardar' : 'Equipar'}</button><button class="btn" data-kmelt="${i}">Fundir</button></span></div>`).join('') : '<p class="sub">Todavía no forjaste ninguno.</p>'}</div>
   <div class="btns"><button class="btn" data-pu-close>Volver<kbd>Esc</kbd></button></div>`;
+      }
+      function toolCards() {
+        return TOOL_ORDER.map(id => {
+          const lv = toolLv(id), nx = TOOLS[id].lv[lv + 1], cur = TOOLS[id].lv[lv];
+          if (!nx) return `<div class="card done"><img class="rimg" src="${toolURL(id)}" alt=""><span class="ct"><strong>✓ ${cur.name}</strong><small>${cur.desc}</small></span></div>`;
+          const ok = canPay(nx.cost);
+          return `<button class="card${ok ? '' : ' poor'}" data-tool="${id}"><img class="rimg" src="${toolURL(id)}" alt=""><span class="ct"><strong>${lv ? 'Mejorar a' : 'Hacer'}: ${nx.name}</strong><small>${nx.desc}</small><span class="costs">${costHTML(nx.cost)}</span></span></button>`;
+        }).join('');
       }
       function corralHTML() {
         const lv = SAVE.puesto.corral;
@@ -8162,6 +8440,7 @@
           if (T.closest('#nireReset')) { for (const id in SAVE.nire) SAVE.fama += NIRE_COST[NIRE[id].t]; SAVE.nire = {}; writeSave(); rerenderNireInfo(); } return;
         }
         if (PU.ui === 'fragua') {
+          const tb = T.closest('[data-tool]'); if (tb) { const id = tb.dataset.tool, nx = TOOLS[id].lv[toolLv(id) + 1]; if (nx && canPay(nx.cost)) { pay(nx.cost); SAVE.tools[id]++; writeSave(); sfx(900, .08, 'square', .04, .4); setTimeout(() => sfx(523, .2, 'triangle', .05), 120); banner(nx.name + ': listo para el campo'); renderPuPanel(); } else sfx(120, .12, 'square', .03); return; }
           const pt = T.closest('[data-part]'); if (pt && !PU.forge) { const [k, id] = pt.dataset.part.split(':'); PU.forgeSel.name = ($('kname').value || ''); PU.forgeSel[k] = id; renderPuPanel(); return; }
           if (T.closest('#forgeGo')) { if (PU.forge) forgeHit(); else forgeStart(); return; }
           const eq = T.closest('[data-kequip]'); if (eq) { const i = +eq.dataset.kequip; SAVE.knife = SAVE.knife === i ? -1 : i; writeSave(); renderPuPanel(); return; }
@@ -8233,6 +8512,10 @@
           dry: '#3b3f2a', dark: '#121a17', salt: '#454c47', rim: '#223f2e', wet: '#10302f', deep: '#0c2429', glint: '#7fb4b8', mark: '#4a4230',
           reed: '#5f7a42', reedTip: '#8a6a3e', bird: '#5b5147', birdHead: '#c9a46a', birdWing: '#3e3731', hare: '#8a7a5e', hareBelly: '#bba98a'
         },
+        bosque: {
+          dry: '#4a3a22', dark: '#0f1a0e', salt: '#35562c', rim: '#1f3f2c', wet: '#0f2a26', deep: '#0b2024', glint: '#7fb4b8', mark: '#3a3224',
+          reed: '#4f7a3a', reedTip: '#7a5a32', bird: '#4a4038', birdHead: '#b08a5a', birdWing: '#2e2a24', hare: '#6a5a44', hareBelly: '#9a8a6a'
+        },
         glaciar: {
           dry: '#24344d', dark: '#121b29', salt: '#2e3f56', rim: '#465d78', wet: '#637c97', deep: '#7189a4', glint: '#dfeaf6', mark: '#34495f',
           reed: null, bird: '#e6eef5', birdHead: '#f4f8fb', birdWing: '#8b99a8', hare: '#dfe6ec', hareBelly: '#ffffff'
@@ -8266,7 +8549,7 @@
           if (reg) { const m = bioMix(x, y); usePal(m[0] === m[1] ? m[0] : bioPick(m, hx, hy, x, y)); }
           let r = bg[0], gg = bg[1], b = bg[2];
           const mix = (cc, k) => { r += (cc[0] - r) * k; gg += (cc[1] - gg) * k; b += (cc[2] - b) * k; };
-          const tn = vnoise(x, y, 620, o + 7) + dn; if (tn < .44) mix(dry, q((.44 - tn) / .14) * .7);
+          const tn = vnoise(x, y, 620, o + 7) + dn, dT = pk === 'bosque' ? .56 : .44; if (tn < dT) mix(dry, q((dT - tn) / .14) * .7);
           const dk_ = vnoise(x, y, 410, o + 11) + dn; if (dk_ > .6) mix(dark, q((dk_ - .6) / .12) * .75);
           const sl = vnoise(x, y, 520, o + 19) + dn; if (sl > .74) mix(salt, q((sl - .74) / .1) * (ice ? .6 : .55));
           if (x * x + y * y > 220 * 220) {
@@ -8608,6 +8891,7 @@
       function drawOverlay(sx, sy) {
         const P = S.player;
         cx.save(); cx.translate(W / 2 + sx, H / 2 + sy); cx.scale(ZOOM, ZOOM); cx.translate(-P.x, -P.y);
+        if (S.mode === 'campo') drawKitTop();
         drawTexts();
         cx.restore();
       }
@@ -8654,6 +8938,300 @@
         AMB.g.gain.setTargetAtTime(tgt, AC.currentTime, .5); AMB.f.frequency.setTargetAtTime(320 + 520 * w, AC.currentTime, .6);
       }
 
+      /* =====================================================================
+         RECORRER EL CAMPO — herramientas y fauna
+         En el campo no andan las armas de la noche: se trabaja con lo que se forja en el Puesto.
+         E (o el botón de herramienta) usa la herramienta y Q la cambia. El lazo se apunta manteniendo
+         apretado y se suelta: engancha bichos, animales sueltos y caballos (en el campo, los caballos
+         solo se agarran con el lazo). Carnear da carne, cuero o hueso; talar da leña.
+         ===================================================================== */
+      const TOOLS = {
+        cuchillo: {
+          name: 'Cuchillo', lv: [null,
+            { name: 'Cuchillo de hueso', desc: 'Corto y rápido. Corta matas para leña y carnea.', dmg: 12, r: 42, arc: 1.5, cd: .3, chop: 1 },
+            { name: 'Cuchillo de hierro', desc: 'Pega casi el doble y carnea mejor: +1 de carne por animal.', dmg: 22, r: 46, arc: 1.6, cd: .26, chop: 1, carne: 1, cost: { hierro: 5, oro: 80 } }]
+        },
+        hacha: {
+          name: 'Hacha', lv: [null,
+            { name: 'Hacha', desc: 'Lenta y pesada. Voltea lengas y troncos caídos: mucha leña.', dmg: 28, r: 52, arc: 2.1, cd: .7, chop: 3, cost: { hierro: 6, cuero: 2, oro: 120 } }]
+        },
+        lazo: {
+          name: 'Lazo', lv: [null,
+            { name: 'Lazo trenzado', desc: 'Mantené apretado para apuntar y soltá. Engancha bichos, animales y caballos.', range: 380, cd: 1.1, cost: { cuero: 6, oro: 60 } }]
+        }
+      };
+      const TOOL_ORDER = ['cuchillo', 'hacha', 'lazo'];
+      // lo que se puede talar: golpes que aguanta, leña que da y fuerza de herramienta que pide (cuchillo 1, hacha 3)
+      const CHOP = { arbusto: { hp: 4, lena: 1, need: 1 }, tronco: { hp: 5, lena: 2, need: 3 }, lenga: { hp: 6, lena: 3, need: 3 } };
+      const toolLv = id => (SAVE.tools && SAVE.tools[id]) || 0;
+      const toolsOwned = () => TOOL_ORDER.filter(id => toolLv(id) > 0);
+      const toolDef = id => TOOLS[id].lv[toolLv(id)];
+
+      function kitInit() {
+        S.tool = toolsOwned()[0] || null; S.toolCD = 0; S.toolHeld = false; S.aim = null; S.lazo = null; S.swing = null;
+        S.fauna = []; S.faunaScan = 0; kitHud();
+      }
+      function kitHud() {
+        const o = toolsOwned();
+        $('toolBar').innerHTML = o.map((id, i) => `<div class="tslot${id === S.tool ? ' on' : ''}" title="${toolDef(id).name}"><img src="${toolURL(id)}" alt=""><kbd>${i + 1}</kbd></div>`).join('') +
+          `<span class="thint"><kbd>E</kbd> usar · <kbd>Q</kbd> cambiar</span>`;
+        $('toolBtn').innerHTML = S.tool ? `<img src="${toolURL(S.tool)}" alt="${TOOLS[S.tool].name}">` : '';
+      }
+      function toolDown() {
+        if (!S || S.mode !== 'campo' || S.state !== 'play' || !S.tool) return;
+        S.toolHeld = true;
+        if (S.tool === 'lazo') { if (S.toolCD <= 0 && !S.lazo) S.aim = { t: 0 }; return; }
+        toolSwing();
+      }
+      function toolUp() { if (!S) return; S.toolHeld = false; if (S.aim) { if (S.state === 'play') lazoThrow(); S.aim = null; } }
+      function toolPick(id) { if (!S || S.mode !== 'campo' || !toolLv(id) || S.tool === id) return; S.tool = id; S.aim = null; kitHud(); sfx(700, .04, 'triangle', .02); }
+      function toolNext() { const o = toolsOwned(); if (o.length > 1) toolPick(o[(o.indexOf(S.tool) + 1) % o.length]); }
+
+      /* ---- cuchillo y hacha: golpe en abanico hacia donde mirás ---- */
+      const angDiff = (a, b) => Math.abs(((a - b) % TAU + TAU * 1.5) % TAU - Math.PI);
+      function toolSwing() {
+        if (S.toolCD > 0 || S.ride) return;
+        const T = toolDef(S.tool), P = S.player, a = Math.atan2(P.fy, P.fx);
+        S.toolCD = T.cd; S.swing = { t: 0, T: .18, a, r: T.r, arc: T.arc, big: S.tool === 'hacha' };
+        const hit = (x, y, rr) => { const dx = x - P.x, dy = y - P.y, d = Math.hypot(dx, dy); return d < T.r + rr && (angDiff(Math.atan2(dy, dx), a) < T.arc / 2 || d < rr + 8); };
+        forNear(P.x, P.y, T.r + 40, e => { if (!e.prop && !e.dead && e.type !== 'mandinga' && hit(e.x, e.y, e.r)) hurt(e, T.dmg, { id: S.tool, evo: false }, 5, P.x, P.y); });
+        for (const f of S.fauna) if (!f.dead && !f.hidden && !f.flying && hit(f.x, f.y, f.r)) faunaHit(f, T);
+        const felled = [];
+        forObs(P.x, P.y, T.r + 10, o => {
+          const C = CHOP[o.kind]; if (!C || o.gone || !hit(o.x, o.y, o.r * .6)) return;
+          if (T.chop < C.need) { if (!S.chopTip) { S.chopTip = true; banner('Para voltear eso hace falta el hacha'); } sfx(240, .06, 'square', .02); return; }
+          if (chopObs(o, T.chop)) felled.push(o);
+        });
+        for (const o of felled) { const arr = obsCache.get(o.ck); if (arr) { const i = arr.indexOf(o); if (i >= 0) arr.splice(i, 1); } }
+        sfx(S.tool === 'hacha' ? 260 : 900, .06, 'triangle', .03, .6);
+      }
+      function chopObs(o, pw) {
+        const C = CHOP[o.kind];
+        o.chp = (o.chp === undefined ? C.hp : o.chp) - pw;
+        burst(o.x, o.y - o.r * .4, 6, o.kind === 'arbusto' ? '#3d5e36' : '#a07048', 80);
+        sfx(170 + Math.random() * 60, .08, 'square', .03, .5);
+        if (o.chp > 0) return false;
+        o.gone = true; S.campoTaken.add(o.id);
+        S.mat.lena = (S.mat.lena || 0) + C.lena;
+        addText(o.x, o.y - 30, `+${C.lena} de leña`, MATS.lena.col, true); burst(o.x, o.y, 16, '#8a6a44', 150);
+        S.shake = Math.min(1, S.shake + .15); sfx(110, .3, 'sawtooth', .04, .5);
+        return true;
+      }
+
+      /* ---- lazo ---- */
+      function lazoTarget(range) {
+        const P = S.player, a = Math.atan2(P.fy, P.fx); let best = null, bs = 1e9;
+        const consider = (o, kind) => {
+          const dx = o.x - P.x, dy = o.y - P.y, d = Math.hypot(dx, dy); if (d > range || d < 20) return;
+          const da = angDiff(Math.atan2(dy, dx), a); if (da > .62) return;
+          const sc = d * (1 + da * 2); if (sc < bs) { bs = sc; best = { o, kind }; }
+        };
+        for (const f of S.fauna) if (!f.dead && !f.hidden && !f.flying && FAUNA[f.kind].hunt) consider(f, 'fauna');
+        if (!S.ride) for (const m of S.mounts) if (!m.dead && m.state !== 'bolt' && !m.own) consider(m, 'mount');
+        for (const e of S.enemies) if (!e.dead && !e.prop && e.type !== 'mandinga') consider(e, 'enemy');
+        return best;
+      }
+      const lazoRange = () => { const T = toolDef('lazo'), k = S.aim ? clamp(S.aim.t / .6, 0, 1) : 1; return 140 + (T.range - 140) * k; };
+      function lazoThrow() {
+        const P = S.player, T = toolDef('lazo'), range = lazoRange(), tg = lazoTarget(range * 1.15), a = Math.atan2(P.fy, P.fx);  // un poco de tolerancia: lo que estaba en la mira al soltar
+        const tx = tg ? tg.o.x : P.x + Math.cos(a) * range, ty = tg ? tg.o.y : P.y + Math.sin(a) * range;
+        S.lazo = { st: 'go', t: 0, T: Math.max(.12, Math.hypot(tx - P.x, ty - P.y) / 900), tx, ty, tg };
+        S.toolCD = T.cd; sfx(520, .18, 'sawtooth', .015, .4);
+      }
+      function updateLazo(dt) {
+        const L = S.lazo, P = S.player; if (!L) return;
+        L.t += dt;
+        if (L.st === 'go') {
+          if (L.tg) { L.tx = L.tg.o.x; L.ty = L.tg.o.y; }
+          if (L.t >= L.T) {
+            const o = L.tg && L.tg.o;
+            if (o && !o.dead && !o.hidden) { L.st = 'pull'; L.t = 0; sfx(300, .12, 'square', .03, .5); addText(o.x, o.y - 24, '¡Enlazado!', '#e0b75a', true); }
+            else { L.st = 'back'; L.t = 0; }
+          }
+        } else if (L.st === 'pull') {
+          const o = L.tg.o;
+          if (o.dead) { S.lazo = null; return; }
+          const dx = P.x - o.x, dy = P.y - o.y, d = Math.hypot(dx, dy) || 1;
+          if (L.tg.kind === 'mount') { if (d < 90 || L.t > .5) { S.lazo = null; if (!S.ride) startRide(o); } return; }
+          if (d > 44) { const sp = Math.min(d - 40, 520 * dt); o.x += dx / d * sp; o.y += dy / d * sp; }
+          L.tx = o.x; L.ty = o.y;
+          if (L.t > .55) { if (L.tg.kind === 'fauna') o.stun = 2.2; else { o.slowT = 2.5; o.kx = 0; o.ky = 0; } S.lazo = null; }
+        } else if (L.t > .2) S.lazo = null;
+      }
+
+      /* ---- fauna: grupos fijos por celda (semilla del campo), que rebrotan como los recursos ---- */
+      const FAUNA = {
+        tero: { name: 'tero', r: 7, spd: 0, hp: 0, flee: 150, hunt: false, n: [2, 3], where: ['estepa'] },
+        piche: { name: 'piche', r: 8, spd: 26, run: 0, hp: 8, flee: 110, hunt: true, n: [1, 2], drop: { carne: 1 }, where: ['estepa', 'bosque'] },
+        liebre: { name: 'liebre', r: 8, spd: 34, run: 250, hp: 6, flee: 190, hunt: true, n: [1, 2], drop: { carne: 1 }, where: ['estepa', 'bosque', 'glaciar'] },
+        choique: { name: 'choique', r: 13, spd: 40, run: 230, hp: 20, flee: 230, hunt: true, n: [2, 3], drop: { carne: 2, cuero: 1 }, where: ['estepa'] },
+        oveja: { name: 'oveja', r: 12, spd: 20, run: 70, hp: 0, flee: 90, hunt: false, n: [4, 6], where: ['estepa'] },
+        vaca: { name: 'vaca', r: 18, spd: 16, run: 55, hp: 0, flee: 70, hunt: false, n: [2, 3], where: ['estepa', 'bosque'] }
+      };
+      const FAUNA_CELL = 640;
+      function faunaGroup(ix, iy) {
+        const sd = SAVE.campo.seed; if (hash(ix * 53 + sd, iy * 29 - sd) > .42) return null;
+        const x = (ix + .25 + hash(ix * 7 + sd, iy * 3) * .5) * FAUNA_CELL, y = (iy + .25 + hash(ix * 5, iy * 11 + sd) * .5) * FAUNA_CELL;
+        if (Math.hypot(x - CAMPO_HOME.x, y - CAMPO_HOME.y) < 240) return null;
+        const bk = bioKey(x, y), opts = Object.keys(FAUNA).filter(k => FAUNA[k].where.includes(bk)); if (!opts.length) return null;
+        const kind = opts[(hash(ix * 17 - sd, iy * 41) * opts.length) | 0], F = FAUNA[kind];
+        return { key: 'f' + ix + ',' + iy, kind, x, y, n: F.n[0] + ((hash(ix, iy * 7 + sd) * (F.n[1] - F.n[0] + 1)) | 0) };
+      }
+      function teroGrito() { for (let i = 0; i < 4; i++) setTimeout(() => sfx(i % 2 ? 2300 : 2700, .06, 'square', .018, .7), i * 110); }
+      function updateFauna(dt) {
+        const P = S.player;
+        S.faunaScan -= dt;
+        if (S.faunaScan <= 0) {
+          S.faunaScan = .6;
+          const R = viewR() * 1.5, live = new Set(S.fauna.map(f => f.g));
+          S.fauna = S.fauna.filter(f => !f.dead && Math.hypot(f.x - P.x, f.y - P.y) < R + 300);
+          const x0 = Math.floor((P.x - R) / FAUNA_CELL), x1 = Math.floor((P.x + R) / FAUNA_CELL), y0 = Math.floor((P.y - R) / FAUNA_CELL), y1 = Math.floor((P.y + R) / FAUNA_CELL);
+          for (let ix = x0; ix <= x1; ix++) for (let iy = y0; iy <= y1; iy++) {
+            const g = faunaGroup(ix, iy); if (!g || live.has(g.key) || nodeTaken(g.key) || Math.hypot(g.x - P.x, g.y - P.y) > R) continue;
+            const F = FAUNA[g.kind];
+            for (let i = 0; i < g.n; i++) S.fauna.push({ g: g.key, kind: g.kind, x: g.x + rnd(-45, 45), y: g.y + rnd(-30, 30), vx: 0, vy: 0, face: Math.random() < .5 ? -1 : 1, t: rnd(0, 3), hp: F.hp, r: F.r, ph: Math.random() * TAU, stun: 0, hidden: 0, wx: 0, wy: 0 });
+          }
+        }
+        const fast = Math.hypot(P.vx, P.vy) > 110 || !!S.ride || P.dashT > 0;
+        for (const f of S.fauna) {
+          if (f.dead) continue;
+          const F = FAUNA[f.kind], dx = f.x - P.x, dy = f.y - P.y, d = Math.hypot(dx, dy) || 1;
+          f.t -= dt;
+          if (f.flying) { f.x += f.vx * dt; f.y += f.vy * dt; f.alt += dt * 46; f.ph += dt * 18; if (f.alt > 140) f.dead = true; continue; }
+          if (f.stun > 0) { f.stun -= dt; f.vx *= .85; f.vy *= .85; continue; }
+          if (f.kind === 'tero') {
+            if (d < F.flee || (fast && d < F.flee * 1.6)) { f.flying = true; f.alt = 0; f.vx = dx / d * 150 + rnd(-40, 40); f.vy = dy / d * 150 - 30; if (!S.teroT || S.t - S.teroT > 2.5) { S.teroT = S.t; teroGrito(); } }
+            continue;
+          }
+          if (f.kind === 'piche') {
+            if (f.hidden > 0) { f.hidden -= dt; continue; }
+            if (d < F.flee && fast) { f.hidden = rnd(5, 8); burst(f.x, f.y + 4, 8, '#8a7b5a', 60); continue; }
+          }
+          let tvx = 0, tvy = 0;
+          if (d < F.flee && F.run) {
+            const z = f.kind === 'liebre' || f.kind === 'choique' ? Math.sin(S.t * 6 + f.ph * 3) * .7 : 0, ux = dx / d, uy = dy / d;
+            tvx = (ux - uy * z) * F.run; tvy = (uy + ux * z) * F.run; f.t = rnd(1, 2);
+          } else if (f.t <= 0) {
+            f.t = rnd(1.5, 4); if (Math.random() < .45) f.wx = f.wy = 0; else { const a = Math.random() * TAU; f.wx = Math.cos(a) * F.spd; f.wy = Math.sin(a) * F.spd; }
+          } else { tvx = f.wx; tvy = f.wy; }
+          const k = Math.min(1, 6 * dt); f.vx += (tvx - f.vx) * k; f.vy += (tvy - f.vy) * k;
+          f.x += f.vx * dt; f.y += f.vy * dt; if (Math.abs(f.vx) > 4) f.face = f.vx > 0 ? 1 : -1;
+          const sp = Math.hypot(f.vx, f.vy); f.ph += dt * (sp > 5 ? 4 + sp * .05 : 0);
+          pushOut(f, f.r, 200 * dt);
+        }
+      }
+      function faunaHit(f, T) {
+        const F = FAUNA[f.kind];
+        if (!F.hunt) { f.stun = .4; if (!S.ajenaTip) { S.ajenaTip = true; banner('Esa ' + (f.kind === 'vaca' ? 'vaca' : 'oveja') + ' tiene dueño: dejala pastar'); } return; }
+        f.hp -= T.dmg; f.stun = .3; f.flash = .12; burst(f.x, f.y, 5, '#b8483a', 70); sfx(420, .05, 'square', .02, .6);
+        if (f.hp > 0) return;
+        f.dead = true; S.campoTaken.add(f.g);
+        const got = [];
+        for (const [m, v0] of Object.entries(F.drop)) { const v = v0 + (m === 'carne' ? (T.carne || 0) : 0); S.mat[m] = (S.mat[m] || 0) + v; got.push(`+${v} ${MATS[m].name}`); }
+        addText(f.x, f.y - 22, got.join('  '), MATS.carne.col, true); sfx(620, .07, 'triangle', .04); setTimeout(() => sfx(930, .1, 'triangle', .04), 70);
+      }
+      function updateKit(dt) {
+        S.toolCD -= dt;
+        if (S.swing) { S.swing.t += dt; if (S.swing.t > S.swing.T) S.swing = null; }
+        if (S.toolHeld && S.tool && S.tool !== 'lazo') toolSwing();
+        if (S.aim) S.aim.t += dt;
+        updateLazo(dt); updateFauna(dt);
+      }
+
+      /* ---- sprites: herramientas y fauna de perfil (mirando a la derecha) ---- */
+      const KIT_SPR = {}, TOOL_URL = {};
+      const kitSpr = (key, size, fn) => KIT_SPR[key] || (KIT_SPR[key] = pixSprite(size, 1, fn));
+      function toolSprite(id) {
+        const lv = toolLv(id);
+        return kitSpr('t_' + id + lv, 24, b => {
+          if (id === 'cuchillo') {
+            b.line([[-7, 6], [-2, 1]], 2.6, lv > 1 ? '#5a3a22' : '#e8e0c8'); b.rect(-2.5, -.5, 2.5, 2.5, '#c9a45c');
+            b.poly([[0, 0], [7.5, -7], [8.5, -6.5], [2, 2]], lv > 1 ? '#c8d0dc' : '#d8d0b8'); b.line([[1, -.2], [7.6, -6.6]], .5, '#ffffff', 1);
+          } else if (id === 'hacha') {
+            b.line([[-6, 8], [4, -6]], 1.8, '#6a4a2a');
+            b.poly([[1, -8], [7, -6], [8, -1], [3, -2]], '#9aa4b4'); b.line([[7, -6], [8, -1]], .6, '#eef2f8', 1);
+          } else {
+            for (let i = 0; i < 3; i++) b.ell(-1 + i * .6, 1 - i * .4, 6 - i * 1.4, 4.4 - i, '#b0703e');
+            for (let i = 0; i < 3; i++) b.ell(-1 + i * .6, 1 - i * .4, 4.6 - i * 1.4, 3 - i, '#1a1410', 1);
+            b.line([[4, 4], [8, 8]], 1.2, '#b0703e');
+          }
+        });
+      }
+      const toolURL = id => { const k = id + toolLv(id); return TOOL_URL[k] || (TOOL_URL[k] = toolSprite(id).img.toDataURL()); };
+      function faunaSpr(kind, fr) {
+        return kitSpr('f_' + kind + fr, kind === 'vaca' ? 56 : kind === 'choique' ? 52 : 34, b => {
+          const st = fr ? 1 : -1, L = (x, y0, len, col, w) => { b.line([[x, y0], [x + st * 1.2, y0 + len]], w || 1.3, col); };
+          if (kind === 'tero') {
+            if (fr === 2) { b.poly([[-9, -3], [0, -1], [9, -3], [2, 1], [-2, 1]], '#5a5048'); b.poly([[-9, -3], [-5, -2], [-7, -1]], '#1a1a1a'); b.poly([[9, -3], [5, -2], [7, -1]], '#1a1a1a'); b.ell(0, 0, 3, 1.6, '#e8e4dc'); b.ell(3, -1, 1.4, 1.2, '#7a7068'); return; }
+            L(-1, 2, 6, '#c86a7a', .8); L(1.5, 2, 6, '#c86a7a', .8);
+            b.ell(0, 0, 4.4, 2.6, '#6a6058'); b.ell(.5, 1.2, 3.2, 1.4, '#ece8e0'); b.rect(1.6, -1.6, 2.2, 2.6, '#1a1a1a');
+            b.ell(3.6, -3, 1.8, 1.6, '#8a8078'); b.dot(4.1, -3.3, '#d8323a', 1); b.line([[5.2, -2.8], [6.8, -2.6]], .7, '#c86a7a', 1); b.line([[2.4, -4.2], [.4, -6]], .5, '#1a1a1a', 1);
+          } else if (kind === 'piche') {
+            L(-3, 2, 2.4, '#5a4a38', 1.2); L(3, 2, 2.4, '#5a4a38', 1.2);
+            b.ell(0, -.5, 6, 4, '#a08a64'); for (let i = -2; i <= 2; i++) b.line([[i * 1.9, -4.2], [i * 1.9, 3]], .6, '#6a5a40', 1);
+            b.ell(6.2, 1, 2.2, 1.6, '#c8a87a'); b.dot(7, .5, '#1a1410', 1); b.poly([[5.2, -1], [5.8, -3.4], [6.6, -1]], '#c8a87a'); b.line([[-5.8, 1], [-8.2, 2.6]], 1, '#a08a64');
+          } else if (kind === 'liebre') {
+            L(-3, 2, 3, '#7a6a50', 1.5); L(3, 2, 3, '#7a6a50', 1.3);
+            b.ell(-.5, 0, 6.2, 3.4, '#8a7a5e'); b.ell(0, 1.6, 4, 1.4, '#bba98a'); b.ell(-6.4, -.4, 1.4, 1.4, '#ffffff');
+            b.ell(5.4, -2.4, 2.6, 2.2, '#8a7a5e'); b.dot(6.4, -2.8, '#1a1410', 1);
+            b.line([[4.6, -4], [3.2, -10]], 1.3, '#8a7a5e'); b.line([[5.6, -4], [5.2, -9.6]], 1.2, '#7a6a50');
+          } else if (kind === 'choique') {
+            L(-1.5, 3, 12, '#6a6058', 1.6); L(2, 3, 12, '#5a5048', 1.6);
+            b.ell(0, 0, 9, 6, '#7a7268'); b.tex('#7a7268', (x, y) => hash(x * 3, y * 5) < .2 ? [96, 90, 82] : null); b.ell(-7, -1, 3, 2.6, '#8a8278');
+            b.line(qb([6, -3], [9, -9], [9, -17], 5), 1.8, '#8a8278'); b.ell(9.6, -17.5, 2, 1.6, '#8a8278'); b.dot(10.4, -18, '#1a1410', 1); b.line([[11.4, -17.4], [13, -17]], .8, '#3a3430', 1);
+          } else if (kind === 'oveja') {
+            L(-3.5, 3, 4.5, '#2a2420', 1.3); L(3.5, 3, 4.5, '#2a2420', 1.3);
+            for (const [x, y] of [[-3, -1], [1, -2], [3.5, 0], [-1, 1.4], [-4.5, 1]]) b.ell(x, y, 3.6, 3, '#e8e2d4');
+            b.tex('#e8e2d4', (x, y) => hash(x * 5, y * 3) < .25 ? [200, 194, 180] : null);
+            b.ell(7, -2, 2.4, 2, '#3a322c'); b.dot(7.8, -2.4, '#d8d0c0', 1); b.ell(5.6, -3.6, 1.2, .7, '#3a322c');
+          } else {
+            L(-7, 4, 8, '#3a2a20', 2.2); L(-4, 4, 8, '#4a3a2a', 2.2); L(6, 4, 8, '#3a2a20', 2.2); L(9, 4, 8, '#4a3a2a', 2.2);
+            b.ell(0, 0, 13, 7.4, '#7a4a2a'); for (const [x, y, rx] of [[-4, -1, 4], [5, 2, 3.4], [-8, 3, 2.4]]) b.ell(x, y, rx, rx * .8, '#e8e0d0');
+            b.line([[-13, -2], [-15, 6]], .9, '#5a3a22'); b.ell(14.5, -4, 4, 3.6, '#7a4a2a'); b.ell(17, -2.6, 2, 1.8, '#d8b0a0');
+            b.dot(15, -5.4, '#1a1410', 1); b.line([[13, -7.5], [11.6, -10]], .9, '#e8e0d0', 1); b.line([[15.6, -7.5], [17.2, -9.6]], .9, '#e8e0d0', 1);
+          }
+        });
+      }
+      function drawFauna(vis) {
+        for (const f of S.fauna) {
+          if (f.dead || !vis(f.x, f.y)) continue;
+          if (f.kind === 'piche' && f.hidden > 0) { cx.fillStyle = '#4a3e2c'; cx.beginPath(); cx.ellipse(f.x, f.y + 5, 7, 3, 0, 0, TAU); cx.fill(); continue; }
+          const alt = f.alt || 0;
+          cx.fillStyle = `rgba(0,0,0,${f.flying ? .18 : .28})`; cx.beginPath(); cx.ellipse(f.x, f.y + f.r * .8, f.r * .9, f.r * .3, 0, 0, TAU); cx.fill();
+          const fr = f.flying ? 2 : Math.sin(f.ph) > 0 ? 1 : 0, s = faunaSpr(f.kind, fr);
+          cx.save(); cx.translate(f.x, f.y - alt); cx.scale(f.face, 1);
+          if (f.flying && Math.sin(f.ph) < 0) cx.scale(1, .6);
+          cx.drawImage(s.img, -s.size / 2, -s.size / 2, s.size, s.size); cx.restore();
+          if (f.stun > 0 && !f.flying && FAUNA[f.kind].hunt) { cx.fillStyle = '#e0b75a'; for (let i = 0; i < 3; i++) { const a = S.t * 5 + i * 2.1; cx.fillRect(f.x + Math.cos(a) * 8 - 1, f.y - f.r - 8 + Math.sin(a) * 2, 2, 2); } }
+        }
+      }
+      /* lo que va encima de todo: el golpe, el lazo y la mira */
+      function drawKitTop() {
+        const P = S.player, sw = S.swing;
+        if (sw) {
+          const k = sw.t / sw.T, a0 = sw.a - sw.arc / 2 + sw.arc * k * .2;
+          cx.strokeStyle = sw.big ? `rgba(255,220,160,${.75 * (1 - k)})` : `rgba(240,244,255,${.8 * (1 - k)})`; cx.lineWidth = sw.big ? 5 : 3;
+          cx.beginPath(); cx.arc(P.x, P.y, sw.r * (.75 + .25 * k), a0, a0 + sw.arc * (.4 + .6 * k)); cx.stroke();
+        }
+        if (S.aim) {
+          const R = lazoRange(), a = Math.atan2(P.fy, P.fx), tg = lazoTarget(R);
+          cx.setLineDash([5, 6]); cx.strokeStyle = 'rgba(224,183,90,.55)'; cx.lineWidth = 1.5;
+          cx.beginPath(); cx.moveTo(P.x, P.y); cx.lineTo(P.x + Math.cos(a) * R, P.y + Math.sin(a) * R); cx.stroke(); cx.setLineDash([]);
+          cx.beginPath(); cx.arc(P.x, P.y, R, a - .62, a + .62); cx.stroke();
+          if (tg) { const o = tg.o, rr = (o.r || 14) + 8 + Math.sin(S.t * 10) * 2; cx.strokeStyle = '#e0b75a'; cx.lineWidth = 2; cx.beginPath(); cx.arc(o.x, o.y, rr, 0, TAU); cx.stroke(); }
+        }
+        const L = S.lazo;
+        if (L) {
+          const k = L.st === 'go' ? clamp(L.t / L.T, 0, 1) : L.st === 'back' ? 1 - clamp(L.t / .2, 0, 1) : 1;
+          const ex = P.x + (L.tx - P.x) * k, ey = P.y + (L.ty - P.y) * k, mx = (P.x + ex) / 2, my = (P.y + ey) / 2 - (L.st === 'go' ? 26 * Math.sin(k * Math.PI) : 0);
+          cx.strokeStyle = '#c8955a'; cx.lineWidth = 1.8; cx.beginPath(); cx.moveTo(P.x, P.y - 4); cx.quadraticCurveTo(mx, my, ex, ey); cx.stroke();
+          cx.beginPath(); cx.ellipse(ex, ey, 9, 6, 0, 0, TAU); cx.stroke();
+        }
+      }
+      /* botones táctiles */
+      $('toolBtn').addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); toolDown(); });
+      for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) $('toolBtn').addEventListener(ev, e => { e.preventDefault(); toolUp(); });
+      $('toolSw').addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); toolNext(); });
       /* ---------------- loop ---------------- */
       let last = performance.now();
       const FPSM = { n: 0, worst: 0, t0: 0 };

@@ -19,8 +19,8 @@
         if (!S.weather) {
           if (S.t >= S.weatherNext) {
             const a = Math.random() * TAU, type = M.weather;
-            S.weather = { type, t: 0, dur: type === 'ventisca' ? 11 : 8, dx: Math.cos(a), dy: Math.sin(a) };
-            banner(type === 'ventisca' ? 'Ventisca: casi no se ve' : 'Sopla el viento patagónico');
+            S.weather = { type, t: 0, dur: type === 'ventisca' ? 11 : type === 'lluvia' ? 14 : 8, dx: type === 'lluvia' ? Math.cos(a) * .18 : Math.cos(a), dy: type === 'lluvia' ? 1 : Math.sin(a) };
+            banner(type === 'ventisca' ? 'Ventisca: casi no se ve' : type === 'lluvia' ? 'Se larga a llover: el barro te frena' : 'Sopla el viento patagónico');
             sfx(140, 1.2, 'sawtooth', .03, .6);
           }
           return;
@@ -29,6 +29,7 @@
         if (w.t >= w.dur) { S.weather = null; S.weatherNext = S.t + rnd(60, 95); return; }
         const k = Math.sin(Math.min(1, w.t / 1.2, (w.dur - w.t) / 1.2) * Math.PI / 2), f = (w.type === 'viento' ? 90 : 55) * k;
         w.k = k;
+        if (w.type === 'lluvia') return;  // la lluvia no empuja: frena (ver mudK en el movimiento)
         if (P.dashT <= 0) { P.x += w.dx * f * dt; P.y += w.dy * f * dt; }
         for (const e of S.enemies) { if (e.dead || e.prop || e.boss) continue; const g = f * .8 / Math.max(1, ETYPES[e.type].w) * dt; e.x += w.dx * g; e.y += w.dy * g; }
       }

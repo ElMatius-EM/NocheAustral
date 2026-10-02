@@ -190,7 +190,7 @@
             sp = ST.speed * (a.sprint ? M.sprint : M.trot) * (d < TAME_R ? .85 : 1); ux = Math.cos(a.ang); uy = Math.sin(a.ang);
             if (d > 520) { a.calm += dt; if (a.calm > 2.5) { a.state = 'graze'; a.hx = a.x; a.hy = a.y; a.tx = a.x; a.ty = a.y; } } else a.calm = 0;
             if (d < TAME_R && S.rideCD > 0) { if (!S.rideCDTip) { S.rideCDTip = true; banner('Todavía estás molido de la última monta'); } }
-            else if (d < TAME_R) { a.tame += dt / (M.tame * (NI('b2') ? .72 : 1) * (CHARS[S.char].doma || 1)); if (a.tame >= 1) { startRide(a); continue; } }
+            else if (d < TAME_R && S.mode !== 'campo') { a.tame += dt / (M.tame * (NI('b2') ? .72 : 1) * (CHARS[S.char].doma || 1)); if (a.tame >= 1) { startRide(a); continue; } }
             else if (d > TAME_R * 1.5) a.tame = Math.max(0, a.tame - dt / 5);
           }
           const k = Math.min(1, (MAP().ice ? 3 : 8) * dt);
