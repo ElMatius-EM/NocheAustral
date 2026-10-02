@@ -117,7 +117,7 @@
           evo: { rad: 128, dmg: 15, tick: .45, slow: true },
           update(w, dt) {
             const s = st(w), P = S.player, R = s.rad * ST.area; w.R = R; if (w.pulse > 0) w.pulse -= dt;
-            if (S.parts.length < 520 && Math.random() < dt * (w.evo ? 22 : 12)) { const a = Math.random() * TAU, d = R * rnd(.35, 1); S.parts.push({ x: P.x + Math.cos(a) * d, y: P.y + Math.sin(a) * d * .9, vx: rnd(-12, 12), vy: rnd(-70, -35), life: rnd(.4, .8), max: .8, col: Math.random() < .5 ? '#ffb040' : '#ff7a2a', size: rnd(1.5, 3), glow: true }); }
+            if (S.parts.length < 520 * PART_K && Math.random() < dt * (w.evo ? 22 : 12)) { const a = Math.random() * TAU, d = R * rnd(.35, 1); S.parts.push({ x: P.x + Math.cos(a) * d, y: P.y + Math.sin(a) * d * .9, vx: rnd(-12, 12), vy: rnd(-70, -35), life: rnd(.4, .8), max: .8, col: Math.random() < .5 ? '#ffb040' : '#ff7a2a', size: rnd(1.5, 3), glow: true }); }
             if (w.evo && S.ebul.length) clearBullets(b => { const dx = b.x - P.x, dy = b.y - P.y; return dx * dx + dy * dy < (R + b.r) * (R + b.r); });
             if (s.slow) forNear(P.x, P.y, R, e => { const rr = R + e.r; if (!e.elite && dist2(e, P.x, P.y) < rr * rr) e.slowT = .25; });
             w.cd -= dt;

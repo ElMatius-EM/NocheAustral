@@ -78,17 +78,20 @@
       const MAPR = () => MAPS[S ? S.map : 'estepa'];
       const MAP = () => MAPS[S ? (S.bio || S.map) : 'estepa'];
       const REGION = () => S && MAPS[S.map] && MAPS[S.map].region;
-      function bioMix(x, y) {
-        const R = REGION(); if (!R) return [S.map, S.map, 0];
+      // valor de bioma (suave, escala 1500) y su reparto entre biomas; separados para que el terreno pueda interpolar el valor
+      function bioN(x, y) {
         const o = S.terrSeed, home = Math.max(0, 1 - Math.hypot(x, y) / 1300) * .45;
-        const n = vnoise(x, y, BIO_SCALE, o + 41) * .75 + vnoise(x, y, BIO_SCALE * .3, o + 43) * .25 - home;
-        const B = R.biomes, C = R.cuts;
-        for (let i = 0; i < C.length; i++) {
-          if (n < C[i] - BIO_BAND) return [B[i], B[i], 0];
-          if (n < C[i] + BIO_BAND) { const t = (n - (C[i] - BIO_BAND)) / (2 * BIO_BAND); return [B[i], B[i + 1], t * t * (3 - 2 * t)]; }
-        }
-        return [B[B.length - 1], B[B.length - 1], 0];
+        return vnoise(x, y, BIO_SCALE, o + 41) * .75 + vnoise(x, y, BIO_SCALE * .3, o + 43) * .25 - home;
       }
+      function bioFromN(n, out, R) {
+        R = R || REGION(); const B = R.biomes, C = R.cuts; out = out || [];
+        for (let i = 0; i < C.length; i++) {
+          if (n < C[i] - BIO_BAND) { out[0] = out[1] = B[i]; out[2] = 0; return out; }
+          if (n < C[i] + BIO_BAND) { const t = (n - (C[i] - BIO_BAND)) / (2 * BIO_BAND); out[0] = B[i]; out[1] = B[i + 1]; out[2] = t * t * (3 - 2 * t); return out; }
+        }
+        out[0] = out[1] = B[B.length - 1]; out[2] = 0; return out;
+      }
+      function bioMix(x, y) { if (!REGION()) return [S.map, S.map, 0]; return bioFromN(bioN(x, y)); }
       const bioKey = (x, y) => { if (!REGION()) return S.map; const m = bioMix(x, y); return m[2] < .5 ? m[0] : m[1]; };
       // en la franja de mezcla cada píxel elige un bioma (sin colores intermedios): manchas de ruido chico
       // —parches de nieve sobre el pasto— y un poco de tramado 4x4 solo en el borde de cada mancha

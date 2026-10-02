@@ -2181,11 +2181,12 @@
       left: 50%;
       transform: translateX(-50%);
       top: calc(50px + env(safe-area-inset-top, 0px));
-      white-space: nowrap;
+      white-space: pre;
+      line-height: 1.35;
       z-index: 9999;
       pointer-events: none;
       display: none;
-      font: 600 12px/1 "Pixelify Sans", "Trebuchet MS", monospace;
+      font: 600 11px "Pixelify Sans", "Trebuchet MS", monospace;
       color: #cfe8c4;
       background: rgba(10, 12, 20, .72);
       padding: 5px 7px;
@@ -2748,9 +2749,12 @@
       const FONT = '"Pixelify Sans","Trebuchet MS",sans-serif';
 
       let W = 0, H = 0, DPR = 1, ZOOM = 1, vignette = null, GFX_LOW = false;
+      // RES_K: resolución dinámica (31-loop la baja si el equipo no sostiene ~48 fps). PART_K: tope de partículas según la calidad
+      let RES_K = 1, PART_K = 1;
       function resize() {
         // en gráficos bajos se dibuja a 1 píxel por píxel CSS: en pantallas de alta densidad es 4 veces menos trabajo
-        DPR = GFX_LOW ? 1 : Math.min(window.devicePixelRatio || 1, 2);
+        DPR = GFX_LOW ? 1 : Math.max(1, Math.min(window.devicePixelRatio || 1, 2) * RES_K);
+        PART_K = GFX_LOW ? .45 : RES_K < 1 ? .7 : 1;
         W = window.innerWidth; H = window.innerHeight;
         cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
         ZOOM = clamp(Math.min(W, H) / 620, 0.62, 1.1);
@@ -2766,14 +2770,22 @@
       /* ---------------- audio ---------------- */
       let AC = null, muted = false, lastGemSfx = 0;
       function initAudio() { if (AC) return; try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { AC = null; } }
+      // con muchas armas el mismo efecto se dispara decenas de veces por segundo: cada uno crea dos nodos de audio.
+      // Se descarta si el mismo tono sonó hace menos de 35 ms (no se oye la diferencia) y hay un tope de voces simultáneas.
+      const SFX_LAST = new Map(); let sfxVoices = 0;
       function sfx(f, d, type, vol, slide) {
         if (!AC || muted) return;
+        const now = performance.now(), lt = SFX_LAST.get(f);
+        if (lt !== undefined && now - lt < 35) return;
+        if (sfxVoices >= 24) return;
+        SFX_LAST.set(f, now); if (SFX_LAST.size > 400) SFX_LAST.clear();
         try {
           const t = AC.currentTime, o = AC.createOscillator(), g = AC.createGain();
           o.type = type || 'square'; o.frequency.setValueAtTime(f, t);
           if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, f * slide), t + d);
           g.gain.setValueAtTime(Math.max(.0002, (vol || .05) * SAVE.opts.sfx), t); g.gain.exponentialRampToValueAtTime(.0001, t + d);
           o.connect(g); g.connect(AC.destination); o.start(t); o.stop(t + d + .02);
+          sfxVoices++; o.onended = () => { sfxVoices--; o.disconnect(); g.disconnect(); };
         } catch (e) { }
       }
 
@@ -2934,7 +2946,7 @@
           evo: { rad: 128, dmg: 15, tick: .45, slow: true },
           update(w, dt) {
             const s = st(w), P = S.player, R = s.rad * ST.area; w.R = R; if (w.pulse > 0) w.pulse -= dt;
-            if (S.parts.length < 520 && Math.random() < dt * (w.evo ? 22 : 12)) { const a = Math.random() * TAU, d = R * rnd(.35, 1); S.parts.push({ x: P.x + Math.cos(a) * d, y: P.y + Math.sin(a) * d * .9, vx: rnd(-12, 12), vy: rnd(-70, -35), life: rnd(.4, .8), max: .8, col: Math.random() < .5 ? '#ffb040' : '#ff7a2a', size: rnd(1.5, 3), glow: true }); }
+            if (S.parts.length < 520 * PART_K && Math.random() < dt * (w.evo ? 22 : 12)) { const a = Math.random() * TAU, d = R * rnd(.35, 1); S.parts.push({ x: P.x + Math.cos(a) * d, y: P.y + Math.sin(a) * d * .9, vx: rnd(-12, 12), vy: rnd(-70, -35), life: rnd(.4, .8), max: .8, col: Math.random() < .5 ? '#ffb040' : '#ff7a2a', size: rnd(1.5, 3), glow: true }); }
             if (w.evo && S.ebul.length) clearBullets(b => { const dx = b.x - P.x, dy = b.y - P.y; return dx * dx + dy * dy < (R + b.r) * (R + b.r); });
             if (s.slow) forNear(P.x, P.y, R, e => { const rr = R + e.r; if (!e.elite && dist2(e, P.x, P.y) < rr * rr) e.slowT = .25; });
             w.cd -= dt;
@@ -3155,17 +3167,20 @@
       const MAPR = () => MAPS[S ? S.map : 'estepa'];
       const MAP = () => MAPS[S ? (S.bio || S.map) : 'estepa'];
       const REGION = () => S && MAPS[S.map] && MAPS[S.map].region;
-      function bioMix(x, y) {
-        const R = REGION(); if (!R) return [S.map, S.map, 0];
+      // valor de bioma (suave, escala 1500) y su reparto entre biomas; separados para que el terreno pueda interpolar el valor
+      function bioN(x, y) {
         const o = S.terrSeed, home = Math.max(0, 1 - Math.hypot(x, y) / 1300) * .45;
-        const n = vnoise(x, y, BIO_SCALE, o + 41) * .75 + vnoise(x, y, BIO_SCALE * .3, o + 43) * .25 - home;
-        const B = R.biomes, C = R.cuts;
-        for (let i = 0; i < C.length; i++) {
-          if (n < C[i] - BIO_BAND) return [B[i], B[i], 0];
-          if (n < C[i] + BIO_BAND) { const t = (n - (C[i] - BIO_BAND)) / (2 * BIO_BAND); return [B[i], B[i + 1], t * t * (3 - 2 * t)]; }
-        }
-        return [B[B.length - 1], B[B.length - 1], 0];
+        return vnoise(x, y, BIO_SCALE, o + 41) * .75 + vnoise(x, y, BIO_SCALE * .3, o + 43) * .25 - home;
       }
+      function bioFromN(n, out, R) {
+        R = R || REGION(); const B = R.biomes, C = R.cuts; out = out || [];
+        for (let i = 0; i < C.length; i++) {
+          if (n < C[i] - BIO_BAND) { out[0] = out[1] = B[i]; out[2] = 0; return out; }
+          if (n < C[i] + BIO_BAND) { const t = (n - (C[i] - BIO_BAND)) / (2 * BIO_BAND); out[0] = B[i]; out[1] = B[i + 1]; out[2] = t * t * (3 - 2 * t); return out; }
+        }
+        out[0] = out[1] = B[B.length - 1]; out[2] = 0; return out;
+      }
+      function bioMix(x, y) { if (!REGION()) return [S.map, S.map, 0]; return bioFromN(bioN(x, y)); }
       const bioKey = (x, y) => { if (!REGION()) return S.map; const m = bioMix(x, y); return m[2] < .5 ? m[0] : m[1]; };
       // en la franja de mezcla cada píxel elige un bioma (sin colores intermedios): manchas de ruido chico
       // —parches de nieve sobre el pasto— y un poco de tramado 4x4 solo en el borde de cada mancha
@@ -3667,7 +3682,10 @@
           const s = document.createElement('canvas'); s.width = W; s.height = H; s.getContext('2d').putImageData(im, 0, 0);
           const c = document.createElement('canvas'); c.width = W * PX_UP; c.height = H * PX_UP; const g = c.getContext('2d'); g.imageSmoothingEnabled = false; g.drawImage(s, 0, 0, c.width, c.height); return c;
         };
-        return { img: up(img), flash: up(fl) };
+        // la versión blanca (destello al recibir un golpe) se arma recién la primera vez que se pide:
+        // obstáculos, pickups y decoración nunca la usan y era la mitad del costo de crear cada sprite
+        let flash = null;
+        return { img: up(img), get flash() { return flash || (flash = up(fl)); } };
       }
 
       // patitas de caminante: s=-1/1, devuelve [x,y] del pie
@@ -4023,7 +4041,7 @@
       // crea un sprite a partir de una función de dibujo; unit = unidades de mundo por "unidad de dibujo"
       function pixSprite(worldSize, unit, draw, oy) {
         const G = Math.max(4, Math.round(worldSize / PXS)), b = PixBuf(G, unit / PXS, oy); draw(b); const r = pixFinish(b);
-        return { img: r.img, flash: r.flash, size: G * PXS };
+        return { img: r.img, get flash() { return r.flash; }, size: G * PXS };
       }
       const dimg = (s, x, y, sc) => { const z = s.size * (sc || 1); cx.drawImage(s.img, x - z / 2, y - z / 2, z, z); };
 
@@ -4083,8 +4101,15 @@
         }
       };
       const OBS_SPR = new Map();
+      const obsKey = o => o.kind + Math.max(16, Math.round(o.r / 4) * 4) + '_' + (o.seed % 5);
+      // crea por adelantado (como mucho uno por frame) los sprites de obstáculos que están por entrar en pantalla:
+      // armar uno cuesta varios ms y si entraban varios juntos el frame se trababa
+      function prewarmObs(px, py, R) {
+        const x0 = Math.floor((px - R) / OBS_CELL), x1 = Math.floor((px + R) / OBS_CELL), y0 = Math.floor((py - R) / OBS_CELL), y1 = Math.floor((py + R) / OBS_CELL);
+        for (let ix = x0; ix <= x1; ix++) for (let iy = y0; iy <= y1; iy++) for (const o of obsChunk(ix, iy)) if (!OBS_SPR.has(obsKey(o))) { obsSprite(o); return; }
+      }
       function obsSprite(o) {
-        const rb = Math.max(16, Math.round(o.r / 4) * 4), v = o.seed % 5, key = o.kind + rb + '_' + v;
+        const rb = Math.max(16, Math.round(o.r / 4) * 4), v = o.seed % 5, key = obsKey(o);
         let s = OBS_SPR.get(key);
         if (!s) { s = pixSprite(rb * 3.6, rb, b => OBS_DRAW[o.kind](b, v * 37 + 11)); OBS_SPR.set(key, s); }
         return s;
@@ -4410,7 +4435,7 @@
         if (S.mode !== 'campo' && viaPuesto && SAVE.comida && FOGON_REC[SAVE.comida]) { S.comida = { id: SAVE.comida, until: CHARS[charId].fogon ? 900 : COMIDA_T, done: false }; SAVE.comida = null; writeSave(); }
         S.rerolls = Math.max(0, S.rerolls + (CHARS[charId].rerolls || 0)); S.rideCD = 0;
         { const R = MAPS[S.map].region; S.bio = R ? R.biomes[0] : S.map; S.iceK = MAPS[S.bio].ice ? 1 : 0; }
-        ST = null; obsCache.clear(); TCACHE.clear();
+        ST = null; obsCache.clear(); TCACHE.clear(); DCACHE.clear();
         for (const e of freeE) e.dead = true;
         addWeapon(CHARS[charId].weapon);
         recompute(); S.player.hp = ST.maxHp;
@@ -4670,7 +4695,7 @@
         }
         e.hp -= dmg; e.flash = .09;
         if (NI('c3') && !e.elite && !e.prop && e.hp > 0 && e.hp < e.maxHp * .12) e.hp = 0;
-        if (!e.prop && S.parts.length < 450 && Math.random() < .6) { const sx = e.x - S.player.x, sy = e.y - S.player.y, sl = Math.hypot(sx, sy) || 1; for (let i = 0; i < 2; i++) S.parts.push({ x: e.x - sx / sl * e.r * .6, y: e.y - sy / sl * e.r * .6, vx: sx / sl * rnd(60, 140) + rnd(-40, 40), vy: sy / sl * rnd(60, 140) + rnd(-40, 40), life: rnd(.12, .22), max: .22, col: crit ? '#ffd23c' : '#fff4d8', size: rnd(1.5, 2.5) }); }
+        if (!e.prop && S.parts.length < 450 * PART_K && Math.random() < .6) { const sx = e.x - S.player.x, sy = e.y - S.player.y, sl = Math.hypot(sx, sy) || 1; for (let i = 0; i < 2; i++) S.parts.push({ x: e.x - sx / sl * e.r * .6, y: e.y - sy / sl * e.r * .6, vx: sx / sl * rnd(60, 140) + rnd(-40, 40), vy: sy / sl * rnd(60, 140) + rnd(-40, 40), life: rnd(.12, .22), max: .22, col: crit ? '#ffd23c' : '#fff4d8', size: rnd(1.5, 2.5) }); }
         S.dmgBy[w.id] = (S.dmgBy[w.id] || 0) + dmg;
         if (!e.prop && SAVE.opts.nums) dmgNum(e, dmg, w, crit, resist);
         if (kb && !e.boss) {
@@ -4700,7 +4725,7 @@
       const HARD_GLOW = 'rgba(255,70,70,.5)';
       function clearBullets(test, force) {
         let n = 0;
-        for (const b of S.ebul) { if (!b.dead && (force || !b.hard) && test(b)) { b.dead = true; n++; if (S.parts.length < 600) for (let i = 0; i < 4; i++) { const a = Math.random() * TAU; S.parts.push({ x: b.x, y: b.y, vx: Math.cos(a) * 70, vy: Math.sin(a) * 70, life: .25, max: .25, col: b.col || '#e2b6ff', size: 2.5 }); } } }
+        for (const b of S.ebul) { if (!b.dead && (force || !b.hard) && test(b)) { b.dead = true; n++; if (S.parts.length < 600 * PART_K) for (let i = 0; i < 4; i++) { const a = Math.random() * TAU; S.parts.push({ x: b.x, y: b.y, vx: Math.cos(a) * 70, vy: Math.sin(a) * 70, life: .25, max: .25, col: b.col || '#e2b6ff', size: 2.5 }); } } }
         if (n) sfx(1500, .04, 'square', .015, .5);
       }
       function ashBomb() {
@@ -4738,7 +4763,7 @@
           });
         }
         if (e.type === 'anima') {
-          for (let i = 0; i < 10 && S.parts.length < 600; i++) S.parts.push({ x: e.x + rnd(-8, 8), y: e.y + rnd(-8, 6), vx: rnd(-30, 30) + e.kx * .5, vy: rnd(-90, -35) + e.ky * .5, life: rnd(.5, .9), max: .9, col: i % 3 ? '#dbe8ff' : '#8fb8f5', size: rnd(3, 5), glow: true });
+          for (let i = 0; i < 10 && S.parts.length < 600 * PART_K; i++) S.parts.push({ x: e.x + rnd(-8, 8), y: e.y + rnd(-8, 6), vx: rnd(-30, 30) + e.kx * .5, vy: rnd(-90, -35) + e.ky * .5, life: rnd(.5, .9), max: .9, col: i % 3 ? '#dbe8ff' : '#8fb8f5', size: rnd(3, 5), glow: true });
           if (S.fx.length < 320) S.fx.push({ type: 'ring', x: e.x, y: e.y, life: .35, max: .35, col: 'rgba(200,222,255,.7)', R: 26 });
         } else burst(e.x, e.y, e.elite ? 22 : 6, T.col, e.elite ? 160 : 90, e.kx, e.ky);
         if (e.xp > 0) spawnGem(e.x, e.y, e.xp);
@@ -4806,7 +4831,7 @@
       }
       function burst(x, y, n, col, sp, bx, by) {
         if (GFX_LOW) n = Math.ceil(n / 2);
-        for (let i = 0; i < n && S.parts.length < 600; i++) {
+        for (let i = 0; i < n && S.parts.length < 600 * PART_K; i++) {
           const a = Math.random() * TAU, v = rnd(.3, 1) * sp;
           S.parts.push({ x, y, vx: Math.cos(a) * v + (bx || 0) * .45, vy: Math.sin(a) * v + (by || 0) * .45, life: rnd(.25, .5), max: .5, col, size: rnd(2, 4) });
         }
@@ -5123,7 +5148,7 @@
         for (const p of S.proj) {
           if (p.dead) continue;
           p.life -= dt; if (p.life <= 0) { p.dead = true; continue; }
-          if (p.kind === 'cross') { p.vx += p.ax * dt; p.vy += p.ay * dt; p.rot += dt * 14; if (S.parts.length < 520 && Math.random() < dt * 30) S.parts.push({ x: p.x + rnd(-4, 4), y: p.y + rnd(-4, 4), vx: rnd(-15, 15), vy: rnd(-15, 15), life: rnd(.25, .45), max: .45, col: p.w.evo ? '#cfe6ff' : '#ffe9a8', size: rnd(1.5, 2.8), glow: true }); }
+          if (p.kind === 'cross') { p.vx += p.ax * dt; p.vy += p.ay * dt; p.rot += dt * 14; if (S.parts.length < 520 * PART_K && Math.random() < dt * 30) S.parts.push({ x: p.x + rnd(-4, 4), y: p.y + rnd(-4, 4), vx: rnd(-15, 15), vy: rnd(-15, 15), life: rnd(.25, .45), max: .45, col: p.w.evo ? '#cfe6ff' : '#ffe9a8', size: rnd(1.5, 2.8), glow: true }); }
           else if (p.g) { p.vy += p.g * dt; p.rot = Math.atan2(p.vy, p.vx); }
           p.x += p.vx * dt; p.y += p.vy * dt;
           forNear(p.x, p.y, p.r, e => {
@@ -5348,27 +5373,188 @@
 
       /* ---------------- render ---------------- */
       function hash(x, y) { let h = (x * 374761393 + y * 668265263) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; }
-      function drawGround(px, py) {
-        const T = 96, hw = W / 2 / ZOOM + T, hh = H / 2 / ZOOM + T;
-        const tx0 = Math.floor((px - hw) / T), tx1 = Math.floor((px + hw) / T), ty0 = Math.floor((py - hh) / T), ty1 = Math.floor((py + hh) / T);
-        if (S) drawTerrain(px, py);
-        for (let tx = tx0; tx <= tx1; tx++) for (let ty = ty0; ty <= ty1; ty++) {
-          // en una región, cada baldosa decora según su bioma
-          const bk = S ? bioKey((tx + .5) * T, (ty + .5) * T) : 'estepa', ice = MAPS[bk].decor === 'ice', D = decorSpr(bk), V = vivoSpr(bk);
+      /* ---- dibujo en lote (rendimiento en móvil) ----
+         Con cientos de enemigos, partículas y números, lo que más cuesta no es la lógica sino la cantidad de llamadas al canvas
+         (save/restore, cambios de globalAlpha, fill sueltos, texto). Estas ayudas las agrupan o las reemplazan por drawImage. */
+      let BM = null;  // matriz del mundo en el frame actual (DPR · ZOOM · cámara); null fuera de drawWorld
+      // pone la transformación de un objeto en (x, y) sin save/restore: una llamada en vez de cuatro
+      function wSet(x, y, sx, sy, rot) {
+        const A = BM.a, X = A * x + BM.e, Y = A * y + BM.f;
+        if (rot) { const c = Math.cos(rot), s = Math.sin(rot); cx.setTransform(A * c * sx, A * s * sx, -A * s * sy, A * c * sy, X, Y); }
+        else cx.setTransform(A * sx, 0, 0, A * sy, X, Y);
+        _tfd = true;
+      }
+      let _tfd = false;
+      function wDirty() { _tfd = true; }
+      function wReset() { if (_tfd) { cx.setTransform(BM); _tfd = false; } }
+      // estado del contexto con caché: no se reasigna si no cambió
+      let _ga = 1, _sm = true;
+      function gA(a) { if (a !== _ga) { _ga = a; cx.globalAlpha = a; } }
+      function gSm(v) { if (v !== _sm) { _sm = v; cx.imageSmoothingEnabled = v; } }
+      function gReset() { _ga = 1; _sm = true; cx.globalAlpha = 1; cx.imageSmoothingEnabled = true; }
+      function gSync() { _ga = cx.globalAlpha; _sm = cx.imageSmoothingEnabled; }
+      // agrupador: junta elementos por clave (color + opacidad cuantizada) para hacer un solo fill por grupo
+      function mkBatch() {
+        const m = new Map(), used = [];
+        return {
+          add(key, col, a, item) { let g = m.get(key); if (!g) { if (m.size > 300) { m.clear(); used.length = 0; } g = { col, a, l: [] }; m.set(key, g); } if (!g.l.length) used.push(g); g.l.push(item); },
+          each(fn) { for (const g of used) { fn(g); g.l.length = 0; } used.length = 0; }
+        };
+      }
+      const PART_B = mkBatch(), MARK_B = mkBatch();
+      // punto con resplandor pre-horneado (reemplaza dos arc + dos fill por partícula)
+      const DOT_SPR = new Map();
+      function dotSpr(col) {
+        let c = DOT_SPR.get(col); if (c) return c;
+        c = document.createElement('canvas'); c.width = c.height = 32; const g = c.getContext('2d');
+        g.fillStyle = col; g.globalAlpha = .25; g.beginPath(); g.arc(16, 16, 16, 0, TAU); g.fill();
+        g.globalAlpha = 1; g.beginPath(); g.arc(16, 16, 6.5, 0, TAU); g.fill();
+        DOT_SPR.set(col, c); return c;
+      }
+      // zonas (pava, fuego, remolino): degradado radial horneado una vez por tipo
+      const ZONE_SPR = {};
+      function zoneSpr(kind) {
+        if (ZONE_SPR[kind]) return ZONE_SPR[kind];
+        const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d'), gr = g.createRadialGradient(64, 64, 6.4, 64, 64, 64);
+        const C = { fire: ['rgba(255,150,50,.6)', 'rgba(255,90,30,.05)'], pull: ['rgba(150,90,230,.55)', 'rgba(110,60,200,.08)'], ice: ['rgba(170,215,255,.45)', 'rgba(120,180,240,.08)'] }[kind];
+        gr.addColorStop(0, C[0]); gr.addColorStop(1, C[1]); g.fillStyle = gr; g.beginPath(); g.arc(64, 64, 64, 0, TAU); g.fill();
+        return ZONE_SPR[kind] = c;
+      }
+      // estela del facón horneada (antes: un createLinearGradient por cuchillo por frame)
+      const TRAIL_SPR = {};
+      function trailSpr(evo) {
+        const k = evo ? 1 : 0; if (TRAIL_SPR[k]) return TRAIL_SPR[k];
+        const c = document.createElement('canvas'); c.width = 64; c.height = 8; const g = c.getContext('2d'), gr = g.createLinearGradient(64, 0, 0, 0);
+        gr.addColorStop(0, evo ? 'rgba(170,210,255,.7)' : 'rgba(255,255,255,.55)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+        g.strokeStyle = gr; g.lineWidth = 6.4; g.lineCap = 'round'; g.beginPath(); g.moveTo(60, 4); g.lineTo(4, 4); g.stroke();
+        return TRAIL_SPR[k] = c;
+      }
+      /* ---- textos flotantes como imágenes ----
+         fillText + strokeText (y cambiar cx.font) por cada número es de lo más caro en el canvas de un celular.
+         Los números se arman con un atlas de dígitos: una sola imagen por color y tamaño, horneada a la escala real de
+         pantalla (DPR · ZOOM), con los contornos en una fila y los rellenos en otra para que un contorno no pise el dígito
+         de al lado. Los textos sueltos (+30, ¡Combo 50!) se cachean ya rasterizados. Hasta que carga Pixelify se usa texto normal. */
+      const TXT_F = [[600, 13], [700, 16], [700, 19], [700, 24]], NUM_RE = /^[+-]?\d+$/, GLYPHS = '0123456789+-';
+      let fontOK = false, TXT_K = 2, TXT_KEY = 0;
+      function fontReady() { if (!fontOK) { try { fontOK = document.fonts.check(`600 13px "Pixelify Sans"`); } catch (e) { fontOK = true; } } return fontOK; }
+      const DIGITS = new Map(), STR_SPR = new Map();
+      function txtScale() {
+        // escala de horneado = píxeles de pantalla por unidad de mundo, redondeada para no rehornear con cada cambio chico
+        const k = Math.max(1, Math.round(DPR * ZOOM * 4) / 4);
+        if (k !== TXT_KEY) { TXT_KEY = TXT_K = k; DIGITS.clear(); STR_SPR.clear(); }
+      }
+      function digitSet(col, fi) {
+        const key = col + fi; let d = DIGITS.get(key); if (d) return d;
+        const [wt, px] = TXT_F[fi], K = TXT_K, f = `${wt} ${px * K}px ${FONT}`, pad = Math.ceil(2 * K), c = document.createElement('canvas'), g = c.getContext('2d');
+        g.font = f; const adv = {}, sx = {}; let x = 0;
+        for (const ch of GLYPHS) { adv[ch] = g.measureText(ch).width; sx[ch] = x; x += Math.ceil(adv[ch]) + pad * 2; }
+        const h = Math.ceil(px * 1.5 * K), by = Math.round(px * 1.1 * K);
+        c.width = x; c.height = h * 2; g.font = f; g.textAlign = 'left'; g.lineWidth = 3 * K; g.strokeStyle = 'rgba(0,0,0,.75)'; g.fillStyle = col;
+        for (const ch of GLYPHS) { g.strokeText(ch, sx[ch] + pad, by); g.fillText(ch, sx[ch] + pad, by + h); }
+        d = { c, adv, sx, pad, h, by }; DIGITS.set(key, d); return d;
+      }
+      function drawTxt(str, x, y, col, fi) {
+        const K = TXT_K;
+        if (NUM_RE.test(str)) {
+          const D = digitSet(col, fi); let w = 0; for (let i = 0; i < str.length; i++) w += D.adv[str[i]];
+          for (let row = 0; row < 2; row++) {
+            let gx = x - w / 2 / K;
+            for (let i = 0; i < str.length; i++) {
+              const ch = str[i], sw = Math.ceil(D.adv[ch]) + D.pad * 2;
+              cx.drawImage(D.c, D.sx[ch], row * D.h, sw, D.h, gx - D.pad / K, y - D.by / K, sw / K, D.h / K);
+              gx += D.adv[ch] / K;
+            }
+          }
+          return;
+        }
+        const k = fi + col + str; let c = STR_SPR.get(k);
+        if (!c) {
+          if (STR_SPR.size > 250) STR_SPR.clear();
+          const [wt, px] = TXT_F[fi], f = `${wt} ${px * K}px ${FONT}`, pad = Math.ceil(2 * K); c = document.createElement('canvas'); const g = c.getContext('2d');
+          g.font = f; c.adv = g.measureText(str).width; c.width = Math.ceil(c.adv) + pad * 2; c.height = Math.ceil(px * 1.5 * K); c.pad = pad; c.by = Math.round(px * 1.1 * K);
+          g.font = f; g.lineWidth = 3 * K; g.strokeStyle = 'rgba(0,0,0,.75)'; g.strokeText(str, pad, c.by); g.fillStyle = col; g.fillText(str, pad, c.by);
+          STR_SPR.set(k, c);
+        }
+        cx.drawImage(c, x - c.adv / K / 2 - c.pad / K, y - c.by / K, c.width / K, c.height / K);
+      }
+      /* ---- decoración del suelo por zonas ----
+         Pasto, piedras, juncos, flores y huesos salen de hashes y del ruido de humedad/bioma. Antes se recalculaba todo por
+         matita en cada frame (~4,5 ms de JS en PC, 15+ ms en un celular). Ahora cada zona de 3x3 baldosas calcula su lista
+         una sola vez. Con calidad reducida (gráficos bajos o resolución dinámica bajada) la zona además se hornea en una
+         imagen y se dibuja con un solo drawImage (el pasto deja de mecerse; los brillos del agua siguen animados). */
+      const DT = 96, DN = 3, DCH = DT * DN, DPAD = 24, DK = 1 / PXS, DCACHE = new Map();
+      // en pantallas táctiles (celulares, tablets) la decoración va siempre horneada; en PC el pasto se mece
+      const DECOR_LIVE = !matchMedia('(pointer: coarse)').matches;
+      let dBaked = 0;
+      function decorChunk(ci, cj) {
+        const key = ci * 100003 + cj; let C = DCACHE.get(key); if (C) return C;
+        const items = [], glints = [];
+        for (let tx = ci * DN; tx < ci * DN + DN; tx++) for (let ty = cj * DN; ty < cj * DN + DN; ty++) {
+          const bk = bioKey((tx + .5) * DT, (ty + .5) * DT), ice = MAPS[bk].decor === 'ice', D = decorSpr(bk), V = vivoSpr(bk);
           for (let k = 0; k < 3; k++) {
             const h1 = hash(tx * 3 + k, ty * 7 - k), h2 = hash(tx * 5 - k, ty * 3 + k * 11), h3 = hash(tx + k * 17, ty - k * 5);
-            const x = tx * T + h1 * T, y = ty * T + h2 * T;
-            if (S && terrWet(x, y)) {
-              if (ice) { if (h3 < .25) dimg(V.drift, x, y); }
-              else if (h3 < .5) swayDraw(V.reed[(h2 * 2) | 0], x + 3, y - 4, h1, 1.3);
-              else if (h3 < .62) { cx.globalAlpha = .2 + .5 * Math.max(0, Math.sin(S.t * 2.2 + h1 * 40)); dimg(V.glint, x, y); cx.globalAlpha = 1; }
+            const x = tx * DT + h1 * DT, y = ty * DT + h2 * DT;
+            if (terrWet(x, y)) {
+              if (ice) { if (h3 < .25) items.push({ t: 0, s: V.drift, x, y, a: 1 }); }
+              else if (h3 < .5) items.push({ t: 1, s: V.reed[(h2 * 2) | 0], x: x + 3, y: y - 4, ph: h1, amp: 1.3 });
+              else if (h3 < .62) glints.push({ s: V.glint, x, y, ph: h1 });
               continue;
             }
-            if (h3 < .6) { if (ice) { if (h3 < .3) dimg(D.crack[k & 1], x + 8, y + 3); } else swayDraw(D.tuft[(h2 * 3) | 0], x + 3, y - 3, h1, 1); }
-            else if (h3 < .85) dimg(D.stone[Math.min(2, (h1 * 3) | 0)], x, y);
-            else if (h3 < .97) dimg(ice ? D.patch : D.flower, x, y + 2);
-            else { if (ice) cx.globalAlpha = .5; dimg(D.bone, x, y + 1); cx.globalAlpha = 1; }
+            if (h3 < .6) { if (ice) { if (h3 < .3) items.push({ t: 0, s: D.crack[k & 1], x: x + 8, y: y + 3, a: 1 }); } else items.push({ t: 1, s: D.tuft[(h2 * 3) | 0], x: x + 3, y: y - 3, ph: h1, amp: 1 }); }
+            else if (h3 < .85) items.push({ t: 0, s: D.stone[Math.min(2, (h1 * 3) | 0)], x, y, a: 1 });
+            else if (h3 < .97) items.push({ t: 0, s: ice ? D.patch : D.flower, x, y: y + 2, a: 1 });
+            else items.push({ t: 0, s: D.bone, x, y: y + 1, a: ice ? .5 : 1 });
           }
+        }
+        C = { items, glints, baked: null, x0: ci * DCH, y0: cj * DCH };
+        if (DCACHE.size > 140) { const k0 = DCACHE.keys().next().value, o = DCACHE.get(k0); if (o.baked) dBaked--; DCACHE.delete(k0); }
+        DCACHE.set(key, C); return C;
+      }
+      function bakeDecor(C) {
+        const n = Math.ceil((DCH + DPAD * 2) * DK), c = document.createElement('canvas'); c.width = c.height = n;
+        const g = c.getContext('2d'); g.imageSmoothingEnabled = false; g.setTransform(DK, 0, 0, DK, (DPAD - C.x0) * DK, (DPAD - C.y0) * DK);
+        for (const it of C.items) { const z = it.s.size; g.globalAlpha = it.a || 1; g.drawImage(it.s.img, it.x - z / 2, it.y - z / 2, z, z); }
+        C.baked = c; dBaked++;
+        // con muchas zonas horneadas en memoria, se sueltan las imágenes más viejas (la lista se conserva)
+        if (dBaked > 70) for (const o of DCACHE.values()) { if (o.baked && o !== C) { o.baked = null; dBaked--; if (dBaked <= 60) break; } }
+      }
+      function drawGround(px, py) {
+        const hw = W / 2 / ZOOM + DT, hh = H / 2 / ZOOM + DT;
+        if (!S) { drawGroundStatic(px, py); return; }
+        drawTerrain(px, py);
+        const low = GFX_LOW || RES_K < 1 || !DECOR_LIVE, bx = W / 2 / ZOOM + 40, by = H / 2 / ZOOM + 40;
+        const c0 = Math.floor((px - hw) / DCH), c1 = Math.floor((px + hw) / DCH), r0 = Math.floor((py - hh) / DCH), r1 = Math.floor((py + hh) / DCH);
+        let bakes = 0;
+        for (let ci = c0; ci <= c1; ci++) for (let cj = r0; cj <= r1; cj++) {
+          const C = decorChunk(ci, cj);
+          if (low) {
+            if (!C.baked && bakes++ < 2) bakeDecor(C);
+            if (C.baked) { cx.imageSmoothingEnabled = false; cx.drawImage(C.baked, C.x0 - DPAD, C.y0 - DPAD, C.baked.width / DK, C.baked.height / DK); cx.imageSmoothingEnabled = true; }
+            else for (const it of C.items) { if (it.a !== 1 && it.a) cx.globalAlpha = it.a; dimg(it.s, it.x, it.y); cx.globalAlpha = 1; }
+          } else {
+            for (const it of C.items) {
+              if (Math.abs(it.x - px) > bx || Math.abs(it.y - py) > by) continue;
+              if (it.t === 1) swayDraw(it.s, it.x, it.y, it.ph, it.amp);
+              else { if (it.a !== 1) cx.globalAlpha = it.a; dimg(it.s, it.x, it.y); if (it.a !== 1) cx.globalAlpha = 1; }
+            }
+          }
+          for (const gl of C.glints) {
+            if (Math.abs(gl.x - px) > bx || Math.abs(gl.y - py) > by) continue;
+            cx.globalAlpha = .2 + .5 * Math.max(0, Math.sin(S.t * 2.2 + gl.ph * 40)); dimg(gl.s, gl.x, gl.y);
+          }
+          cx.globalAlpha = 1;
+        }
+      }
+      // título y Puesto (sin partida): misma decoración de estepa, cálculo directo como antes
+      function drawGroundStatic(px, py) {
+        const T = DT, hw = W / 2 / ZOOM + T, hh = H / 2 / ZOOM + T, D = decorSpr('estepa');
+        const tx0 = Math.floor((px - hw) / T), tx1 = Math.floor((px + hw) / T), ty0 = Math.floor((py - hh) / T), ty1 = Math.floor((py + hh) / T);
+        for (let tx = tx0; tx <= tx1; tx++) for (let ty = ty0; ty <= ty1; ty++) for (let k = 0; k < 3; k++) {
+          const h1 = hash(tx * 3 + k, ty * 7 - k), h2 = hash(tx * 5 - k, ty * 3 + k * 11), h3 = hash(tx + k * 17, ty - k * 5), x = tx * T + h1 * T, y = ty * T + h2 * T;
+          if (h3 < .6) swayDraw(D.tuft[(h2 * 3) | 0], x + 3, y - 3, h1, 1);
+          else if (h3 < .85) dimg(D.stone[Math.min(2, (h1 * 3) | 0)], x, y);
+          else if (h3 < .97) dimg(D.flower, x, y + 2);
+          else dimg(D.bone, x, y + 1);
         }
       }
       function drawObstacle(o) { dimg(obsSprite(o), o.x, o.y); }
@@ -5419,6 +5605,7 @@
         cx.fillStyle = '#c23a4a'; cx.fillRect(P.x - bw / 2, P.y + 18, bw * hp, 3);
       }
       function drawWorld() {
+        BM = cx.getTransform(); _tfd = false;
         const P = S.player, hw = W / 2 / ZOOM + 60, hh = H / 2 / ZOOM + 60, vis = (x, y) => Math.abs(x - P.x) < hw && Math.abs(y - P.y) < hh;
 
         for (const w of S.weapons) {
@@ -5444,16 +5631,16 @@
         }
         drawHerdZones();
         forObs(P.x, P.y, Math.max(hw, hh), o => { if (vis(o.x, o.y)) drawObstacle(o); });
+        prewarmObs(P.x, P.y, Math.max(hw, hh) + 120);
         if (S.mode === 'campo') drawCampo(vis, hw, hh);
 
         for (const z of S.zones) {
           if (!vis(z.x, z.y)) continue;
           const a = clamp(z.life / .4, 0, 1) * clamp((z.max - z.life) / .15, 0, 1);
-          const gr = cx.createRadialGradient(z.x, z.y, z.R * .1, z.x, z.y, z.R);
-          gr.addColorStop(0, z.fire ? 'rgba(255,150,50,.6)' : z.pull ? 'rgba(150,90,230,.55)' : 'rgba(170,215,255,.45)'); gr.addColorStop(1, z.fire ? 'rgba(255,90,30,.05)' : z.pull ? 'rgba(110,60,200,.08)' : 'rgba(120,180,240,.08)');
-          cx.globalAlpha = a; cx.fillStyle = gr; cx.beginPath(); cx.ellipse(z.x, z.y, z.R, z.R * .8, 0, 0, TAU); cx.fill();
-          cx.fillStyle = z.fire ? 'rgba(255,220,120,.85)' : 'rgba(235,245,255,.7)';
-          for (let i = 0; i < 6; i++) { const ph = S.t * 3 + i * 1.7 + z.x, bx = z.x + Math.cos(i * 2.4 + z.y) * z.R * .55, by = z.y + Math.sin(i * 1.9 + z.x) * z.R * .42; cx.beginPath(); cx.arc(bx, by, 1.2 + (Math.sin(ph) + 1) * 1.4, 0, TAU); cx.fill(); }
+          cx.globalAlpha = a; cx.drawImage(zoneSpr(z.fire ? 'fire' : z.pull ? 'pull' : 'ice'), z.x - z.R, z.y - z.R * .8, z.R * 2, z.R * 1.6);
+          cx.fillStyle = z.fire ? 'rgba(255,220,120,.85)' : 'rgba(235,245,255,.7)'; cx.beginPath();
+          for (let i = 0; i < 6; i++) { const ph = S.t * 3 + i * 1.7 + z.x, bx = z.x + Math.cos(i * 2.4 + z.y) * z.R * .55, by = z.y + Math.sin(i * 1.9 + z.x) * z.R * .42, br = 1.2 + (Math.sin(ph) + 1) * 1.4; cx.moveTo(bx + br, by); cx.arc(bx, by, br, 0, TAU); }
+          cx.fill();
           if (z.pull) { cx.strokeStyle = 'rgba(210,170,255,.7)'; cx.lineWidth = 2; cx.beginPath(); cx.arc(z.x, z.y, z.R * .6, S.t * 4, S.t * 4 + 4); cx.stroke(); cx.beginPath(); cx.arc(z.x, z.y, z.R * .3, -S.t * 5, -S.t * 5 + 3.5); cx.stroke(); }
           cx.globalAlpha = 1;
         }
@@ -5496,30 +5683,32 @@
         cx.fillStyle = 'rgba(0,0,0,.25)'; cx.beginPath();
         for (const e of S.enemies) { if (ETYPES[e.type].fly || !vis(e.x, e.y)) continue; cx.moveTo(e.x + e.r, e.y + e.r * .9); cx.ellipse(e.x, e.y + e.r * .9, e.r, e.r * .35, 0, 0, TAU); }
         cx.fill();
+        gSync();
         for (const e of S.enemies) {
           if (!vis(e.x, e.y)) continue;
           const sp = SPR[e.type], sz = sp.size * (e.r / ETYPES[e.type].r);
-          cx.imageSmoothingEnabled = !e.elite;
           const bob = ETYPES[e.type].fly ? Math.sin(S.t * 6 + e.wob) * 2 : 0;
+          // lo poco común (apuntando, embistiendo, élite, helada) dibuja en coordenadas del mundo: recién ahí se restaura la matriz
           if (e.aimT > 0) {
-            const k = 1 - e.aimT / .55, col = ETYPES[e.type].shotCol || '#e2b6ff';
-            cx.globalAlpha = .35 + .5 * k; cx.strokeStyle = col; cx.lineWidth = 2.5;
+            wReset(); const k = 1 - e.aimT / .55, col = ETYPES[e.type].shotCol || '#e2b6ff';
+            gA(.35 + .5 * k); cx.strokeStyle = col; cx.lineWidth = 2.5;
             cx.beginPath(); cx.arc(e.x, e.y, e.r + 14 * (1 - k) + 3, 0, TAU); cx.stroke();
             cx.fillStyle = col; cx.beginPath(); cx.arc(e.x, e.y - e.r - 6, 2 + k * 3, 0, TAU); cx.fill();
-            cx.globalAlpha = 1;
+            gA(1);
           }
-          if (e.phase === 'aim') { const a = Math.atan2(e.cdy, e.cdx); cx.save(); cx.translate(e.x, e.y); cx.rotate(a); cx.globalAlpha = .25 + .25 * Math.sin(S.t * 30); cx.fillStyle = '#ff3c3c'; cx.fillRect(0, -e.r * .8, e.dashLen || (560 * .55 + e.r), e.r * 1.6); cx.globalAlpha = 1; cx.restore(); }
-          if (e.elite) { cx.strokeStyle = e.type === 'mandinga' ? 'rgba(255,60,60,.7)' : 'rgba(224,183,90,.75)'; cx.lineWidth = 2; cx.beginPath(); cx.arc(e.x, e.y, e.r + 5 + Math.sin(S.t * 6) * 1.5, 0, TAU); cx.stroke(); }
+          if (e.phase === 'aim') { wSet(e.x, e.y, 1, 1, Math.atan2(e.cdy, e.cdx)); gA(.25 + .25 * Math.sin(S.t * 30)); cx.fillStyle = '#ff3c3c'; cx.fillRect(0, -e.r * .8, e.dashLen || (560 * .55 + e.r), e.r * 1.6); gA(1); }
+          if (e.elite) { wReset(); cx.strokeStyle = e.type === 'mandinga' ? 'rgba(255,60,60,.7)' : 'rgba(224,183,90,.75)'; cx.lineWidth = 2; cx.beginPath(); cx.arc(e.x, e.y, e.r + 5 + Math.sin(S.t * 6) * 1.5, 0, TAU); cx.stroke(); }
+          gSm(!e.elite);
           blitEnemy(e, sp, sz, bob);
-          if (S.freezeT > 0 && e.type !== 'mandinga' && !e.prop) { cx.fillStyle = 'rgba(160,220,255,.4)'; cx.beginPath(); cx.arc(e.x, e.y, e.r * 1.05, 0, TAU); cx.fill(); }
+          if (S.freezeT > 0 && e.type !== 'mandinga' && !e.prop) { wReset(); cx.fillStyle = 'rgba(160,220,255,.4)'; cx.beginPath(); cx.arc(e.x, e.y, e.r * 1.05, 0, TAU); cx.fill(); }
           if (e.elite && e.type !== 'mandinga') {
-            const bw = Math.min(e.r * 2, 90), f = clamp(e.hp / e.maxHp, 0, 1);
+            wReset(); const bw = Math.min(e.r * 2, 90), f = clamp(e.hp / e.maxHp, 0, 1);
             cx.fillStyle = '#0c1120'; cx.fillRect(e.x - bw / 2 - 1, e.y - e.r - 12, bw + 2, 5);
             cx.fillStyle = '#e0b75a'; cx.fillRect(e.x - bw / 2, e.y - e.r - 11, bw * f, 3);
           }
         }
+        wReset(); gReset();
 
-        cx.imageSmoothingEnabled = true;
         for (const b of S.ebul) {
           if (!vis(b.x, b.y)) continue;
           dimg(bulletSprite(b.col, b.glow), b.x, b.y, b.r / 8);
@@ -5527,11 +5716,11 @@
 
         for (const p of S.proj) {
           if (!vis(p.x, p.y)) continue;
-          cx.save(); cx.translate(p.x, p.y);
+          const rotK = p.kind === 'knife' || p.kind === 'spear' || p.kind === 'cross';
+          wSet(p.x, p.y, 1, 1, rotK ? p.rot : 0);
           if (p.kind === 'knife') {
-            cx.rotate(p.rot); const s = p.r / 6;
-            const tg = cx.createLinearGradient(-8 * s, 0, -38 * s, 0); tg.addColorStop(0, p.w.evo ? 'rgba(170,210,255,.7)' : 'rgba(255,255,255,.55)'); tg.addColorStop(1, 'rgba(255,255,255,0)');
-            cx.strokeStyle = tg; cx.lineWidth = 3.2 * s; cx.lineCap = 'round'; cx.beginPath(); cx.moveTo(-8 * s, 0); cx.lineTo(-38 * s, 0); cx.stroke(); cx.lineCap = 'butt';
+            const s = p.r / 6;
+            cx.drawImage(trailSpr(p.w.evo), -40 * s, -2 * s, 34 * s, 4 * s);
             dimg(ITEM['knife' + (p.w.evo ? 1 : 0)], 0, 0, s);
             if (Math.sin(S.t * 40 + p.x * .05) > .6) { cx.fillStyle = '#fff'; cx.fillRect(8 * s, -.75, 3, 1.5); cx.fillRect(9 * s, -2, 1.5, 4); }
           } else if (p.kind === 'pellet') {
@@ -5540,7 +5729,7 @@
             cx.beginPath(); cx.moveTo(0, 0); cx.lineTo(-p.vx / v * 12, -p.vy / v * 12); cx.stroke(); cx.lineCap = 'butt';
             dimg(ITEM['pellet' + (p.w.evo ? 1 : 0)], 0, 0, p.r / 4.5);
           } else if (p.kind === 'spear') {
-            cx.rotate(p.rot); const s = p.r / 9;
+            const s = p.r / 9;
             dimg(ITEM['spear' + (p.w.evo ? 1 : 0)][Math.sin(S.t * 30) > 0 ? 1 : 0], 0, 0, s);
           } else if (p.kind === 'spit') {
             const v = Math.hypot(p.vx, p.vy) || 1;
@@ -5549,12 +5738,12 @@
             cx.fillStyle = '#e6f0d0'; cx.beginPath(); cx.arc(0, 0, p.r * .7, 0, TAU); cx.fill();
             cx.fillStyle = '#ffffff'; cx.beginPath(); cx.arc(-p.r * .2, -p.r * .2, p.r * .25, 0, TAU); cx.fill();
           } else {
-            cx.rotate(p.rot); const R = p.r;
+            const R = p.r;
             const pu = 1 + Math.sin(S.t * 18 + p.x * .03) * .08;
             dimg(ITEM['cross' + (p.w.evo ? 1 : 0)], 0, 0, R / 11 * pu);
           }
-          cx.restore();
         }
+        wReset();
 
         for (const t of S.throws) {
           if (t.t < 0) continue;
@@ -5597,6 +5786,7 @@
 
         for (const f of S.fx) {
           const a = f.life / f.max;
+          if (f.type !== 'death') wReset();
           if (f.type === 'slash') {
             const p = 1 - a, dir = f.dir, L = f.w, H = f.h, ox = f.ox, oy = f.oy;
             const whip = q => { const e = 1 - Math.pow(1 - clamp(q * 2.4, 0, 1), 3); return [ox + dir * L * .45, oy - H * (1.4 - 1.2 * clamp(q * 2, 0, 1)), ox + dir * L * e, oy + H * .25 - H * 1.1 * (1 - e)]; };
@@ -5641,41 +5831,52 @@
             cx.globalAlpha = 1;
           } else if (f.type === 'death') {
             const sp = SPR[f.etype], fr = sp.frames[f.frame] || sp.frames[0], sz = sp.size * f.scale, k = 1 - a;
-            cx.save();
             if (f.etype === 'anima') {
-              cx.translate(f.x, f.y - k * 34); cx.rotate(f.tilt + f.rot); cx.scale(1 - k * .45, 1 + k * .9);
+              wSet(f.x, f.y - k * 34, 1 - k * .45, 1 + k * .9, f.tilt + f.rot);
               cx.globalAlpha = a * .9; cx.drawImage(k < .12 ? fr.flash : fr.img, -sz / 2, -sz / 2, sz, sz);
             } else {
-              cx.translate(f.x, f.y + k * sz * .2); cx.rotate(f.rot); cx.scale(1 + k * .35, 1 - k * .75);
+              wSet(f.x, f.y + k * sz * .2, 1 + k * .35, 1 - k * .75, f.rot);
               cx.globalAlpha = a; cx.drawImage(k < .35 ? fr.flash : fr.img, -sz / 2, -sz / 2, sz, sz);
             }
-            cx.restore(); cx.globalAlpha = 1;
+            cx.globalAlpha = 1;
           } else if (f.type === 'ring') {
             cx.globalAlpha = a; cx.strokeStyle = f.col; cx.lineWidth = 3; cx.beginPath(); cx.arc(f.x, f.y, f.R * (1 - a) + 8, 0, TAU); cx.stroke(); cx.globalAlpha = 1;
           }
         }
 
+        wReset();
+        // partículas: las comunes van en lotes por color y opacidad (un fill por lote); las que brillan, un drawImage cada una
         for (const p of S.parts) {
-          const a = clamp(p.life / p.max, 0, 1); cx.globalAlpha = a; cx.fillStyle = p.col;
-          if (p.glow) { cx.beginPath(); cx.arc(p.x, p.y, p.size * (.6 + a * .4), 0, TAU); cx.fill(); cx.globalAlpha = a * .25; cx.beginPath(); cx.arc(p.x, p.y, p.size * 2.2, 0, TAU); cx.fill(); }
-          else cx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+          if (!vis(p.x, p.y)) continue;
+          const a = clamp(p.life / p.max, 0, 1);
+          if (p.glow) { const R = p.size * 2.2; cx.globalAlpha = a; cx.drawImage(dotSpr(p.col), p.x - R, p.y - R, R * 2, R * 2); continue; }
+          const q = Math.ceil(a * 5); if (q > 0) PART_B.add(p.col + q, p.col, q / 5, p);
         }
+        PART_B.each(g => { cx.globalAlpha = g.a; cx.fillStyle = g.col; cx.beginPath(); for (const p of g.l) cx.rect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size); cx.fill(); });
         cx.globalAlpha = 1;
+        BM = null;
 
       }
       function drawTexts() {
-        cx.font = `600 13px ${FONT}`; cx.textAlign = 'center'; cx.lineWidth = 3; cx.strokeStyle = 'rgba(0,0,0,.75)';
-        const fN = `600 13px ${FONT}`, fB = `700 19px ${FONT}`, FNUM = [fN, `700 16px ${FONT}`, fB, `700 24px ${FONT}`];
+        if (!fontReady()) {  // la fuente embebida todavía no cargó: texto directo (no se cachea con la fuente de reemplazo)
+          cx.textAlign = 'center'; cx.lineWidth = 3; cx.strokeStyle = 'rgba(0,0,0,.75)';
+          for (const t of S.texts) { const fi = t.tier !== undefined ? Math.min(3, t.tier + (t.pop > 0 ? 1 : 0)) : t.big ? 2 : 0; cx.font = `${TXT_F[fi][0]} ${TXT_F[fi][1]}px ${FONT}`; cx.globalAlpha = clamp(t.life / .3, 0, 1); cx.strokeText(t.txt, t.x, t.y); cx.fillStyle = t.col; cx.fillText(t.txt, t.x, t.y); }
+          cx.globalAlpha = 1; return;
+        }
+        txtScale();
         for (const t of S.texts) {
+          const fi = t.tier !== undefined ? Math.min(3, t.tier + (t.pop > 0 ? 1 : 0)) : t.big ? 2 : 0;
           cx.globalAlpha = clamp(t.life / .3, 0, 1);
-          if (t.tier !== undefined) cx.font = FNUM[Math.min(3, t.tier + (t.pop > 0 ? 1 : 0))]; else if (t.big) cx.font = fB;
-          cx.strokeText(t.txt, t.x, t.y); cx.fillStyle = t.col; cx.fillText(t.txt, t.x, t.y);
-          if (t.tier !== undefined || t.big) cx.font = fN;
+          drawTxt(String(t.txt), t.x, t.y, t.col, fi);
         }
         cx.globalAlpha = 1;
       }
       let demoT = 0;
+      /* desglose del medidor de FPS: ms de JS por sección (solo se mide con el medidor activado) */
+      const PRF = { a: {} };
+      function prf(k, t0) { const t = performance.now(); PRF.a[k] = (PRF.a[k] || 0) + t - t0; return t; }
       function render(dt) {
+        const pOn = SAVE.opts.fps; let t0 = pOn ? performance.now() : 0;
         cx.setTransform(DPR, 0, 0, DPR, 0, 0);
         cx.fillStyle = MAP().bg; cx.fillRect(0, 0, W, H);
         demoT += dt;
@@ -5686,11 +5887,15 @@
         if (S && S.shake > 0 && !reduceMotion && SAVE.opts.shake) { sx = rnd(-1, 1) * S.shake * 6; sy = rnd(-1, 1) * S.shake * 6; }
         cx.save(); cx.translate(W / 2 + sx, H / 2 + sy); cx.scale(ZOOM, ZOOM); cx.translate(-P.x, -P.y);
         drawGround(P.x, P.y);
+        if (pOn) t0 = prf('suelo', t0);
         drawMarks(); drawAnimitas(); drawCrits(false);
         if (S) drawWorld();
         drawCrits(true);
         cx.restore();
-        const NS = nightState(), lit = drawLighting(sx, sy, NS); drawOverlay(sx, sy); drawSky(NS);
+        if (pOn) t0 = prf('mundo', t0);
+        const NS = nightState(), lit = drawLighting(sx, sy, NS);
+        if (pOn) t0 = prf('luz', t0);
+        drawOverlay(sx, sy); drawSky(NS);
         if (S && S.weather) drawWeather(dt);
         if (!lit) cx.drawImage(vignette, 0, 0, W, H);
         if (!S) return;
@@ -5934,7 +6139,7 @@
       $('optNums').addEventListener('change', () => { SAVE.opts.nums = $('optNums').checked; writeSave(); });
       $('optShake').addEventListener('change', () => { SAVE.opts.shake = $('optShake').checked; writeSave(); });
       $('optDark').addEventListener('change', () => { SAVE.opts.dark = $('optDark').checked; writeSave(); });
-      $('optLow').addEventListener('change', () => { SAVE.opts.gfx = $('optLow').checked ? 'bajo' : 'alto'; GFX_LOW = SAVE.opts.gfx === 'bajo'; writeSave(); resize(); });
+      $('optLow').addEventListener('change', () => { SAVE.opts.gfx = $('optLow').checked ? 'bajo' : 'alto'; GFX_LOW = SAVE.opts.gfx === 'bajo'; RES_K = 1; writeSave(); resize(); });
       $('optFps').addEventListener('change', () => { SAVE.opts.fps = $('optFps').checked; writeSave(); $('fpsMeter').classList.toggle('on', SAVE.opts.fps); });
       $('optFastChest').addEventListener('change', () => { SAVE.opts.fastChest = $('optFastChest').checked; writeSave(); });
       $('optGlass').addEventListener('change', () => { SAVE.opts.clearUI = $('optGlass').checked; document.documentElement.classList.toggle('clear', SAVE.opts.clearUI); writeSave(); });
@@ -6669,10 +6874,10 @@
             const heavy = !e.prop && (e.elite || ETYPES[e.type].w > M.heavy);
             hurt(e, dmg, PJ, heavy ? 1 : M.kb, P.x - P.vx * .05, P.y - P.vy * .05);
             if (heavy) { P.vx *= -.3; P.vy *= -.3; rideHurt(e.dmg * .7); S.shake = Math.min(1, S.shake + .25); sfx(70, .2, 'square', .05, .5); }
-            else if (S.parts.length < 520) burst(e.x, e.y, 3, '#c9b894', 80);
+            else if (S.parts.length < 520 * PART_K) burst(e.x, e.y, 3, '#c9b894', 80);
           });
           R.dustT -= dt;
-          if (R.dustT <= 0 && S.parts.length < 500) { R.dustT = .05; S.parts.push({ x: P.x - P.face * 16 + rnd(-4, 4), y: P.y + 22, vx: -P.vx * .2 + rnd(-20, 20), vy: rnd(-30, -10), life: .4, max: .4, col: MAP().ice ? '#dbe8f2' : '#8a7b5a', size: rnd(2, 3.5) }); }
+          if (R.dustT <= 0 && S.parts.length < 500 * PART_K) { R.dustT = .05; S.parts.push({ x: P.x - P.face * 16 + rnd(-4, 4), y: P.y + 22, vx: -P.vx * .2 + rnd(-20, 20), vy: rnd(-30, -10), life: .4, max: .4, col: MAP().ice ? '#dbe8f2' : '#8a7b5a', size: rnd(2, 3.5) }); }
         }
         // la coz golpea fuerte a lo que tenga atrás
         if (R.mv && R.mv.type === 'coz' && !R.mv.hit && R.mv.t / R.mv.T > .4) {
@@ -8535,35 +8740,75 @@
       /* suelo en chunks de píxeles: manchas de coironal, tierra oscura, salitral y mallines */
       const TCH = 240, TCELL = 2.5, TN = TCH / TCELL, TCACHE = new Map();
       let tBudgetEnd = 0; const PAL_RGB = {};
-      function terrChunk(ix, iy) {
-        const key = ix + ',' + iy; let c = TCACHE.get(key); if (c) return c;
-        if (performance.now() > tBudgetEnd) return null;
-        c = document.createElement('canvas'); c.width = c.height = TN;
-        const g = c.getContext('2d'), img = g.createImageData(TN, TN), d = img.data, o = S.terrSeed, reg = REGION();
-        const q = k => Math.max(0, Math.min(1, Math.round(k * 3) / 3));
-        let pk = null, ice, bg, dry, dark, salt, rim, wet, deep, gl;
-        const usePal = k => { if (k === pk) return; pk = k; [ice, bg, dry, dark, salt, rim, wet, deep, gl] = PAL_RGB[k] || (PAL_RGB[k] = (() => { const Pl = TPAL(k), M = MAPS[k]; return [M.ice, rgb(M.bg), rgb(Pl.dry), rgb(Pl.dark), rgb(Pl.salt), rgb(Pl.rim), rgb(Pl.wet), rgb(Pl.deep), rgb(Pl.glint)]; })()); };
-        usePal(S.map in TERR_PAL ? S.map : MAPS[S.map].region.biomes[0]);
-        for (let j = 0; j < TN; j++) for (let i = 0; i < TN; i++) {
-          const x = ix * TCH + (i + .5) * TCELL, y = iy * TCH + (j + .5) * TCELL, hx = ix * TN + i, hy = iy * TN + j, hh = hash(hx, hy), dn = (hh - .5) * .06;
-          if (reg) { const m = bioMix(x, y); usePal(m[0] === m[1] ? m[0] : bioPick(m, hx, hy, x, y)); }
-          let r = bg[0], gg = bg[1], b = bg[2];
-          const mix = (cc, k) => { r += (cc[0] - r) * k; gg += (cc[1] - gg) * k; b += (cc[2] - b) * k; };
-          const tn = vnoise(x, y, 620, o + 7) + dn, dT = pk === 'bosque' ? .56 : .44; if (tn < dT) mix(dry, q((dT - tn) / .14) * .7);
-          const dk_ = vnoise(x, y, 410, o + 11) + dn; if (dk_ > .6) mix(dark, q((dk_ - .6) / .12) * .75);
-          const sl = vnoise(x, y, 520, o + 19) + dn; if (sl > .74) mix(salt, q((sl - .74) / .1) * (ice ? .6 : .55));
-          if (x * x + y * y > 220 * 220) {
-            const w = wetVal(x, y);
-            if (w > WET_T + .07 + dn) { mix(deep, 1); if (hh < .012) mix(gl, .6); }
-            else if (w > WET_T + dn * .5) { mix(wet, 1); if (hh < .005) mix(gl, .4); }
-            else if (w > WET_T - .035 + dn) mix(rim, ice ? .55 : .8);
-          }
-          const k = (j * TN + i) * 4; d[k] = r; d[k + 1] = gg; d[k + 2] = b; d[k + 3] = 255;
+      /* Los ruidos del suelo son suaves (escalas de 90 a 1500 unidades): se calculan en una grilla gruesa cada TG celdas
+         y se interpolan por píxel. Da el mismo dibujo con ~10 veces menos cálculo; antes un chunk nuevo tardaba
+         15 ms en PC (50-70 ms en un celular) y trababa el frame cada vez que se caminaba hacia zona nueva. */
+      const TG = 4, TGN = TN / TG + 1, BIO_TMP = [];
+      function palRGB(k) { return PAL_RGB[k] || (PAL_RGB[k] = (() => { const Pl = TPAL(k), M = MAPS[k]; return [M.ice, rgb(M.bg), rgb(Pl.dry), rgb(Pl.dark), rgb(Pl.salt), rgb(Pl.rim), rgb(Pl.wet), rgb(Pl.deep), rgb(Pl.glint)]; })()); }
+      const q3 = k => k <= 0 ? 0 : k >= 1 ? 1 : Math.round(k * 3) / 3;
+      /* Un chunk se arma como "trabajo" que se puede hacer de a filas: el prearmado lo avanza un poco por frame
+         (tope de tiempo) y solo se completa de golpe si el chunk ya está en pantalla y todavía no existe. */
+      function chunkJob(ix, iy) {
+        const c = document.createElement('canvas'); c.width = c.height = TN;
+        const g = c.getContext('2d'), img = g.createImageData(TN, TN), o = S.terrSeed, reg = REGION(), TF = new Float32Array(TGN * TGN * 5);
+        // grilla gruesa: coironal, tierra oscura, salitral, humedad y bioma (ruidos suaves, se interpolan por píxel)
+        for (let gj = 0; gj < TGN; gj++) for (let gi = 0; gi < TGN; gi++) {
+          const x = ix * TCH + gi * TG * TCELL, y = iy * TCH + gj * TG * TCELL, k = (gj * TGN + gi) * 5;
+          TF[k] = vnoise(x, y, 620, o + 7); TF[k + 1] = vnoise(x, y, 410, o + 11); TF[k + 2] = vnoise(x, y, 520, o + 19);
+          TF[k + 3] = wetVal(x, y); TF[k + 4] = reg ? bioN(x, y) : 0;
         }
-        g.putImageData(img, 0, 0);
-        TCACHE.set(key, c);
+        const base = S.map in TERR_PAL ? S.map : MAPS[S.map].region.biomes[0];
+        return { key: ix + ',' + iy, sd: S.terrSeed + S.map, ix, iy, c, g, img, d32: new Uint32Array(img.data.buffer), TF, reg, pk: base, pal: palRGB(base), row: 0 };
+      }
+      // avanza filas hasta terminar o hasta 'until' (performance.now); devuelve true si el chunk quedó listo
+      function chunkRows(J, until) {
+        const { ix, iy, TF, reg, d32 } = J, inv = 1 / TG, x0 = ix * TCH, y0 = iy * TCH, T2 = 220 * 220;
+        let pk = J.pk, pal = J.pal;
+        while (J.row < TN) {
+          const j = J.row++;
+          const fyc = (j + .5) * inv, gj = Math.min(TGN - 2, fyc | 0), v = fyc - gj, y = y0 + (j + .5) * TCELL, hy = iy * TN + j;
+          for (let i = 0; i < TN; i++) {
+            const fxc = (i + .5) * inv, gi = Math.min(TGN - 2, fxc | 0), u = fxc - gi;
+            const k00 = (gj * TGN + gi) * 5, k10 = k00 + 5, k01 = k00 + TGN * 5, k11 = k01 + 5;
+            const w00 = (1 - u) * (1 - v), w10 = u * (1 - v), w01 = (1 - u) * v, w11 = u * v;
+            const x = x0 + (i + .5) * TCELL, hx = ix * TN + i, hh = hash(hx, hy), dn = (hh - .5) * .06;
+            if (reg) {
+              const m = bioFromN(TF[k00 + 4] * w00 + TF[k10 + 4] * w10 + TF[k01 + 4] * w01 + TF[k11 + 4] * w11, BIO_TMP, reg);
+              const nk = m[0] === m[1] ? m[0] : bioPick(m, hx, hy, x, y); if (nk !== pk) { pk = nk; pal = palRGB(nk); }
+            }
+            const ice = pal[0]; let cc = pal[1], r = cc[0], gg = cc[1], b = cc[2], kk = 0;
+            const tn = TF[k00] * w00 + TF[k10] * w10 + TF[k01] * w01 + TF[k11] * w11 + dn, dT = pk === 'bosque' ? .56 : .44;
+            if (tn < dT) { cc = pal[2]; kk = q3((dT - tn) / .14) * .7; r += (cc[0] - r) * kk; gg += (cc[1] - gg) * kk; b += (cc[2] - b) * kk; }
+            const dk_ = TF[k00 + 1] * w00 + TF[k10 + 1] * w10 + TF[k01 + 1] * w01 + TF[k11 + 1] * w11 + dn;
+            if (dk_ > .6) { cc = pal[3]; kk = q3((dk_ - .6) / .12) * .75; r += (cc[0] - r) * kk; gg += (cc[1] - gg) * kk; b += (cc[2] - b) * kk; }
+            const sl = TF[k00 + 2] * w00 + TF[k10 + 2] * w10 + TF[k01 + 2] * w01 + TF[k11 + 2] * w11 + dn;
+            if (sl > .74) { cc = pal[4]; kk = q3((sl - .74) / .1) * (ice ? .6 : .55); r += (cc[0] - r) * kk; gg += (cc[1] - gg) * kk; b += (cc[2] - b) * kk; }
+            if (x * x + y * y > T2) {
+              const w = TF[k00 + 3] * w00 + TF[k10 + 3] * w10 + TF[k01 + 3] * w01 + TF[k11 + 3] * w11; cc = null;
+              if (w > WET_T + .07 + dn) { const e = pal[7]; r = e[0]; gg = e[1]; b = e[2]; if (hh < .012) { cc = pal[8]; kk = .6; } }
+              else if (w > WET_T + dn * .5) { const e = pal[6]; r = e[0]; gg = e[1]; b = e[2]; if (hh < .005) { cc = pal[8]; kk = .4; } }
+              else if (w > WET_T - .035 + dn) { cc = pal[5]; kk = ice ? .55 : .8; }
+              if (cc) { r += (cc[0] - r) * kk; gg += (cc[1] - gg) * kk; b += (cc[2] - b) * kk; }
+            }
+            // ImageData redondea al escribir por canal; acá se escribe el píxel entero de una (little-endian: ABGR)
+            d32[j * TN + i] = 0xff000000 | (Math.round(b) & 255) << 16 | (Math.round(gg) & 255) << 8 | (Math.round(r) & 255);
+          }
+          if ((j & 7) === 7 && performance.now() > until) break;
+        }
+        J.pk = pk; J.pal = pal;
+        if (J.row < TN) return false;
+        J.g.putImageData(J.img, 0, 0);
+        TCACHE.set(J.key, J.c);
         if (TCACHE.size > 160) TCACHE.delete(TCACHE.keys().next().value);
-        return c;
+        return true;
+      }
+      let TJOB = null;
+      function terrChunk(ix, iy) {
+        const key = ix + ',' + iy; const c = TCACHE.get(key); if (c) return c;
+        if (performance.now() > tBudgetEnd) return null;
+        // si justo se estaba prearmando este chunk, se termina el mismo trabajo
+        const J = TJOB && TJOB.key === key && TJOB.sd === S.terrSeed + S.map ? TJOB : chunkJob(ix, iy); if (J === TJOB) TJOB = null;
+        chunkRows(J, Infinity); return J.c;
       }
       function drawTerrain(px, py) {
         const hw = W / 2 / ZOOM + 20, hh = H / 2 / ZOOM + 20;
@@ -8572,6 +8817,21 @@
         cx.imageSmoothingEnabled = false;
         for (let i = x0; i <= x1; i++) for (let j = y0; j <= y1; j++) { const c = terrChunk(i, j); if (c) cx.drawImage(c, i * TCH, j * TCH, TCH + .7, TCH + .7); }
         cx.imageSmoothingEnabled = true;
+        // prearmado en segundo plano: avanza de a filas un chunk del anillo de afuera (primero hacia donde se mueve el
+        // jugador), con un tope de tiempo por frame. Así el terreno ya está hecho cuando entra a la pantalla.
+        if (TJOB && (TCACHE.has(TJOB.key) || TJOB.sd !== S.terrSeed + S.map)) TJOB = null;  // ya hecho, o de otra partida
+        if (!TJOB) {
+          const P = S && S.player, dx = P ? Math.sign(P.vx || 0) : 0, dy = P ? Math.sign(P.vy || 0) : 0;
+          let best = null, bs = -Infinity;
+          for (let i = x0 - 1; i <= x1 + 1; i++) for (let j = y0 - 1; j <= y1 + 1; j++) {
+            if (TCACHE.has(i + ',' + j)) continue;
+            const inView = i >= x0 && i <= x1 && j >= y0 && j <= y1;
+            const sc = inView ? 9 : (i < x0 ? -dx : i > x1 ? dx : 0) + (j < y0 ? -dy : j > y1 ? dy : 0);
+            if (sc > bs) { bs = sc; best = [i, j]; }
+          }
+          if (best) TJOB = chunkJob(best[0], best[1]);
+        }
+        if (TJOB) chunkRows(TJOB, performance.now() + (GFX_LOW ? 1.5 : 2.5)) && (TJOB = null);
       }
 
       /* decoración que se mueve: pasto y juncos se mecen con la brisa, el viento y cuando pasás */
@@ -8655,15 +8915,21 @@
       }
       function drawMarks() {
         const P = S.player, hw = W / 2 / ZOOM + 40, hh = H / 2 / ZOOM + 40;
+        // huellas y manchas en lotes por color y opacidad: un fill por lote en vez de uno por marca
         for (const m of S.marks) {
           if (Math.abs(m.x - P.x) > hw || Math.abs(m.y - P.y) > hh) continue;
-          cx.globalAlpha = m.al * Math.min(1, m.life / (m.max * .45)); cx.fillStyle = m.col; cx.beginPath();
-          if (m.k === 'foot') cx.ellipse(m.x, m.y, 4, 2.1, m.ang, 0, TAU);
-          else if (m.k === 'hoof') { const nx = -Math.sin(m.ang) * 3, ny = Math.cos(m.ang) * 3; cx.ellipse(m.x + nx, m.y + ny, 2.6, 2.3, 0, 0, TAU); cx.moveTo(m.x - nx + 2.6, m.y - ny); cx.ellipse(m.x - nx, m.y - ny, 2.6, 2.3, 0, 0, TAU); }
-          else if (m.k === 'paw') { for (const [a, d] of [[0, 0], [-.7, 3.2], [.7, 3.2]]) { const px = m.x + Math.cos(m.ang + a) * d, py = m.y + Math.sin(m.ang + a) * d; cx.moveTo(px + 1.6, py); cx.arc(px, py, a ? 1.2 : 1.9, 0, TAU); } }
-          else { cx.ellipse(m.x, m.y, m.r, m.r * .55, 0, 0, TAU); }
-          cx.fill();
+          const q = Math.min(8, Math.ceil(m.al * Math.min(1, m.life / (m.max * .45)) * 8)); if (q > 0) MARK_B.add(m.col + q, m.col, q / 8, m);
         }
+        MARK_B.each(g => {
+          cx.globalAlpha = g.a; cx.fillStyle = g.col; cx.beginPath();
+          for (const m of g.l) {
+            if (m.k === 'foot') { cx.moveTo(m.x + 4 * Math.cos(m.ang), m.y + 4 * Math.sin(m.ang)); cx.ellipse(m.x, m.y, 4, 2.1, m.ang, 0, TAU); }
+            else if (m.k === 'hoof') { const nx = -Math.sin(m.ang) * 3, ny = Math.cos(m.ang) * 3; cx.moveTo(m.x + nx + 2.6, m.y + ny); cx.ellipse(m.x + nx, m.y + ny, 2.6, 2.3, 0, 0, TAU); cx.moveTo(m.x - nx + 2.6, m.y - ny); cx.ellipse(m.x - nx, m.y - ny, 2.6, 2.3, 0, 0, TAU); }
+            else if (m.k === 'paw') { for (const [a, d] of [[0, 0], [-.7, 3.2], [.7, 3.2]]) { const px = m.x + Math.cos(m.ang + a) * d, py = m.y + Math.sin(m.ang + a) * d, r = a ? 1.2 : 1.9; cx.moveTo(px + r, py); cx.arc(px, py, r, 0, TAU); } }
+            else { cx.moveTo(m.x + m.r, m.y); cx.ellipse(m.x, m.y, m.r, m.r * .55, 0, 0, TAU); }
+          }
+          cx.fill();
+        });
         cx.globalAlpha = 1;
         const Pl = TPAL(); cx.strokeStyle = Pl.glint; cx.lineWidth = 1.2;
         for (const r of S.ripples) { const k = 1 - r.life / r.max, R = 3 + k * 15; cx.globalAlpha = (1 - k) * .55; cx.beginPath(); cx.ellipse(r.x, r.y, R, R * .45, 0, 0, TAU); cx.stroke(); }
@@ -8875,17 +9141,19 @@
       }
       function LSPR() { return glowSpr('#ffffff'); }
 
-      // dibuja un enemigo con su animación
+      // dibuja un enemigo con su animación. Dentro de drawWorld (BM) usa setTransform directo: sin save/translate/scale/restore
       function blitEnemy(e, sp, sz, bob) {
         const T = ETYPES[e.type];
         if (sp.frames.length > 1 && T.fly) {
-          const fr = sp.frames[((S.t * 9 + e.wob * 4) | 0) % sp.frames.length];
-          cx.save(); cx.translate(e.x, e.y + bob); cx.rotate(clamp((e.mvx || 0) / 140, -1, 1) * .28);
+          const fr = sp.frames[((S.t * 9 + e.wob * 4) | 0) % sp.frames.length], rot = clamp((e.mvx || 0) / 140, -1, 1) * .28;
+          if (BM) { wSet(e.x, e.y + bob, 1, 1, rot); gA(.9); cx.drawImage(e.flash > 0 ? fr.flash : fr.img, -sz / 2, -sz / 2, sz, sz); gA(1); return; }
+          cx.save(); cx.translate(e.x, e.y + bob); cx.rotate(rot);
           cx.globalAlpha = .9; cx.drawImage(e.flash > 0 ? fr.flash : fr.img, -sz / 2, -sz / 2, sz, sz); cx.globalAlpha = 1; cx.restore();
         } else if (sp.frames.length > 1) {
           const fz = S.freezeT > 0, fr = sp.frames[fz ? 0 : ((S.t * 8 + e.wob * 3) | 0) % sp.frames.length], sq = fz ? 0 : Math.sin(S.t * 16 + e.wob) * .02, fl = (e.mvx || 0) < -5 ? -1 : 1;
+          if (BM) { wSet(e.x, e.y, fl * (1 - sq), 1 + sq, 0); cx.drawImage(e.flash > 0 ? fr.flash : fr.img, -sz / 2, -sz / 2, sz, sz); return; }
           cx.save(); cx.translate(e.x, e.y); cx.scale(fl * (1 - sq), 1 + sq); cx.drawImage(e.flash > 0 ? fr.flash : fr.img, -sz / 2, -sz / 2, sz, sz); cx.restore();
-        } else cx.drawImage(e.flash > 0 ? sp.flash : sp.img, e.x - sz / 2, e.y - sz / 2 + bob, sz, sz);
+        } else { if (BM) wReset(); cx.drawImage(e.flash > 0 ? sp.flash : sp.img, e.x - sz / 2, e.y - sz / 2 + bob, sz, sz); }
       }
       // capa sobre la oscuridad: números de daño y textos flotantes
       function drawOverlay(sx, sy) {
@@ -9235,27 +9503,51 @@
       /* ---------------- loop ---------------- */
       let last = performance.now();
       const FPSM = { n: 0, worst: 0, t0: 0 };
+      // medidor: fps y peor frame; abajo, en qué se va el tiempo. "JS" es lo que mide el juego (lógica y órdenes de dibujo);
+      // "fuera del JS" es el resto del frame (GPU, navegador y espera a la pantalla). Con fps bajos, si ese resto es grande y el JS
+      // chico, el cuello está en la placa de video (píxeles, capas a pantalla completa), no en el código.
       function fpsTick(now, raw) {
         if (!SAVE.opts.fps) return;
         if (!FPSM.t0) FPSM.t0 = now;
         FPSM.n++; if (raw > FPSM.worst) FPSM.worst = raw;
         const el = now - FPSM.t0;
         if (el >= 500) {
-          const fps = Math.round(FPSM.n * 1000 / el), w = Math.round(FPSM.worst), m = $('fpsMeter');
-          m.textContent = fps + ' fps · peor ' + w + ' ms';
+          const n = FPSM.n, fps = Math.round(n * 1000 / el), w = Math.round(FPSM.worst), m = $('fpsMeter'), A = PRF.a, f = k => ((A[k] || 0) / n).toFixed(1);
+          let txt = fps + ' fps · peor ' + w + ' ms · res ' + (Math.round(DPR * 100) / 100) + 'x';
+          if (S && S.state === 'play') {
+            A.resto = Math.max(0, (A.rend || 0) - (A.suelo || 0) - (A.mundo || 0) - (A.luz || 0));
+            const js = ((A['lógica'] || 0) + (A.rend || 0)) / n, frameMs = el / n;
+            txt += '\nJS ' + js.toFixed(1) + ' ms: lógica ' + f('lógica') + ' · suelo ' + f('suelo') + ' · mundo ' + f('mundo') + ' · luz ' + f('luz') + ' · resto ' + f('resto')
+              + '\nfuera del JS ' + Math.max(0, frameMs - js).toFixed(1) + ' ms · ' + S.enemies.length + ' enemigos · ' + S.parts.length + ' partículas';
+          }
+          m.textContent = txt;
           m.classList.toggle('mid', w >= 20 && w < 34); m.classList.toggle('bad', w >= 34);
-          FPSM.n = 0; FPSM.worst = 0; FPSM.t0 = now;
+          FPSM.n = 0; FPSM.worst = 0; FPSM.t0 = now; PRF.a = {};
         }
+      }
+      /* resolución dinámica: si durante la partida el promedio pasa de ~21 ms por frame (menos de 48 fps),
+         baja la resolución interna un escalón (2x → 1,5x → 1x). Solo baja y no se guarda: cada sesión arranca en alta. */
+      const AUTO = { acc: 0, n: 0 };
+      function autoRes(raw) {
+        if (!S || S.state !== 'play' || GFX_LOW || DPR <= 1 || raw > 120) { AUTO.acc = AUTO.n = 0; return; }
+        AUTO.acc += raw; AUTO.n++;
+        if (AUTO.acc < 2500) return;
+        const avg = AUTO.acc / AUTO.n; AUTO.acc = AUTO.n = 0;
+        if (avg > 21) { RES_K = Math.max(.5, RES_K - .25); resize(); }
       }
       function frame(now) {
         const raw = now - last;
         let dt = raw / 1000; last = now;
-        fpsTick(now, raw);
+        fpsTick(now, raw); autoRes(raw);
         if (dt > 1 / 20) dt = 1 / 20; if (dt < 0) dt = 0;
+        const pOn = SAVE.opts.fps; let t0 = pOn ? performance.now() : 0;
         if (S && S.state === 'play') { if (S.hitstop > 0) { S.hitstop -= dt; if (S.shake > 0) S.shake = Math.max(0, S.shake - dt); } else update(dt); }
+        if (pOn) { const t = performance.now(); PRF.a['lógica'] = (PRF.a['lógica'] || 0) + t - t0; t0 = t; }
         render(dt);
         ambUpdate(now);
         updateHUD();
+        // render completo + HUD; al mostrar, 'resto' = esto menos lo medido por sección (textos, cielo, clima, flechas, HUD)
+        if (pOn) PRF.a.rend = (PRF.a.rend || 0) + performance.now() - t0;
         requestAnimationFrame(frame);
       }
       $('fpsMeter').classList.toggle('on', !!SAVE.opts.fps);

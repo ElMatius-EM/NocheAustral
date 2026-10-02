@@ -51,3 +51,22 @@ No usa dependencias. Todo el JS se concatena en orden de nombre dentro de un ún
 | `31-loop` | `frame()` y arranque |
 
 Para agregar un archivo nuevo, ponele un número que lo ubique después de lo que usa al cargarse.
+
+## Rendimiento
+
+En el peor caso (cientos de enemigos y muchas armas) la lógica (`update`) cuesta poco; lo caro es la cantidad de llamadas al canvas. En `14-render` hay ayudas para dibujar en lote y conviene usarlas en código nuevo de dibujo:
+
+- `wSet(x, y, sx, sy, rot)` pone la transformación de un objeto con un solo `setTransform` (sin `save`/`restore`); `wReset()` vuelve a la matriz del mundo. Solo valen dentro de `drawWorld`.
+- `mkBatch()` agrupa por color y opacidad para hacer un `fill` por grupo (partículas, huellas).
+- `dotSpr`, `zoneSpr`, `trailSpr`: degradados y resplandores horneados una vez, en vez de crearlos cada frame.
+- Números de daño: atlas de dígitos (`drawTxt`), sin `fillText`/`strokeText` por número.
+
+En `00-base`, `RES_K` es la resolución dinámica (`31-loop` la baja si el promedio pasa de ~21 ms por frame) y `PART_K` escala los topes de partículas según la calidad.
+
+Mundo (lo que más pesa al caminar, aunque haya pocos enemigos):
+
+- Terreno (`28-mundo-vivo`): los ruidos se calculan en una grilla gruesa y se interpolan; cada chunk se arma de a filas en segundo plano (`chunkJob`/`chunkRows`, tope de ~2,5 ms por frame) priorizando hacia donde se mueve el jugador.
+- Decoración del suelo (`14-render`, `decorChunk`): la lista de pasto/piedras/juncos se calcula una vez por zona de 3x3 baldosas. En pantallas táctiles y con calidad reducida se hornea en una imagen por zona (el pasto no se mece; los brillos del agua sí).
+- Sprites: la versión de destello (`flash`) se arma recién cuando se pide, y `prewarmObs` crea como mucho un sprite de obstáculo por frame antes de que entre en pantalla.
+
+Para medir: `python tools/bench.py` (ver el encabezado del archivo).

@@ -98,7 +98,7 @@
         for (const p of S.proj) {
           if (p.dead) continue;
           p.life -= dt; if (p.life <= 0) { p.dead = true; continue; }
-          if (p.kind === 'cross') { p.vx += p.ax * dt; p.vy += p.ay * dt; p.rot += dt * 14; if (S.parts.length < 520 && Math.random() < dt * 30) S.parts.push({ x: p.x + rnd(-4, 4), y: p.y + rnd(-4, 4), vx: rnd(-15, 15), vy: rnd(-15, 15), life: rnd(.25, .45), max: .45, col: p.w.evo ? '#cfe6ff' : '#ffe9a8', size: rnd(1.5, 2.8), glow: true }); }
+          if (p.kind === 'cross') { p.vx += p.ax * dt; p.vy += p.ay * dt; p.rot += dt * 14; if (S.parts.length < 520 * PART_K && Math.random() < dt * 30) S.parts.push({ x: p.x + rnd(-4, 4), y: p.y + rnd(-4, 4), vx: rnd(-15, 15), vy: rnd(-15, 15), life: rnd(.25, .45), max: .45, col: p.w.evo ? '#cfe6ff' : '#ffe9a8', size: rnd(1.5, 2.8), glow: true }); }
           else if (p.g) { p.vy += p.g * dt; p.rot = Math.atan2(p.vy, p.vx); }
           p.x += p.vx * dt; p.y += p.vy * dt;
           forNear(p.x, p.y, p.r, e => {

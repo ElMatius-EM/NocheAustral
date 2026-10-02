@@ -28,35 +28,75 @@
       /* suelo en chunks de píxeles: manchas de coironal, tierra oscura, salitral y mallines */
       const TCH = 240, TCELL = 2.5, TN = TCH / TCELL, TCACHE = new Map();
       let tBudgetEnd = 0; const PAL_RGB = {};
-      function terrChunk(ix, iy) {
-        const key = ix + ',' + iy; let c = TCACHE.get(key); if (c) return c;
-        if (performance.now() > tBudgetEnd) return null;
-        c = document.createElement('canvas'); c.width = c.height = TN;
-        const g = c.getContext('2d'), img = g.createImageData(TN, TN), d = img.data, o = S.terrSeed, reg = REGION();
-        const q = k => Math.max(0, Math.min(1, Math.round(k * 3) / 3));
-        let pk = null, ice, bg, dry, dark, salt, rim, wet, deep, gl;
-        const usePal = k => { if (k === pk) return; pk = k; [ice, bg, dry, dark, salt, rim, wet, deep, gl] = PAL_RGB[k] || (PAL_RGB[k] = (() => { const Pl = TPAL(k), M = MAPS[k]; return [M.ice, rgb(M.bg), rgb(Pl.dry), rgb(Pl.dark), rgb(Pl.salt), rgb(Pl.rim), rgb(Pl.wet), rgb(Pl.deep), rgb(Pl.glint)]; })()); };
-        usePal(S.map in TERR_PAL ? S.map : MAPS[S.map].region.biomes[0]);
-        for (let j = 0; j < TN; j++) for (let i = 0; i < TN; i++) {
-          const x = ix * TCH + (i + .5) * TCELL, y = iy * TCH + (j + .5) * TCELL, hx = ix * TN + i, hy = iy * TN + j, hh = hash(hx, hy), dn = (hh - .5) * .06;
-          if (reg) { const m = bioMix(x, y); usePal(m[0] === m[1] ? m[0] : bioPick(m, hx, hy, x, y)); }
-          let r = bg[0], gg = bg[1], b = bg[2];
-          const mix = (cc, k) => { r += (cc[0] - r) * k; gg += (cc[1] - gg) * k; b += (cc[2] - b) * k; };
-          const tn = vnoise(x, y, 620, o + 7) + dn, dT = pk === 'bosque' ? .56 : .44; if (tn < dT) mix(dry, q((dT - tn) / .14) * .7);
-          const dk_ = vnoise(x, y, 410, o + 11) + dn; if (dk_ > .6) mix(dark, q((dk_ - .6) / .12) * .75);
-          const sl = vnoise(x, y, 520, o + 19) + dn; if (sl > .74) mix(salt, q((sl - .74) / .1) * (ice ? .6 : .55));
-          if (x * x + y * y > 220 * 220) {
-            const w = wetVal(x, y);
-            if (w > WET_T + .07 + dn) { mix(deep, 1); if (hh < .012) mix(gl, .6); }
-            else if (w > WET_T + dn * .5) { mix(wet, 1); if (hh < .005) mix(gl, .4); }
-            else if (w > WET_T - .035 + dn) mix(rim, ice ? .55 : .8);
-          }
-          const k = (j * TN + i) * 4; d[k] = r; d[k + 1] = gg; d[k + 2] = b; d[k + 3] = 255;
+      /* Los ruidos del suelo son suaves (escalas de 90 a 1500 unidades): se calculan en una grilla gruesa cada TG celdas
+         y se interpolan por píxel. Da el mismo dibujo con ~10 veces menos cálculo; antes un chunk nuevo tardaba
+         15 ms en PC (50-70 ms en un celular) y trababa el frame cada vez que se caminaba hacia zona nueva. */
+      const TG = 4, TGN = TN / TG + 1, BIO_TMP = [];
+      function palRGB(k) { return PAL_RGB[k] || (PAL_RGB[k] = (() => { const Pl = TPAL(k), M = MAPS[k]; return [M.ice, rgb(M.bg), rgb(Pl.dry), rgb(Pl.dark), rgb(Pl.salt), rgb(Pl.rim), rgb(Pl.wet), rgb(Pl.deep), rgb(Pl.glint)]; })()); }
+      const q3 = k => k <= 0 ? 0 : k >= 1 ? 1 : Math.round(k * 3) / 3;
+      /* Un chunk se arma como "trabajo" que se puede hacer de a filas: el prearmado lo avanza un poco por frame
+         (tope de tiempo) y solo se completa de golpe si el chunk ya está en pantalla y todavía no existe. */
+      function chunkJob(ix, iy) {
+        const c = document.createElement('canvas'); c.width = c.height = TN;
+        const g = c.getContext('2d'), img = g.createImageData(TN, TN), o = S.terrSeed, reg = REGION(), TF = new Float32Array(TGN * TGN * 5);
+        // grilla gruesa: coironal, tierra oscura, salitral, humedad y bioma (ruidos suaves, se interpolan por píxel)
+        for (let gj = 0; gj < TGN; gj++) for (let gi = 0; gi < TGN; gi++) {
+          const x = ix * TCH + gi * TG * TCELL, y = iy * TCH + gj * TG * TCELL, k = (gj * TGN + gi) * 5;
+          TF[k] = vnoise(x, y, 620, o + 7); TF[k + 1] = vnoise(x, y, 410, o + 11); TF[k + 2] = vnoise(x, y, 520, o + 19);
+          TF[k + 3] = wetVal(x, y); TF[k + 4] = reg ? bioN(x, y) : 0;
         }
-        g.putImageData(img, 0, 0);
-        TCACHE.set(key, c);
+        const base = S.map in TERR_PAL ? S.map : MAPS[S.map].region.biomes[0];
+        return { key: ix + ',' + iy, sd: S.terrSeed + S.map, ix, iy, c, g, img, d32: new Uint32Array(img.data.buffer), TF, reg, pk: base, pal: palRGB(base), row: 0 };
+      }
+      // avanza filas hasta terminar o hasta 'until' (performance.now); devuelve true si el chunk quedó listo
+      function chunkRows(J, until) {
+        const { ix, iy, TF, reg, d32 } = J, inv = 1 / TG, x0 = ix * TCH, y0 = iy * TCH, T2 = 220 * 220;
+        let pk = J.pk, pal = J.pal;
+        while (J.row < TN) {
+          const j = J.row++;
+          const fyc = (j + .5) * inv, gj = Math.min(TGN - 2, fyc | 0), v = fyc - gj, y = y0 + (j + .5) * TCELL, hy = iy * TN + j;
+          for (let i = 0; i < TN; i++) {
+            const fxc = (i + .5) * inv, gi = Math.min(TGN - 2, fxc | 0), u = fxc - gi;
+            const k00 = (gj * TGN + gi) * 5, k10 = k00 + 5, k01 = k00 + TGN * 5, k11 = k01 + 5;
+            const w00 = (1 - u) * (1 - v), w10 = u * (1 - v), w01 = (1 - u) * v, w11 = u * v;
+            const x = x0 + (i + .5) * TCELL, hx = ix * TN + i, hh = hash(hx, hy), dn = (hh - .5) * .06;
+            if (reg) {
+              const m = bioFromN(TF[k00 + 4] * w00 + TF[k10 + 4] * w10 + TF[k01 + 4] * w01 + TF[k11 + 4] * w11, BIO_TMP, reg);
+              const nk = m[0] === m[1] ? m[0] : bioPick(m, hx, hy, x, y); if (nk !== pk) { pk = nk; pal = palRGB(nk); }
+            }
+            const ice = pal[0]; let cc = pal[1], r = cc[0], gg = cc[1], b = cc[2], kk = 0;
+            const tn = TF[k00] * w00 + TF[k10] * w10 + TF[k01] * w01 + TF[k11] * w11 + dn, dT = pk === 'bosque' ? .56 : .44;
+            if (tn < dT) { cc = pal[2]; kk = q3((dT - tn) / .14) * .7; r += (cc[0] - r) * kk; gg += (cc[1] - gg) * kk; b += (cc[2] - b) * kk; }
+            const dk_ = TF[k00 + 1] * w00 + TF[k10 + 1] * w10 + TF[k01 + 1] * w01 + TF[k11 + 1] * w11 + dn;
+            if (dk_ > .6) { cc = pal[3]; kk = q3((dk_ - .6) / .12) * .75; r += (cc[0] - r) * kk; gg += (cc[1] - gg) * kk; b += (cc[2] - b) * kk; }
+            const sl = TF[k00 + 2] * w00 + TF[k10 + 2] * w10 + TF[k01 + 2] * w01 + TF[k11 + 2] * w11 + dn;
+            if (sl > .74) { cc = pal[4]; kk = q3((sl - .74) / .1) * (ice ? .6 : .55); r += (cc[0] - r) * kk; gg += (cc[1] - gg) * kk; b += (cc[2] - b) * kk; }
+            if (x * x + y * y > T2) {
+              const w = TF[k00 + 3] * w00 + TF[k10 + 3] * w10 + TF[k01 + 3] * w01 + TF[k11 + 3] * w11; cc = null;
+              if (w > WET_T + .07 + dn) { const e = pal[7]; r = e[0]; gg = e[1]; b = e[2]; if (hh < .012) { cc = pal[8]; kk = .6; } }
+              else if (w > WET_T + dn * .5) { const e = pal[6]; r = e[0]; gg = e[1]; b = e[2]; if (hh < .005) { cc = pal[8]; kk = .4; } }
+              else if (w > WET_T - .035 + dn) { cc = pal[5]; kk = ice ? .55 : .8; }
+              if (cc) { r += (cc[0] - r) * kk; gg += (cc[1] - gg) * kk; b += (cc[2] - b) * kk; }
+            }
+            // ImageData redondea al escribir por canal; acá se escribe el píxel entero de una (little-endian: ABGR)
+            d32[j * TN + i] = 0xff000000 | (Math.round(b) & 255) << 16 | (Math.round(gg) & 255) << 8 | (Math.round(r) & 255);
+          }
+          if ((j & 7) === 7 && performance.now() > until) break;
+        }
+        J.pk = pk; J.pal = pal;
+        if (J.row < TN) return false;
+        J.g.putImageData(J.img, 0, 0);
+        TCACHE.set(J.key, J.c);
         if (TCACHE.size > 160) TCACHE.delete(TCACHE.keys().next().value);
-        return c;
+        return true;
+      }
+      let TJOB = null;
+      function terrChunk(ix, iy) {
+        const key = ix + ',' + iy; const c = TCACHE.get(key); if (c) return c;
+        if (performance.now() > tBudgetEnd) return null;
+        // si justo se estaba prearmando este chunk, se termina el mismo trabajo
+        const J = TJOB && TJOB.key === key && TJOB.sd === S.terrSeed + S.map ? TJOB : chunkJob(ix, iy); if (J === TJOB) TJOB = null;
+        chunkRows(J, Infinity); return J.c;
       }
       function drawTerrain(px, py) {
         const hw = W / 2 / ZOOM + 20, hh = H / 2 / ZOOM + 20;
@@ -65,6 +105,21 @@
         cx.imageSmoothingEnabled = false;
         for (let i = x0; i <= x1; i++) for (let j = y0; j <= y1; j++) { const c = terrChunk(i, j); if (c) cx.drawImage(c, i * TCH, j * TCH, TCH + .7, TCH + .7); }
         cx.imageSmoothingEnabled = true;
+        // prearmado en segundo plano: avanza de a filas un chunk del anillo de afuera (primero hacia donde se mueve el
+        // jugador), con un tope de tiempo por frame. Así el terreno ya está hecho cuando entra a la pantalla.
+        if (TJOB && (TCACHE.has(TJOB.key) || TJOB.sd !== S.terrSeed + S.map)) TJOB = null;  // ya hecho, o de otra partida
+        if (!TJOB) {
+          const P = S && S.player, dx = P ? Math.sign(P.vx || 0) : 0, dy = P ? Math.sign(P.vy || 0) : 0;
+          let best = null, bs = -Infinity;
+          for (let i = x0 - 1; i <= x1 + 1; i++) for (let j = y0 - 1; j <= y1 + 1; j++) {
+            if (TCACHE.has(i + ',' + j)) continue;
+            const inView = i >= x0 && i <= x1 && j >= y0 && j <= y1;
+            const sc = inView ? 9 : (i < x0 ? -dx : i > x1 ? dx : 0) + (j < y0 ? -dy : j > y1 ? dy : 0);
+            if (sc > bs) { bs = sc; best = [i, j]; }
+          }
+          if (best) TJOB = chunkJob(best[0], best[1]);
+        }
+        if (TJOB) chunkRows(TJOB, performance.now() + (GFX_LOW ? 1.5 : 2.5)) && (TJOB = null);
       }
 
       /* decoración que se mueve: pasto y juncos se mecen con la brisa, el viento y cuando pasás */
@@ -148,15 +203,21 @@
       }
       function drawMarks() {
         const P = S.player, hw = W / 2 / ZOOM + 40, hh = H / 2 / ZOOM + 40;
+        // huellas y manchas en lotes por color y opacidad: un fill por lote en vez de uno por marca
         for (const m of S.marks) {
           if (Math.abs(m.x - P.x) > hw || Math.abs(m.y - P.y) > hh) continue;
-          cx.globalAlpha = m.al * Math.min(1, m.life / (m.max * .45)); cx.fillStyle = m.col; cx.beginPath();
-          if (m.k === 'foot') cx.ellipse(m.x, m.y, 4, 2.1, m.ang, 0, TAU);
-          else if (m.k === 'hoof') { const nx = -Math.sin(m.ang) * 3, ny = Math.cos(m.ang) * 3; cx.ellipse(m.x + nx, m.y + ny, 2.6, 2.3, 0, 0, TAU); cx.moveTo(m.x - nx + 2.6, m.y - ny); cx.ellipse(m.x - nx, m.y - ny, 2.6, 2.3, 0, 0, TAU); }
-          else if (m.k === 'paw') { for (const [a, d] of [[0, 0], [-.7, 3.2], [.7, 3.2]]) { const px = m.x + Math.cos(m.ang + a) * d, py = m.y + Math.sin(m.ang + a) * d; cx.moveTo(px + 1.6, py); cx.arc(px, py, a ? 1.2 : 1.9, 0, TAU); } }
-          else { cx.ellipse(m.x, m.y, m.r, m.r * .55, 0, 0, TAU); }
-          cx.fill();
+          const q = Math.min(8, Math.ceil(m.al * Math.min(1, m.life / (m.max * .45)) * 8)); if (q > 0) MARK_B.add(m.col + q, m.col, q / 8, m);
         }
+        MARK_B.each(g => {
+          cx.globalAlpha = g.a; cx.fillStyle = g.col; cx.beginPath();
+          for (const m of g.l) {
+            if (m.k === 'foot') { cx.moveTo(m.x + 4 * Math.cos(m.ang), m.y + 4 * Math.sin(m.ang)); cx.ellipse(m.x, m.y, 4, 2.1, m.ang, 0, TAU); }
+            else if (m.k === 'hoof') { const nx = -Math.sin(m.ang) * 3, ny = Math.cos(m.ang) * 3; cx.moveTo(m.x + nx + 2.6, m.y + ny); cx.ellipse(m.x + nx, m.y + ny, 2.6, 2.3, 0, 0, TAU); cx.moveTo(m.x - nx + 2.6, m.y - ny); cx.ellipse(m.x - nx, m.y - ny, 2.6, 2.3, 0, 0, TAU); }
+            else if (m.k === 'paw') { for (const [a, d] of [[0, 0], [-.7, 3.2], [.7, 3.2]]) { const px = m.x + Math.cos(m.ang + a) * d, py = m.y + Math.sin(m.ang + a) * d, r = a ? 1.2 : 1.9; cx.moveTo(px + r, py); cx.arc(px, py, r, 0, TAU); } }
+            else { cx.moveTo(m.x + m.r, m.y); cx.ellipse(m.x, m.y, m.r, m.r * .55, 0, 0, TAU); }
+          }
+          cx.fill();
+        });
         cx.globalAlpha = 1;
         const Pl = TPAL(); cx.strokeStyle = Pl.glint; cx.lineWidth = 1.2;
         for (const r of S.ripples) { const k = 1 - r.life / r.max, R = 3 + k * 15; cx.globalAlpha = (1 - k) * .55; cx.beginPath(); cx.ellipse(r.x, r.y, R, R * .45, 0, 0, TAU); cx.stroke(); }
