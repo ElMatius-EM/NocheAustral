@@ -2750,9 +2750,15 @@
       let W = 0, H = 0, DPR = 1, ZOOM = 1, vignette = null, GFX_LOW = false;
       // RES_K: resolución dinámica (31-loop la baja si el equipo no sostiene ~48 fps). PART_K: tope de partículas según la calidad
       let RES_K = 1, PART_K = 1;
+      // modo de prueba (?dev en la URL): ver 32-dev.js. Acá solo se declara para que el resto del código pueda consultarlo
+      const DEV = new URLSearchParams(location.search).has('dev') ? { god: true } : null;
       function resize() {
         // en gráficos bajos se dibuja a 1 píxel por píxel CSS: en pantallas de alta densidad es 4 veces menos trabajo
-        DPR = GFX_LOW ? 1 : Math.max(1, Math.min(window.devicePixelRatio || 1, 2) * RES_K);
+        // si la resolución dinámica baja de 1x se salta directo a 0,5x: escala entera (cada píxel interno = 2x2 de pantalla),
+        // nítida con image-rendering: pixelated y con 4 veces menos píxeles que 1x
+        const d = (GFX_LOW ? 1 : Math.min(window.devicePixelRatio || 1, 2)) * RES_K;
+        DPR = d >= 1 ? d : .5;
+        cv.style.imageRendering = DPR < 1 ? 'pixelated' : '';
         PART_K = GFX_LOW ? .45 : RES_K < 1 ? .7 : 1;
         W = window.innerWidth; H = window.innerHeight;
         cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
@@ -2945,7 +2951,7 @@
           evo: { rad: 128, dmg: 15, tick: .45, slow: true },
           update(w, dt) {
             const s = st(w), P = S.player, R = s.rad * ST.area; w.R = R; if (w.pulse > 0) w.pulse -= dt;
-            if (S.parts.length < 520 * PART_K && Math.random() < dt * (w.evo ? 22 : 12)) { const a = Math.random() * TAU, d = R * rnd(.35, 1); S.parts.push({ x: P.x + Math.cos(a) * d, y: P.y + Math.sin(a) * d * .9, vx: rnd(-12, 12), vy: rnd(-70, -35), life: rnd(.4, .8), max: .8, col: Math.random() < .5 ? '#ffb040' : '#ff7a2a', size: rnd(1.5, 3), glow: true }); }
+            if (S.parts.length < 520 * PART_K && Math.random() < dt * (w.evo ? 13 : 7)) { const a = Math.random() * TAU, d = R * rnd(.35, 1); S.parts.push({ x: P.x + Math.cos(a) * d, y: P.y + Math.sin(a) * d * .9, vx: rnd(-12, 12), vy: rnd(-70, -35), life: rnd(.4, .8), max: .8, col: Math.random() < .5 ? '#ffb040' : '#ff7a2a', size: rnd(1.5, 3), glow: true }); }
             if (w.evo && S.ebul.length) clearBullets(b => { const dx = b.x - P.x, dy = b.y - P.y; return dx * dx + dy * dy < (R + b.r) * (R + b.r); });
             if (s.slow) forNear(P.x, P.y, R, e => { const rr = R + e.r; if (!e.elite && dist2(e, P.x, P.y) < rr * rr) e.slowT = .25; });
             w.cd -= dt;
@@ -3285,7 +3291,7 @@
         puma: { where: 'Bosque andino', desc: 'El león de la cordillera. Acecha quieto y salta de golpe, corto y rápido.' },
         jabali: { where: 'Bosque andino', desc: 'Lo trajeron para cazar y se adueñó del bosque. Se frena, raspa la tierra y embiste en línea recta.' },
         cuchivilu: { where: 'Bosque andino (jefe)', desc: 'Mitad chancho, mitad serpiente, de los mitos mapuches de lagos y mallines. Llama a la piara cuando lo apuran.' },
-        mandinga: { where: 'Cualquier mapa, después del amanecer', desc: 'El diablo del campo, que ofrece pactos a los paisanos. No se lo puede vencer: solo huir.' }
+        mandinga: { where: 'Cualquier mapa, al llegar el amanecer', desc: 'El diablo del campo, que ofrece pactos a los paisanos. Antes del amanecer sale a cobrarse la noche; si lo tumbás, los que vienen después no se dejan vencer: solo queda huirles.' }
       };
       const hasAch = id => !!SAVE.ach[id];
       const unlocked = lock => !lock || hasAch(lock);
@@ -4404,7 +4410,9 @@
       /* ---- equilibrio ----
          La vida de los enemigos escala con el tiempo y con el nivel del jugador; el daño enemigo crece más rápido después del minuto 8.
          Élites, mini-jefes y jefes tienen un piso de vida calculado con el daño por segundo real del jugador (dpsEMA). */
-      const BAL = { lvlHp: .012, lateDmg: .012, floorElite: 10, floorMini: 9, floorBoss: 18, auraVsElite: .6, healCap: 4, capElite: 12, capMini: 20, capBoss: 35 };
+      // dens: fracción de enemigos comunes respecto del diseño original; cada uno tiene 1/dens de vida y da 1/dens de experiencia
+      // y de chance de drop, así la horda pesa lo mismo con menos cuerpos (menos lógica, dibujo y píxeles en el celular)
+      const BAL = { dens: .75, lvlHp: .012, lateDmg: .012, floorElite: 10, floorMini: 9, floorBoss: 18, auraVsElite: .6, healCap: 4, capElite: 12, capMini: 20, capBoss: 35 };
       function hpMult() { if (S.mode === 'campo') return 1.2; const m = S.t / 60; return (1 + m * .3 + m * m * .025) * (1 + Math.max(0, S.level - 15) * BAL.lvlHp); }
       function dmgMult() { if (S.mode === 'campo') return 1; const m = S.t / 60; return 1 + m * .06 + Math.max(0, m - 8) ** 2 * BAL.lateDmg; }
       const AURA = new Set(['fogon', 'pava', 'fuego']);
@@ -4540,8 +4548,9 @@
       function spawnEnemy(type, x, y, opt) {
         const T = ETYPES[type], m = S.t / 60, hm = hpMult();
         const e = freeE.pop() || {};
-        e.type = type; e.x = x; e.y = y; e.r = T.r; e.hp = e.maxHp = T.hp * hm; e.spd = T.spd * rnd(.82, 1.18) * (S.hyper ? 1.25 : 1); e.dmg = T.dmg * dmgMult(); e.xp = S.mode === 'campo' ? 0 : T.xp;
-        e.dead = false; e.gone = false; e.dmgTxt = null; e.mini = false; e.capT = 0; e.cw = 0; e.cdmg = 0; e.howl = undefined; e.enr = false; e.flash = 0; e.kx = 0; e.ky = 0; e.imm = {}; e.slowT = 0; e.elite = false; e.boss = false; e.chest = false;
+        const dk = S.mode === 'campo' ? 1 : BAL.dens;
+        e.type = type; e.x = x; e.y = y; e.r = T.r; e.hp = e.maxHp = T.hp * hm / dk; e.spd = T.spd * rnd(.82, 1.18) * (S.hyper ? 1.25 : 1); e.dmg = T.dmg * dmgMult(); e.xp = S.mode === 'campo' ? 0 : T.xp / dk; e.lodP = (Math.random() * 2) | 0;
+        e.dead = false; e.gone = false; e.dmgTxt = null; e.mini = false; e.capT = 0; e.cw = 0; e.cdmg = 0; e.howl = undefined; e.enr = false; e.flash = 0; e.kx = 0; e.ky = 0; e.imm = {}; e.slowT = 0; e.elite = false; e.boss = false; e.chest = false; e.fight = false; e.jph = null; e.z = 0;
         e.vx = 0; e.vy = 0; e.life = 0; e.straight = false; e.prop = !!T.prop; e.shoot = rnd(1.5, 3); e.scale = 1; e.oa = Math.random() * TAU; e.orad = rnd(80, 260); e.odir = Math.random() < .5 ? -1 : 1; e.phase = null; e.ch = undefined; e.summon = 6; e.aimT = 0; e.wob = Math.random() * TAU; e._wtT = 0; e._wet = false; e._md = 0;
         if (opt) Object.assign(e, opt);
         S.enemies.push(e);
@@ -4577,13 +4586,15 @@
           }
           return;
         }
+        if (S.finale === 'done') return;  // ya cayó el Mandinga: solo falta la pantalla final
         const m = minute();
-        const alive = S.enemies.length, minCount = Math.min(8 + m * 15 + m * m * .5, 380);
-        S.spawnAcc += dt * (.7 + m * .38) * (alive < minCount ? 2.2 : 1) * (S.hyper ? 1.3 : 1);
+        // en la pelea final el protagonista es el Mandinga: pocos enemigos de relleno
+        const alive = S.enemies.length, minCount = S.finale ? 40 : Math.min(8 + m * 15 + m * m * .5, 380) * BAL.dens;
+        S.spawnAcc += dt * (.7 + m * .38) * BAL.dens * (alive < minCount ? 2.2 : 1) * (S.hyper ? 1.3 : 1) * (S.finale ? .3 : 1);
         S.spawnAcc = Math.min(S.spawnAcc, 6);
         while (S.spawnAcc >= 1) {
           S.spawnAcc -= 1;
-          if (S.enemies.length >= 420) break;
+          if (S.enemies.length >= (S.finale ? 120 : 420 * BAL.dens)) break;
           const [x, y] = S.player.moving && Math.random() < .5 ? spawnAhead() : spawnPos();
           const WV = MAPS[bioKey(x, y)].waves; spawnEnemy(pickW(WV[Math.min(m, WV.length - 1)]), x, y);  // cada bioma aparece con su gente
         }
@@ -4607,20 +4618,20 @@
           sfx(110, .5, 'sawtooth', .06, .5);
         } else if (type === 'swarm') {
           const a = Math.random() * TAU, d = viewR() + 30, cxp = P.x - Math.cos(a) * d, cyp = P.y - Math.sin(a) * d, px = -Math.sin(a), py = Math.cos(a);
-          const cnt = Math.min(18 + m * 2, 44);
+          const cnt = Math.round(Math.min(18 + m * 2, 44) * BAL.dens);
           for (let i = 0; i < cnt; i++) {
             const o = (i - cnt / 2) * 14 + rnd(-6, 6), back = rnd(0, 90);
             spawnEnemy(M.swarm, cxp + px * o - Math.cos(a) * back, cyp + py * o - Math.sin(a) * back, { straight: true, vx: Math.cos(a) * 120, vy: Math.sin(a) * 120, life: 18 });
           }
           banner(M.txt.swarm);
         } else if (type === 'ring') {
-          const n = Math.min(26 + m * 2, 44), R = viewR() * .95;
+          const n = Math.round(Math.min(26 + m * 2, 44) * BAL.dens), R = viewR() * .95, n2 = Math.round(24 * BAL.dens);
           for (let i = 0; i < n; i++) { const a = i / n * TAU; spawnEnemy(M.ring, P.x + Math.cos(a) * R, P.y + Math.sin(a) * R, { spd: ETYPES[M.ring].spd * .8 }); }
-          if (m >= 9) for (let i = 0; i < 24; i++) { const a = (i + .5) / 24 * TAU; spawnEnemy(M.ring2, P.x + Math.cos(a) * R * 1.35, P.y + Math.sin(a) * R * 1.35, { spd: ETYPES[M.ring2].spd * .9 }); }
+          if (m >= 9) for (let i = 0; i < n2; i++) { const a = (i + .5) / n2 * TAU; spawnEnemy(M.ring2, P.x + Math.cos(a) * R * 1.35, P.y + Math.sin(a) * R * 1.35, { spd: ETYPES[M.ring2].spd * .9 }); }
           if (m >= 9) spawnEscort(m);
           banner(m >= 9 ? M.txt.ring2 : M.txt.ring);
         } else if (type === 'rush') {
-          const a = Math.random() * TAU, d = viewR() + 40, cnt = Math.min(20 + m * 2, 48);
+          const a = Math.random() * TAU, d = viewR() + 40, cnt = Math.round(Math.min(20 + m * 2, 48) * BAL.dens);
           for (let i = 0; i < cnt; i++) {
             const aa = a + rnd(-.5, .5), dd = d + rnd(0, 160);
             spawnEnemy(M.rush, P.x + Math.cos(aa) * dd, P.y + Math.sin(aa) * dd, { spd: ETYPES[M.rush].spd * 1.35 });
@@ -4631,7 +4642,7 @@
         } else if (type === 'arcana') {
           openArcana('Segunda carta', 'Pasó la medianoche: elegí otra carta para lo que queda.');
         } else if (type === 'win') {
-          if (!S.endless) endGame(true);
+          if (!S.endless && !S.finale) startFinale();
         }
       }
       function updateCracks(dt) {
@@ -4651,7 +4662,7 @@
           c.t += dt;
           if (!c.boom && c.t >= c.T) {
             c.boom = true;
-            forNear(c.x, c.y, c.R, e => { if (e.prop || e.type === 'mandinga') return; const rr = c.R + e.r * .5; if (dist2(e, c.x, c.y) < rr * rr) hurt(e, 25 + 10 * minute(), PWG, 8, c.x, c.y); });
+            forNear(c.x, c.y, c.R, e => { if (e.prop || mHunter(e)) return; const rr = c.R + e.r * .5; if (dist2(e, c.x, c.y) < rr * rr) hurt(e, 25 + 10 * minute(), PWG, 8, c.x, c.y); });
             const dx = P.x - c.x, dy = P.y - c.y, rr = c.R + P.r * .6;
             if (dx * dx + dy * dy < rr * rr) hurtPlayer(12 * dmgMult());
             burst(c.x, c.y, 14, '#d6ecff', 170);
@@ -4669,6 +4680,86 @@
           const e = S.enemies[S.enemies.length - 1]; e.hp = e.maxHp = eliteHp(T.hp * hpMult() * 3, eliteFloor() * .6);
         }
       }
+      /* ---------------- el Mandinga: pelea final ----------------
+         Al amanecer, en lugar de terminar, aparece el Mandinga y hay que matarlo. Camina más lento que el jugador y
+         cada MF.cd segundos se agacha, salta hacia donde estaba el jugador y al caer mata a todo lo demás de la arena
+         (sin drops ni animación de muerte) y lastima fuerte en el área de caída. Con la mitad de vida salta más seguido.
+         Los Mandingas del modo infinito siguen siendo invencibles (mHunter).
+         Vida: el daño a un solo objetivo cambia muchísimo entre builds (las auras pegan 7 veces menos que los
+         proyectiles con el mismo dpsEMA), así que arranca con una estimación y a los MF.calT segundos se recalibra con
+         el daño que de verdad le está entrando, para que la pelea dure ~MF.secs en cualquier build. La barra conserva
+         el porcentaje, así que el ajuste no se nota. capT impide que dure menos de MF.cap segundos aunque el build sea muy fuerte. */
+      const MF = { secs: 65, cap: 35, calT: 12, emaK: 7, cd: 10, cdEnr: 7, first: 5, wind: .5, air: 1.25, h: 150, R: 115, land: .45, touch: .3, spd: 118 };
+      function mHunter(e) { return e.type === 'mandinga' && !e.fight; }
+      function startFinale() {
+        const P = S.player, [x, y] = spawnPos();
+        S.finale = true;
+        const floor = 25 * hpMult() * 13, hp = Math.max(floor, (S.dpsEMA || 0) * MF.emaK);
+        S.bossRef = spawnEnemy('mandinga', x, y, {
+          boss: true, elite: true, fight: true, hp, maxHp: hp, hpFloor: floor, rawIn: 0, calT: MF.calT, capT: MF.cap * (S.hyper ? 1.15 : 1), xp: 0, spd: MF.spd * (S.hyper ? 1.1 : 1),
+          dmg: ST.maxHp * MF.touch * (S.hyper ? 1.2 : 1), bname: 'el Mandinga', jT: MF.first
+        });
+        banner('Antes del amanecer, el Mandinga viene por vos');
+        sfx(70, .9, 'sawtooth', .08, .4); sfx(52, 1.4, 'sawtooth', .06, .3);
+        S.shake = Math.min(1, S.shake + .6);
+      }
+      // saca a todos los enemigos sin drops, sin contar bajas y con lo mínimo de animación (un poco de ceniza en pantalla)
+      function wipeArena(keep) {
+        const P = S.player, hw = W / 2 / ZOOM + 20, hh = H / 2 / ZOOM + 20; let puffs = 0;
+        for (const e of S.enemies) {
+          if (e.dead || e.prop || e === keep) continue;
+          e.dead = true; e.gone = true;
+          if (puffs < 90 && S.parts.length < 560 * PART_K && Math.abs(e.x - P.x) < hw && Math.abs(e.y - P.y) < hh) {
+            puffs++; S.parts.push({ x: e.x, y: e.y, vx: rnd(-20, 20), vy: rnd(-50, -20), life: .35, max: .35, col: '#3a2a2a', size: e.r * .5 });
+          }
+        }
+        S.ebul.length = 0;
+      }
+      // salto del Mandinga; devuelve true mientras no camina (agachado o en el aire)
+      function mandingaCalib(e, dt) {
+        // solo cuenta el tiempo en que está cerca (al principio viene caminando desde fuera de la pantalla)
+        if (e.calT <= 0 || dist2(e, S.player.x, S.player.y) > 300 * 300 || (e.calT -= dt) > 0) return;
+        const obs = e.rawIn / MF.calT, f = e.hp / e.maxHp;
+        e.maxHp = Math.max(e.hpFloor, obs * MF.secs * (S.hyper ? 1.15 : 1)); e.hp = e.maxHp * f;
+      }
+      function mandingaJump(e, dt) {
+        const P = S.player;
+        if (!e.jph) { e.jT -= dt; if (e.jT > 0) return false; e.jph = 'wind'; e.jk = MF.wind; sfx(90, .5, 'sawtooth', .05, .6); return true; }
+        e.jk -= dt;
+        if (e.jph === 'wind') {
+          if (e.jk <= 0) { e.jph = 'air'; e.jk = MF.air; e.jx0 = e.x; e.jy0 = e.y; e.jtx = P.x; e.jty = P.y; sfx(140, .6, 'sawtooth', .04, 1.6); }
+          return true;
+        }
+        const k = clamp(1 - e.jk / MF.air, 0, 1), ke = k * k * (3 - 2 * k);
+        e.x = e.jx0 + (e.jtx - e.jx0) * ke; e.y = e.jy0 + (e.jty - e.jy0) * ke; e.z = Math.sin(k * Math.PI) * MF.h; e.mvx = e.jtx - e.jx0;
+        if (e.jk <= 0) { e.z = 0; e.jph = null; e.jT = e.enr ? MF.cdEnr : MF.cd; mandingaLand(e); }
+        return true;
+      }
+      function mandingaLand(e) {
+        const P = S.player;
+        wipeArena(e);
+        S.shake = 1; S.hitstop = Math.max(S.hitstop, .08);
+        S.fx.push({ type: 'ring', x: e.x, y: e.y, life: .5, max: .5, col: '#ff5a3c', R: MF.R });
+        S.fx.push({ type: 'ring', x: e.x, y: e.y, life: .9, max: .9, col: 'rgba(255,90,60,.5)', R: viewR() * 1.1 });
+        burst(e.x, e.y, 18, '#5a3a2a', 200);
+        addMark(e.x, e.y, 0, 'scorch', 30, '#1a0d0d', MF.R * .7);
+        sfx(55, .9, 'sawtooth', .09, .3); sfx(40, 1.2, 'square', .05, .4);
+        const dx = P.x - e.x, dy = P.y - e.y, rr = MF.R + P.r * .6;
+        if (dx * dx + dy * dy < rr * rr) hurtPlayer(ST.maxHp * MF.land * (S.hyper ? 1.2 : 1));
+      }
+      function mandingaDown(e) {
+        const P = S.player;
+        e.dead = true; S.finale = 'done'; S.bossK++; SAVE.stats.bosses++; SAVE.bestiary.mandinga = (SAVE.bestiary.mandinga || 0) + 1;
+        wipeArena(e);
+        P.iframe = 99;
+        S.hitstop = .35; S.shake = 1; S.whiteFlash = .6;
+        burst(e.x, e.y, 40, '#8a1424', 260); burst(e.x, e.y, 20, '#ffd23c', 200);
+        for (let i = 0; i < 3; i++) S.fx.push({ type: 'ring', x: e.x, y: e.y, life: .6 + i * .3, max: .6 + i * .3, col: i ? '#ffd23c' : '#ff5a3c', R: 90 + i * 110 });
+        S.fx.push({ type: 'death', x: e.x, y: e.y, etype: 'mandinga', scale: 1, frame: 0, tilt: 0, life: 1.2, max: 1.2, vx: 0, vy: -20, spin: 2, rot: 0 });
+        banner('¡Le ganaste al Mandinga!');
+        sfx(70, 1.5, 'sawtooth', .08, .25); setTimeout(() => sfx(523, .4, 'triangle', .05), 400); setTimeout(() => sfx(784, .6, 'triangle', .05), 650);
+        later(2, () => { P.iframe = 0; S.dawnT = S.t; endGame(true); });
+      }
       function spawnMandinga() {
         const [x, y] = spawnPos();
         spawnEnemy('mandinga', x, y, { boss: true, elite: true, hp: 1e7, maxHp: 1e7, xp: 0, spd: ETYPES.mandinga.spd });
@@ -4679,13 +4770,14 @@
       /* ---------------- combat ---------------- */
       function hurt(e, dmg, w, kb, sx, sy) {
         if (e.dead) return;
-        if (e.type === 'mandinga') { e.flash = .05; return; }
+        if (e.type === 'mandinga' && (!e.fight || e.jph === 'air')) { e.flash = .05; return; }
         dmg *= ST.might * rnd(.92, 1.08);
         const wb = CHARS[S.char].wdmg; if (wb && wb[w.id]) dmg *= wb[w.id];
         if (e.elite && AURA.has(w.id)) dmg *= BAL.auraVsElite;
         let crit = false; if (S.arc.has('sieteEspadas') && Math.random() < .15) { dmg *= 2.5; crit = true; } else if (NI('c1') && Math.random() < .05) { dmg *= 2; crit = true; }
         if (e.elite && ST.eliteDmg) dmg *= 1 + ST.eliteDmg;
         if (!e.prop) S.dmgFrame = (S.dmgFrame || 0) + dmg;
+        if (e.fight) e.rawIn += dmg;  // daño real antes del tope, para calibrar la vida del Mandinga
         // tope de daño por segundo en élites y jefes: la pelea dura al menos capT segundos, sin importar el build
         let resist = false;
         if (e.capT) {
@@ -4729,13 +4821,14 @@
       }
       function ashBomb() {
         const P = S.player, hw = W / 2 / ZOOM, hh = H / 2 / ZOOM, pw = { id: 'bomba', evo: false }, dmg = 60 + 35 * minute();
-        for (const e of S.enemies) if (!e.dead && !e.prop && e.type !== 'mandinga' && Math.abs(e.x - P.x) < hw && Math.abs(e.y - P.y) < hh) hurt(e, dmg, pw, 10);
+        for (const e of S.enemies) if (!e.dead && !e.prop && !mHunter(e) && Math.abs(e.x - P.x) < hw && Math.abs(e.y - P.y) < hh) hurt(e, dmg, pw, 10);
         clearBullets(() => true, true);
         S.whiteFlash = .35; S.shake = 1; S.hitstop = Math.max(S.hitstop, .08);
         S.fx.push({ type: 'ring', x: P.x, y: P.y, life: .6, max: .6, col: '#fff3d0', R: Math.max(hw, hh) });
         sfx(80, .7, 'sawtooth', .08, .3);
       }
       function kill(e) {
+        if (e.fight) { mandingaDown(e); return; }
         if (e.prop) {
           e.dead = true; propDrop(e); burst(e.x, e.y, 10, '#ffcf6a', 120);
           if (S.fx.length < 320) S.fx.push({ type: 'death', x: e.x, y: e.y, etype: e.type, scale: 1, frame: 0, tilt: 0, life: .26, max: .26, vx: 0, vy: 0, spin: 0, rot: 0 });
@@ -4762,18 +4855,18 @@
           });
         }
         if (e.type === 'anima') {
-          for (let i = 0; i < 10 && S.parts.length < 600 * PART_K; i++) S.parts.push({ x: e.x + rnd(-8, 8), y: e.y + rnd(-8, 6), vx: rnd(-30, 30) + e.kx * .5, vy: rnd(-90, -35) + e.ky * .5, life: rnd(.5, .9), max: .9, col: i % 3 ? '#dbe8ff' : '#8fb8f5', size: rnd(3, 5), glow: true });
+          for (let i = 0; i < 5 && S.parts.length < 600 * PART_K; i++) S.parts.push({ x: e.x + rnd(-8, 8), y: e.y + rnd(-8, 6), vx: rnd(-30, 30) + e.kx * .5, vy: rnd(-90, -35) + e.ky * .5, life: rnd(.5, .9), max: .9, col: i % 3 ? '#dbe8ff' : '#8fb8f5', size: rnd(3.5, 5.5), glow: true });
           if (S.fx.length < 320) S.fx.push({ type: 'ring', x: e.x, y: e.y, life: .35, max: .35, col: 'rgba(200,222,255,.7)', R: 26 });
         } else burst(e.x, e.y, e.elite ? 22 : 6, T.col, e.elite ? 160 : 90, e.kx, e.ky);
         if (e.xp > 0) spawnGem(e.x, e.y, e.xp);
         dropMats(e); if (e.boss && e.type !== 'mandinga') S.bossK++; else if (e.mini) S.miniK++; else if (e.elite && e.type !== 'mandinga') S.eliteK++;
         if (e.chest) { S.picks.push({ type: 'cofre', x: e.x, y: e.y, t: 0 }); S.fx.push({ type: 'ring', x: e.x, y: e.y, life: .6, max: .6, col: '#c9a45c', R: 80 }); }
         const r = Math.random();
-        const ar = S.arc.has('cuatroCopas') ? .012 : .005;
+        const ar = (S.arc.has('cuatroCopas') ? .012 : .005) / BAL.dens;
         if (r < ar) S.picks.push({ type: 'asado', x: e.x, y: e.y, t: 0 });
-        else if (r < ar + .0025) S.picks.push({ type: 'iman', x: e.x, y: e.y, t: 0 });
+        else if (r < ar + .0025 / BAL.dens) S.picks.push({ type: 'iman', x: e.x, y: e.y, t: 0 });
         if (e.elite && e.type !== 'mandinga') S.picks.push({ type: 'bolsa', x: e.x + 14, y: e.y, t: 0, v: Math.round((e.boss ? 120 : rnd(25, 45)) * ST.greed) });
-        else if (S.mode !== 'campo' && Math.random() < .035 && S.picks.length < 250) S.picks.push({ type: 'oro', x: e.x, y: e.y, t: 0, v: Math.max(1, Math.round(ST.greed)) });
+        else if (S.mode !== 'campo' && Math.random() < .035 / BAL.dens && S.picks.length < 250) S.picks.push({ type: 'oro', x: e.x, y: e.y, t: 0, v: Math.max(1, Math.round(ST.greed)) });
       }
       function swing(w, s, dir, yo) {
         const P = S.player, A = s.area * ST.area, ww = 150 * A, hh = 34 * A;
@@ -4807,10 +4900,10 @@
         const P = S.player; if (P.iframe > 0) return;
         if (S.ride) { rideHurt(raw); if (contact) P.touchIF = CONTACT_IFRAME; else P.iframe = .2; return; }
         for (const a of S.mounts) if (a.tame > 0) a.tame = Math.max(0, a.tame - .25);
-        const d = Math.max(1, raw * (1 - armorRed()) * ST.taken); P.hp -= d;
+        const d = Math.max(1, raw * (1 - armorRed()) * ST.taken); P.hp -= d; if (DEV && DEV.god) P.hp = ST.maxHp;  // en ?dev el golpe se ve pero no lastima
         if (NI('h4a') && !S.secondWind && P.hp > 0 && P.hp < ST.maxHp * .25) { S.secondWind = true; P.iframe = 3; P.hp = Math.min(ST.maxHp, P.hp + ST.maxHp * .3); banner('Segundo aire'); S.fx.push({ type: 'ring', x: P.x, y: P.y, life: .6, max: .6, col: '#8fe07a', R: 120 }); sfx(440, .3, 'triangle', .05, 2); }
         if (contact) P.touchIF = CONTACT_IFRAME; else P.iframe = .3;
-        S.shake = Math.min(1, S.shake + .35); S.hurtFlash = .25; S.hitstop = Math.max(S.hitstop, .04);
+        S.shake = Math.min(1, S.shake + .35); if (d >= ST.maxHp * .06) S.hurtFlash = .25; S.hitstop = Math.max(S.hitstop, .04);  // el flash es una capa a pantalla completa: solo golpes que pesan
         addText(P.x, P.y - 26, Math.round(d), '#ff6b6b');
         sfx(90, .15, 'square', .05, .6);
       }
@@ -5114,6 +5207,7 @@
 
         const tm = S.timers;
         for (let i = tm.length - 1; i >= 0; i--) { const t = tm[i]; t.t -= dt; if (t.t <= 0) { tm[i] = tm[tm.length - 1]; tm.pop(); t.fn(); } }
+        if (S.state !== 'play') return;
 
         if (CHARS[S.char].aviso) for (const ev of S.events) if (!ev.done && !ev.warned && AVISOS[ev.type] && S.t >= ev.t - 5) { ev.warned = true; banner(AVISOS[ev.type]); sfx(330, .2, 'triangle', .03); }
         for (const ev of S.events) if (!ev.done && S.t >= ev.t) {
@@ -5147,7 +5241,7 @@
         for (const p of S.proj) {
           if (p.dead) continue;
           p.life -= dt; if (p.life <= 0) { p.dead = true; continue; }
-          if (p.kind === 'cross') { p.vx += p.ax * dt; p.vy += p.ay * dt; p.rot += dt * 14; if (S.parts.length < 520 * PART_K && Math.random() < dt * 30) S.parts.push({ x: p.x + rnd(-4, 4), y: p.y + rnd(-4, 4), vx: rnd(-15, 15), vy: rnd(-15, 15), life: rnd(.25, .45), max: .45, col: p.w.evo ? '#cfe6ff' : '#ffe9a8', size: rnd(1.5, 2.8), glow: true }); }
+          if (p.kind === 'cross') { p.vx += p.ax * dt; p.vy += p.ay * dt; p.rot += dt * 14; if (S.parts.length < 520 * PART_K && Math.random() < dt * 14) S.parts.push({ x: p.x + rnd(-4, 4), y: p.y + rnd(-4, 4), vx: rnd(-15, 15), vy: rnd(-15, 15), life: rnd(.25, .45), max: .45, col: p.w.evo ? '#cfe6ff' : '#ffe9a8', size: rnd(1.5, 2.8), glow: true }); }
           else if (p.g) { p.vy += p.g * dt; p.rot = Math.atan2(p.vy, p.vx); }
           p.x += p.vx * dt; p.y += p.vy * dt;
           forNear(p.x, p.y, p.r, e => {
@@ -5192,8 +5286,14 @@
 
         const far = (viewR() + 40) * 1.3, bastos = S.arc.has('anchoBastos'), hwS = W / 2 / ZOOM, hhS = H / 2 / ZOOM;
         let aimCount = 0, aimNew = 0; S.aimN = S.aimN || 0; S.shotCD = (S.shotCD || 0) - dt;
+        // los comunes fuera de pantalla se actualizan cada dos frames (con el doble de dt) y sin separación entre ellos:
+        // son más de la mitad de la horda y nadie los ve, así que la lógica casi se reduce a la mitad sin cambiar nada visible
+        const lodF = S.lodF = ((S.lodF || 0) + 1) & 1, offX = hwS + 90, offY = hhS + 90, dt1 = dt;
         for (const e of S.enemies) {
           if (e.dead) continue;
+          const off = !e.elite && !e.prop && (Math.abs(e.x - P.x) > offX || Math.abs(e.y - P.y) > offY);
+          if (off && e.lodP !== lodF) continue;
+          const dt = off ? dt1 * 2 : dt1;
           if (e.prop) { e.flash -= dt; if (Math.abs(e.x - P.x) + Math.abs(e.y - P.y) > far * 2.2) { e.dead = true; e.gone = true; } continue; }
           if (S.freezeT > 0 && e.type !== 'mandinga') { e.flash -= dt; e.x += e.kx * dt; e.y += e.ky * dt; e.kx *= .9; e.ky *= .9; continue; }
           e.flash -= dt; e.slowT -= dt;
@@ -5209,6 +5309,11 @@
               if (fo > 0) { const tx = P.x + Math.cos(e.oa) * e.orad * fo - e.x, ty = P.y + Math.sin(e.oa) * e.orad * fo - e.y, td = Math.hypot(tx, ty) || 1; dx = tx / td; dy = ty / td; }
             }
             let sp = e.spd * sl * clamp(1 - Math.hypot(e.kx, e.ky) / 220, 0, 1);
+            if (e.fight) {
+              if (!e.enr && e.hp < e.maxHp * .5) { e.enr = true; e.spd *= 1.15; banner('El Mandinga se enfurece'); sfx(60, 1, 'sawtooth', .08, .35); S.shake = Math.min(1, S.shake + .5); }
+              mandingaCalib(e, dt);
+              if (mandingaJump(e, dt)) sp = 0;
+            }
             if (!ETYPES[e.type].fly && !e.boss && e.type !== 'mandinga') {
               e._wtT -= dt; if (e._wtT <= 0) { e._wtT = .18 + Math.random() * .1; e._wet = terrWet(e.x, e.y); }
               if (e._wet) { sp *= .75; if (ETYPES[e.type].w >= 1.3 && Math.abs(e.x - P.x) < hwS && Math.abs(e.y - P.y) < hhS) { e._md += sp * dt; if (e._md > 24) { e._md = 0; addMark(e.x, e.y + e.r * .8, Math.atan2(dy, dx), 'paw', 10); } } }
@@ -5284,7 +5389,7 @@
           }
           e.x += e.kx * dt; e.y += e.ky * dt;
           const k = Math.max(0, 1 - dt * 7); e.kx *= k; e.ky *= k;
-          if (!e.boss) {
+          if (!e.boss && !off) {
             let c = 0;
             forNear(e.x, e.y, e.r * 2, o => {
               if (o === e) return;
@@ -5298,7 +5403,8 @@
           }
           if (!ETYPES[e.type].fly && e.type !== 'mandinga') pushOut(e, e.r * .9, 90 * dt);
           const cdx = P.x - e.x, cdy = P.y - e.y, rr = e.r + P.r * .8;
-          if (e.type === 'mandinga') { if (cdx * cdx + cdy * cdy < rr * rr && P.iframe <= 0) { P.hp -= ST.maxHp * 1.5; S.hurtFlash = .4; S.shake = 1; } }
+          if (e.z > 0 || e.jph) { /* el Mandinga agachado o en el aire no pega por contacto */ }
+          else if (mHunter(e)) { if (cdx * cdx + cdy * cdy < rr * rr && P.iframe <= 0) { P.hp -= ST.maxHp * 1.5; S.hurtFlash = .4; S.shake = 1; } }
           else if (cdx * cdx + cdy * cdy < rr * rr && P.iframe <= 0 && P.touchIF <= 0 && canHit(e, 'touch', CONTACT_CD)) hurtPlayer(e.dmg * (e.phase === 'dash' ? 1.6 : 1), true);
         }
         S.aimN = aimCount + aimNew;
@@ -5348,7 +5454,7 @@
           t.life -= dt; if (t.pop > 0) t.pop -= dt;
           if (t.e && !t.e.dead && t.e.dmgTxt === t && S.t - t.last < AGG_GAP_AURA) { t.x = t.e.x; t.y = t.e.y - t.e.r - 4; }
           else { t.e = null; t.y -= 38 * dt; }
-          if (t.life <= 0) t.dead = true;
+          if (t.life <= 0) { t.dead = true; if (t._c) { NUM_POOL.push(t._c); t._c = null; } }
         }
         compact(S.texts);
         for (const f of S.fx) { f.life -= dt; if (f.life <= 0) f.dead = true; else if (f.type === 'death') { f.x += f.vx * dt; f.y += f.vy * dt; const d = Math.max(0, 1 - dt * 5); f.vx *= d; f.vy *= d; f.rot += f.spin * dt; } }
@@ -5356,11 +5462,12 @@
 
         S.shake = Math.max(0, S.shake - dt * 3); S.hurtFlash -= dt;
 
+        if (P.hp <= 0 && DEV && DEV.god) P.hp = ST.maxHp;  // ?dev: ni el contacto del Mandinga cazador mata
         if (P.hp <= 0) {
           if (S.revives > 0) {
             S.revives--; P.hp = ST.maxHp * .5; P.iframe = 2.5;
             const pw = { id: 'revive', evo: false };
-            forNear(P.x, P.y, 260, e => { if (!e.prop && e.type !== 'mandinga' && dist2(e, P.x, P.y) < 260 * 260) hurt(e, 200 + 40 * minute(), pw, 18); });
+            forNear(P.x, P.y, 260, e => { if (!e.prop && !mHunter(e) && dist2(e, P.x, P.y) < 260 * 260) hurt(e, 200 + 40 * minute(), pw, 18); });
             S.whiteFlash = .4; S.fx.push({ type: 'ring', x: P.x, y: P.y, life: .7, max: .7, col: '#ffd98a', R: 260 });
             banner('¡Segunda vida!'); sfx(523, .3, 'triangle', .06, 2);
           } else { P.hp = 0; if (S.mode === 'campo') { endCampo('desmayo'); return; } endGame(false); return; }
@@ -5400,7 +5507,7 @@
           each(fn) { for (const g of used) { fn(g); g.l.length = 0; } used.length = 0; }
         };
       }
-      const PART_B = mkBatch(), MARK_B = mkBatch();
+      const PART_B = mkBatch(), MARK_B = mkBatch(), GLOW_B = mkBatch(), RING_B = mkBatch();
       // punto con resplandor pre-horneado (reemplaza dos arc + dos fill por partícula)
       const DOT_SPR = new Map();
       function dotSpr(col) {
@@ -5452,9 +5559,27 @@
         for (const ch of GLYPHS) { g.strokeText(ch, sx[ch] + pad, by); g.fillText(ch, sx[ch] + pad, by + h); }
         d = { c, adv, sx, pad, h, by }; DIGITS.set(key, d); return d;
       }
-      function drawTxt(str, x, y, col, fi) {
+      // número completo horneado en un canvas propio del texto (contornos y rellenos en una pasada):
+      // se rearma solo si cambia el valor, el tamaño, el color o la escala; dibujarlo es un solo drawImage
+      // los canvas de los números se reciclan: crear uno nuevo por golpe en el celular es caro (contexto + textura nueva)
+      const NUM_POOL = [];
+      function numSpr(h, str, col, fi) {
+        const key = TXT_KEY + '|' + fi + '|' + col + '|' + str;
+        let c = h._c; if (c && c.key === key) return c;
+        const D = digitSet(col, fi); let w = 0; for (let i = 0; i < str.length; i++) w += D.adv[str[i]];
+        if (!c) { c = h._c = NUM_POOL.pop() || document.createElement('canvas'); c.key = null; }
+        c.width = Math.ceil(w) + D.pad * 2 + 1; c.height = D.h; // reasignar el tamaño también limpia
+        const g = c.getContext('2d');
+        for (let row = 0; row < 2; row++) {
+          let gx = 0;
+          for (let i = 0; i < str.length; i++) { const ch = str[i], sw = Math.ceil(D.adv[ch]) + D.pad * 2; g.drawImage(D.c, D.sx[ch], row * D.h, sw, D.h, gx, 0, sw, D.h); gx += D.adv[ch]; }
+        }
+        c.key = key; c.ox = w / 2 + D.pad; c.by = D.by; return c;
+      }
+      function drawTxt(str, x, y, col, fi, h) {
         const K = TXT_K;
         if (NUM_RE.test(str)) {
+          if (h) { const c = numSpr(h, str, col, fi); cx.drawImage(c, x - c.ox / K, y - c.by / K, c.width / K, c.height / K); return; }
           const D = digitSet(col, fi); let w = 0; for (let i = 0; i < str.length; i++) w += D.adv[str[i]];
           for (let row = 0; row < 2; row++) {
             let gx = x - w / 2 / K;
@@ -5678,6 +5803,14 @@
           else dimg(ITEM[pk.type] || ITEM.iman, pk.x, pk.y + b);
         }
 
+        // aviso del salto del Mandinga: se agacha (anillo que se cierra) y marca dónde va a caer
+        { const m = S.bossRef; if (m && m.fight && !m.dead && m.jph) {
+          wReset(); cx.lineWidth = 3;
+          if (m.jph === 'wind') { const k = 1 - m.jk / MF.wind; cx.strokeStyle = 'rgba(255,60,60,.8)'; cx.beginPath(); cx.arc(m.x, m.y, m.r + 40 * (1 - k) + 6, 0, TAU); cx.stroke(); }
+          else { const k = clamp(1 - m.jk / MF.air, 0, 1);
+            cx.globalAlpha = .18 + .3 * k; cx.fillStyle = '#ff3c3c'; cx.beginPath(); cx.arc(m.jtx, m.jty, MF.R * k, 0, TAU); cx.fill();
+            cx.globalAlpha = .55 + .35 * Math.sin(S.t * 20) * k; cx.strokeStyle = '#ff5a3c'; cx.beginPath(); cx.arc(m.jtx, m.jty, MF.R, 0, TAU); cx.stroke(); cx.globalAlpha = 1; }
+        } }
         drawMounts();
         cx.fillStyle = 'rgba(0,0,0,.25)'; cx.beginPath();
         for (const e of S.enemies) { if (ETYPES[e.type].fly || !vis(e.x, e.y)) continue; cx.moveTo(e.x + e.r, e.y + e.r * .9); cx.ellipse(e.x, e.y + e.r * .9, e.r, e.r * .35, 0, 0, TAU); }
@@ -5698,7 +5831,8 @@
           if (e.phase === 'aim') { wSet(e.x, e.y, 1, 1, Math.atan2(e.cdy, e.cdx)); gA(.25 + .25 * Math.sin(S.t * 30)); cx.fillStyle = '#ff3c3c'; cx.fillRect(0, -e.r * .8, e.dashLen || (560 * .55 + e.r), e.r * 1.6); gA(1); }
           if (e.elite) { wReset(); cx.strokeStyle = e.type === 'mandinga' ? 'rgba(255,60,60,.7)' : 'rgba(224,183,90,.75)'; cx.lineWidth = 2; cx.beginPath(); cx.arc(e.x, e.y, e.r + 5 + Math.sin(S.t * 6) * 1.5, 0, TAU); cx.stroke(); }
           gSm(!e.elite);
-          blitEnemy(e, sp, sz, bob);
+          if (e.z > 0) { const y0 = e.y; e.y -= e.z; blitEnemy(e, sp, sz, bob); e.y = y0; }
+          else blitEnemy(e, sp, sz, bob);
           if (S.freezeT > 0 && e.type !== 'mandinga' && !e.prop) { wReset(); cx.fillStyle = 'rgba(160,220,255,.4)'; cx.beginPath(); cx.arc(e.x, e.y, e.r * 1.05, 0, TAU); cx.fill(); }
           if (e.elite && e.type !== 'mandinga') {
             wReset(); const bw = Math.min(e.r * 2, 90), f = clamp(e.hp / e.maxHp, 0, 1);
@@ -5784,7 +5918,11 @@
         }
 
         for (const f of S.fx) {
+          // culling: el rayo baja desde 360 arriba y los anillos pueden ser enormes, así que se mira su alcance
+          const ext = f.type === 'ring' ? f.R + 8 : f.type === 'bolt' ? 360 : f.type === 'slash' ? 80 : 0;
+          if (Math.abs(f.x - P.x) > hw + ext || Math.abs(f.y - P.y) > hh + ext) continue;
           const a = f.life / f.max;
+          if (f.type === 'ring') { const q = Math.ceil(a * 6); if (q > 0) RING_B.add(f.col + q, f.col, q / 6, f); continue; }
           if (f.type !== 'death') wReset();
           if (f.type === 'slash') {
             const p = 1 - a, dir = f.dir, L = f.w, H = f.h, ox = f.ox, oy = f.oy;
@@ -5837,20 +5975,24 @@
               wSet(f.x, f.y + k * sz * .2, 1 + k * .35, 1 - k * .75, f.rot);
               cx.globalAlpha = a; cx.drawImage(k < .35 ? fr.flash : fr.img, -sz / 2, -sz / 2, sz, sz);
             }
-            cx.globalAlpha = 1;
-          } else if (f.type === 'ring') {
-            cx.globalAlpha = a; cx.strokeStyle = f.col; cx.lineWidth = 3; cx.beginPath(); cx.arc(f.x, f.y, f.R * (1 - a) + 8, 0, TAU); cx.stroke(); cx.globalAlpha = 1;
+            // sin volver a 1: las demás ramas ponen su alfa antes de dibujar
           }
         }
+        wReset();
+        // anillos: un stroke por color y opacidad cuantizada
+        cx.lineWidth = 3;
+        RING_B.each(g => { cx.globalAlpha = g.a; cx.strokeStyle = g.col; cx.beginPath(); for (const f of g.l) { const r = f.R * (1 - f.life / f.max) + 8; cx.moveTo(f.x + r, f.y); cx.arc(f.x, f.y, r, 0, TAU); } cx.stroke(); });
+        cx.globalAlpha = 1;
 
         wReset();
         // partículas: las comunes van en lotes por color y opacidad (un fill por lote); las que brillan, un drawImage cada una
         for (const p of S.parts) {
           if (!vis(p.x, p.y)) continue;
           const a = clamp(p.life / p.max, 0, 1);
-          if (p.glow) { const R = p.size * 2.2; cx.globalAlpha = a; cx.drawImage(dotSpr(p.col), p.x - R, p.y - R, R * 2, R * 2); continue; }
+          if (p.glow) { const q = Math.ceil(a * 6); if (q > 0) GLOW_B.add(p.col + q, p.col, q / 6, p); continue; }
           const q = Math.ceil(a * 5); if (q > 0) PART_B.add(p.col + q, p.col, q / 5, p);
         }
+        GLOW_B.each(g => { cx.globalAlpha = g.a; const sp = dotSpr(g.col); for (const p of g.l) { const R = p.size * 2.2; cx.drawImage(sp, p.x - R, p.y - R, R * 2, R * 2); } });
         PART_B.each(g => { cx.globalAlpha = g.a; cx.fillStyle = g.col; cx.beginPath(); for (const p of g.l) cx.rect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size); cx.fill(); });
         cx.globalAlpha = 1;
         BM = null;
@@ -5862,11 +6004,11 @@
           for (const t of S.texts) { const fi = t.tier !== undefined ? Math.min(3, t.tier + (t.pop > 0 ? 1 : 0)) : t.big ? 2 : 0; cx.font = `${TXT_F[fi][0]} ${TXT_F[fi][1]}px ${FONT}`; cx.globalAlpha = clamp(t.life / .3, 0, 1); cx.strokeText(t.txt, t.x, t.y); cx.fillStyle = t.col; cx.fillText(t.txt, t.x, t.y); }
           cx.globalAlpha = 1; return;
         }
-        txtScale();
+        txtScale(); let ga = 1;
         for (const t of S.texts) {
-          const fi = t.tier !== undefined ? Math.min(3, t.tier + (t.pop > 0 ? 1 : 0)) : t.big ? 2 : 0;
-          cx.globalAlpha = clamp(t.life / .3, 0, 1);
-          drawTxt(String(t.txt), t.x, t.y, t.col, fi);
+          const fi = t.tier !== undefined ? Math.min(3, t.tier + (t.pop > 0 ? 1 : 0)) : t.big ? 2 : 0, a = clamp(t.life / .3, 0, 1);
+          if (a !== ga) cx.globalAlpha = ga = a;
+          drawTxt(String(t.txt), t.x, t.y, t.col, fi, t);
         }
         cx.globalAlpha = 1;
       }
@@ -5877,7 +6019,8 @@
       function render(dt) {
         const pOn = SAVE.opts.fps; let t0 = pOn ? performance.now() : 0;
         cx.setTransform(DPR, 0, 0, DPR, 0, 0);
-        cx.fillStyle = MAP().bg; cx.fillRect(0, 0, W, H);
+        // en partida el terreno tapa toda la pantalla (y pinta el fondo solo donde falta un chunk): no hace falta otra capa
+        if (!S) { cx.fillStyle = MAP().bg; cx.fillRect(0, 0, W, H); }
         demoT += dt;
         if (!S && PU) { drawPuesto(dt); return; }
         if (!S) { drawTitleScene(dt); cx.drawImage(vignette, 0, 0, W, H); drawCharPreview(); return; }
@@ -5894,13 +6037,13 @@
         if (pOn) t0 = prf('mundo', t0);
         drawOverlay(sx, sy);
         if (S && S.weather) drawWeather(dt);
-        cx.drawImage(vignette, 0, 0, W, H);
+        if (RES_K >= 1) cx.drawImage(vignette, 0, 0, W, H);  // si el equipo ya bajó la resolución, se ahorra esta capa entera
         if (!S) return;
         if (S.freezeT > 0) { cx.fillStyle = 'rgba(120,190,255,.10)'; cx.fillRect(0, 0, W, H); }
         if (S.whiteFlash > 0) { cx.fillStyle = `rgba(255,250,235,${Math.min(.6, S.whiteFlash * 1.6)})`; cx.fillRect(0, 0, W, H); }
         if (S.hurtFlash > 0) { cx.fillStyle = `rgba(194,58,74,${S.hurtFlash * .9})`; cx.fillRect(0, 0, W, H); }
         const br = S.bossRef;
-        if (br && !br.dead && br.elite && br.type !== 'mandinga') {
+        if (br && !br.dead && br.elite && !mHunter(br)) {
           const dx = (br.x - P.x) * ZOOM, dy = (br.y - P.y) * ZOOM;
           if (Math.abs(dx) > W / 2 - 20 || Math.abs(dy) > H / 2 - 20) {
             const a = Math.atan2(dy, dx), m = 40, ex = clamp(W / 2 + dx, m, W - m), ey = clamp(H / 2 + dy, m + 90, H - m - 40);
@@ -6009,13 +6152,13 @@
         SAVE.gold += S.gold - S.goldBanked; S.goldBanked = S.gold;
         if (!S.counted) { S.counted = true; SAVE.stats.runs++; }
         const bk = S.map + (S.hyper ? '-h' : ''); SAVE.stats.best[bk] = Math.max(SAVE.stats.best[bk] || 0, Math.floor(S.t));
-        const post = S.endless ? Math.floor(S.t - 900) : 0; if (post > 0) SAVE.stats.best[bk + '-post'] = Math.max(SAVE.stats.best[bk + '-post'] || 0, post);
+        const post = S.endless ? Math.floor(S.t - (S.dawnT || 900)) : 0; if (post > 0) SAVE.stats.best[bk + '-post'] = Math.max(SAVE.stats.best[bk + '-post'] || 0, post);
         checkAch(); writeSave();
         if (!win) musicStop();
-        $('endTitle').textContent = win ? M.txt.win : quit ? 'Partida abandonada' : 'La noche te ganó';
-        $('endSub').textContent = win ? 'Aguantaste los quince minutos. Podés seguir, pero el Mandinga sale a cazarte.' :
+        $('endTitle').textContent = win ? '¡Aguantaste la noche!' : quit ? 'Partida abandonada' : 'La noche te ganó';
+        $('endSub').textContent = win ? M.txt.win + ' y el Mandinga quedó tendido. Podés seguir, pero vienen otros a cazarte.' :
           (S.endless ? 'El Mandinga te alcanzó.' : 'El oro, los materiales y la fama quedan guardados para el Puesto.');
-        $('estats').innerHTML = [['Mapa', M.name + (S.hyper ? ' (Noche cerrada)' : '')], ['Tiempo', fmt(S.t)], ['Nivel', S.level], ['Enemigos', S.kills], ['Mejor combo', S.comboBest], ...(S.endless ? [['Después del amanecer', fmt(Math.max(0, S.t - 900)) + ' (récord ' + fmt(SAVE.stats.best[bk + '-post'] || 0) + ')']] : []), ['Oro juntado', '+' + S.gold], ['Oro total', SAVE.gold]].map(([a, b]) => `<span>${a}</span><span>${b}</span>`).join('');
+        $('estats').innerHTML = [['Mapa', M.name + (S.hyper ? ' (Noche cerrada)' : '')], ['Tiempo', fmt(S.t)], ['Nivel', S.level], ['Enemigos', S.kills], ['Mejor combo', S.comboBest], ...(S.endless ? [['Después del amanecer', fmt(Math.max(0, S.t - (S.dawnT || 900))) + ' (récord ' + fmt(SAVE.stats.best[bk + '-post'] || 0) + ')']] : []), ['Oro juntado', '+' + S.gold], ['Oro total', SAVE.gold]].map(([a, b]) => `<span>${a}</span><span>${b}</span>`).join('');
         const rows = S.weapons.map(w => ({ w, d: S.dmgBy[w.id] || 0 })).sort((a, b) => b.d - a.d);
         $('estats').innerHTML += bankRun().map(([a, b]) => `<span>${a}</span><span>${b}</span>`).join(''); writeSave();
         $('etable').innerHTML = rows.map(({ w, d }) => { const W_ = WEAPONS[w.id]; return `<tr><td>${w.evo ? W_.evoIcon : W_.icon} ${w.evo ? W_.evoName : W_.name}</td><td>${w.evo ? '★' : 'Nv ' + w.lvl}</td><td>${Math.round(d).toLocaleString('es-AR')}</td></tr>`; }).join('')
@@ -6026,7 +6169,7 @@
         show('endOv');
         if (!win) sfx(160, .8, 'sawtooth', .06, .3);
       }
-      $('cont').addEventListener('click', () => { hide('endOv'); S.endless = true; S.state = 'play'; S.nextMandinga = S.t; });
+      $('cont').addEventListener('click', () => { hide('endOv'); S.endless = true; S.finale = false; S.state = 'play'; S.nextMandinga = S.t; });
       function backToMenu(view) {
         if (!S || S.state !== 'end') return;
         hide('endOv'); $('hud').classList.remove('on'); $('dashBtn').classList.remove('on'); $('whBtn').classList.remove('on'); $('combo').classList.remove('on'); hud.comboOn = false; hud.bossOn = false; $('bossbar').classList.remove('on');
@@ -6865,7 +7008,7 @@
         if (sp > 60 && !air) {
           const dmg = rideDmg(.25, M.trample) * (R.trK || 1) * clamp(sp / (ST.speed * M.spd), .4, 1.3);
           forNear(P.x, P.y, M.r + 6, e => {
-            if (e.type === 'mandinga') return;
+            if (mHunter(e)) return;
             const rr = M.r + e.r + 4; if (dist2(e, P.x, P.y) > rr * rr || !canHit(e, 'pisada', .4)) return;
             const heavy = !e.prop && (e.elite || ETYPES[e.type].w > M.heavy);
             hurt(e, dmg, PJ, heavy ? 1 : M.kb, P.x - P.vx * .05, P.y - P.vy * .05);
@@ -6878,7 +7021,7 @@
         // la coz golpea fuerte a lo que tenga atrás
         if (R.mv && R.mv.type === 'coz' && !R.mv.hit && R.mv.t / R.mv.T > .4) {
           R.mv.hit = true; const bx = P.x - P.face * 30, by = P.y + 8, pw = rideDmg(.3, M.trample * 1.5);
-          forNear(bx, by, 30, e => { if (e.type !== 'mandinga' && dist2(e, bx, by) < (30 + e.r) ** 2) hurt(e, pw, PJ, M.kb * 1.2, P.x, P.y); });
+          forNear(bx, by, 30, e => { if (!mHunter(e) && dist2(e, bx, by) < (30 + e.r) ** 2) hurt(e, pw, PJ, M.kb * 1.2, P.x, P.y); });
         }
       }
       function riderSwing(s, dir) {
@@ -7463,7 +7606,7 @@
           if (e.mini) SAVE.trophies['mini_' + e.type] = 1;
           return;
         }
-        const d = MAT_DROP[e.type]; if (d && Math.random() < d[1]) push(d[0], 1);
+        const d = MAT_DROP[e.type]; if (d && Math.random() < d[1] / (S.mode === 'campo' ? 1 : BAL.dens)) push(d[0], 1);
       }
       function runFama() {
         if (!S) return 0;
@@ -7478,7 +7621,7 @@
         const f = runFama() - S.famaGiven; if (f > 0) { SAVE.fama += f; S.famaGiven += f; }
         rows.push(['Fama', famaIco + ' ' + S.famaGiven]);
         if (S.won) SAVE.trophies.amanecer = 1;
-        if (S.endless && S.t - 900 >= 120) SAVE.trophies.mandinga = 1;
+        if (S.endless && S.t - (S.dawnT || 900) >= 120) SAVE.trophies.mandinga = 1;
         if (S.tamed && !S.horseKept) {
           if (S.t < 300) rows.push(['Caballo', 'Se te escapó: aguantá 5 minutos para arriarlo']);
           else if (!corralCap()) rows.push(['Caballo', 'Construí el corral en el Puesto para quedártelo']);
@@ -8811,7 +8954,7 @@
         tBudgetEnd = performance.now() + (TCACHE.size < 8 ? 60 : 5);
         const x0 = Math.floor((px - hw) / TCH), x1 = Math.floor((px + hw) / TCH), y0 = Math.floor((py - hh) / TCH), y1 = Math.floor((py + hh) / TCH);
         cx.imageSmoothingEnabled = false;
-        for (let i = x0; i <= x1; i++) for (let j = y0; j <= y1; j++) { const c = terrChunk(i, j); if (c) cx.drawImage(c, i * TCH, j * TCH, TCH + .7, TCH + .7); }
+        for (let i = x0; i <= x1; i++) for (let j = y0; j <= y1; j++) { const c = terrChunk(i, j); if (c) cx.drawImage(c, i * TCH, j * TCH, TCH + .7, TCH + .7); else { cx.fillStyle = MAP().bg; cx.fillRect(i * TCH, j * TCH, TCH + .7, TCH + .7); } }
         cx.imageSmoothingEnabled = true;
         // prearmado en segundo plano: avanza de a filas un chunk del anillo de afuera (primero hacia donde se mueve el
         // jugador), con un tope de tiempo por frame. Así el terreno ya está hecho cuando entra a la pantalla.
@@ -9448,14 +9591,14 @@
         }
       }
       /* resolución dinámica: si durante la partida el promedio pasa de ~21 ms por frame (menos de 48 fps),
-         baja la resolución interna un escalón (2x → 1,5x → 1x). Solo baja y no se guarda: cada sesión arranca en alta. */
+         baja la resolución interna un escalón (2x → 1,5x → 1x → 0,5x). Solo baja y no se guarda: cada sesión arranca en alta. */
       const AUTO = { acc: 0, n: 0 };
       function autoRes(raw) {
-        if (!S || S.state !== 'play' || GFX_LOW || DPR <= 1 || raw > 120) { AUTO.acc = AUTO.n = 0; return; }
+        if (!S || S.state !== 'play' || DPR <= .5 || raw > 120) { AUTO.acc = AUTO.n = 0; return; }
         AUTO.acc += raw; AUTO.n++;
         if (AUTO.acc < 2500) return;
         const avg = AUTO.acc / AUTO.n; AUTO.acc = AUTO.n = 0;
-        if (avg > 21) { RES_K = Math.max(.5, RES_K - .25); resize(); }
+        if (avg > 21) { RES_K = Math.max(.25, RES_K - .25); resize(); }
       }
       function frame(now) {
         const raw = now - last;
@@ -9476,6 +9619,62 @@
       requestAnimationFrame(frame);
 
       window.__game = { SPR, PSPR, cardURL, obsSprite, bulletSprite, get SAVE() { return SAVE }, checkAch, ashBomb, MAPS, render, tryDash, get S() { return S }, newGame, update, WEAPONS, PASSIVES, recompute, openChest, buildChoices, applyChoice, endGame };
+      /* ---------------- modo de prueba: ?dev ----------------
+         Abre directo una partida avanzada para medir rendimiento y probar el final, sin tocar el guardado:
+           ?dev                      estepa, minuto 14 (el Mandinga llega en un minuto), horda llena, invencible
+           ?dev&map=glaciar&min=10   otro mapa y otro minuto de arranque (min entre 0 y 14,9)
+           ?dev&char=fueguera&low    otro personaje y gráficos bajos
+         Panel a la izquierda, debajo de las armas: Dios (invencible sí/no), +30 s, "Al Mandinga" (salta a 14:55) y "Horda" (llena la pantalla).
+         Nada se guarda: writeSave queda anulado mientras dure la sesión. */
+      if (DEV) {
+        writeSave = () => { };
+        const q = new URLSearchParams(location.search);
+        const mapId = MAPS[q.get('map')] && !MAPS[q.get('map')].region ? q.get('map') : 'estepa';
+        const charId = CHARS[q.get('char')] ? q.get('char') : 'baqueano';
+        const startMin = clamp(parseFloat(q.get('min')) || 14, 0, 14.9);
+        SAVE.opts.fps = true; $('fpsMeter').classList.add('on');
+        if (q.has('low')) { SAVE.opts.gfx = 'bajo'; GFX_LOW = true; resize(); }
+
+        // build de mitad de partida avanzada: 6 armas (2 evolucionadas) y algunos pasivos
+        const BUILD = { weapons: [['cruz', 8, true], ['relampago', 8, true], ['fogon', 7, false], ['rebenque', 6, false], ['boleadoras', 6, false], ['facon', 5, false]],
+          passives: [['yerba', 3], ['mate', 3], ['tientos', 1], ['ojo', 2], ['corazon', 2]] };
+
+        // llena la pantalla con la gente del mapa para el minuto actual, repartida alrededor del jugador
+        const devHorde = n => {
+          const P = S.player, m = minute();
+          for (let i = 0; i < n && S.enemies.length < 420; i++) {
+            const a = Math.random() * TAU, d = rnd(140, viewR() + 60), x = P.x + Math.cos(a) * d, y = P.y + Math.sin(a) * d;
+            const WV = MAPS[bioKey(x, y)].waves; spawnEnemy(pickW(WV[Math.min(m, WV.length - 1)]), x, y);
+          }
+        };
+        const jumpTo = t => {
+          S.t = t;
+          for (const ev of S.events) if (ev.t < t && ev.type !== 'win') ev.done = true;
+          S.weatherNext = Math.max(S.weatherNext || 0, t + 20);
+        };
+
+        initAudio(); newGame(charId, mapId);
+        S.weapons.length = 0;
+        for (const [id, lvl, evo] of BUILD.weapons) if (WEAPONS[id]) { S.weapons.push({ id, lvl, cd: 0, evo }); S.dmgBy[id] = 0; }
+        for (const [id, lvl] of BUILD.passives) if (PASSIVES[id]) S.passives.push({ id, lvl });
+        S.level = 40; S.xp = 0; S.xpNext = xpNeed(40);
+        recompute(); S.player.hp = ST.maxHp;
+        jumpTo(startMin * 60);
+        devHorde(Math.round(Math.min(8 + startMin * 15 + startMin * startMin * .5, 380) * BAL.dens));
+        hide('startOv'); $('hud').classList.add('on'); $('hud').classList.remove('campo'); $('dashBtn').classList.add('on');
+        musicStart();
+        banner('Modo prueba: invencible, nada se guarda');
+
+        // panel táctil (en el celular no hay teclado)
+        const pn = document.createElement('div');
+        pn.style.cssText = 'position:fixed;left:6px;top:calc(env(safe-area-inset-top, 0px) + 150px);z-index:9999;display:flex;flex-direction:column;gap:4px;align-items:flex-start;font:12px monospace';
+        const btn = (txt, fn) => { const b = document.createElement('button'); b.textContent = txt; b.style.cssText = 'padding:6px 8px;background:#0c1120cc;color:#ecd9a0;border:1px solid #c9a45c;border-radius:4px'; b.addEventListener('click', e => { e.stopPropagation(); fn(b); }); b.addEventListener('pointerdown', e => e.stopPropagation()); pn.appendChild(b); return b; };
+        btn('Dios: sí', b => { DEV.god = !DEV.god; b.textContent = 'Dios: ' + (DEV.god ? 'sí' : 'no'); });
+        btn('+30 s', () => { if (S && S.state === 'play' && !S.finale) jumpTo(Math.min(S.t + 30, 899)); });
+        btn('Al Mandinga', () => { if (S && S.state === 'play' && !S.finale && !S.endless) jumpTo(895); });
+        btn('Horda', () => { if (S && S.state === 'play') devHorde(200); });
+        document.body.appendChild(pn);
+      }
     })();
   </script>
 </body>

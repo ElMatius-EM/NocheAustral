@@ -320,6 +320,7 @@
 
         S.shake = Math.max(0, S.shake - dt * 3); S.hurtFlash -= dt;
 
+        if (P.hp <= 0 && DEV && DEV.god) P.hp = ST.maxHp;  // ?dev: ni el contacto del Mandinga cazador mata
         if (P.hp <= 0) {
           if (S.revives > 0) {
             S.revives--; P.hp = ST.maxHp * .5; P.iframe = 2.5;

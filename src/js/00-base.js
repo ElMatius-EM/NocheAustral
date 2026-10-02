@@ -9,6 +9,8 @@
       let W = 0, H = 0, DPR = 1, ZOOM = 1, vignette = null, GFX_LOW = false;
       // RES_K: resolución dinámica (31-loop la baja si el equipo no sostiene ~48 fps). PART_K: tope de partículas según la calidad
       let RES_K = 1, PART_K = 1;
+      // modo de prueba (?dev en la URL): ver 32-dev.js. Acá solo se declara para que el resto del código pueda consultarlo
+      const DEV = new URLSearchParams(location.search).has('dev') ? { god: true } : null;
       function resize() {
         // en gráficos bajos se dibuja a 1 píxel por píxel CSS: en pantallas de alta densidad es 4 veces menos trabajo
         // si la resolución dinámica baja de 1x se salta directo a 0,5x: escala entera (cada píxel interno = 2x2 de pantalla),
