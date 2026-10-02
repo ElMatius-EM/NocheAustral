@@ -312,7 +312,7 @@
           t.life -= dt; if (t.pop > 0) t.pop -= dt;
           if (t.e && !t.e.dead && t.e.dmgTxt === t && S.t - t.last < AGG_GAP_AURA) { t.x = t.e.x; t.y = t.e.y - t.e.r - 4; }
           else { t.e = null; t.y -= 38 * dt; }
-          if (t.life <= 0) { t.dead = true; if (t._c) { NUM_POOL.push(t._c); t._c = null; } }
+          if (t.life <= 0) t.dead = true;
         }
         compact(S.texts);
         for (const f of S.fx) { f.life -= dt; if (f.life <= 0) f.dead = true; else if (f.type === 'death') { f.x += f.vx * dt; f.y += f.vy * dt; const d = Math.max(0, 1 - dt * 5); f.vx *= d; f.vy *= d; f.rot += f.spin * dt; } }

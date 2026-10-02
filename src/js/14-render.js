@@ -58,55 +58,47 @@
       }
       /* ---- textos flotantes como imágenes ----
          fillText + strokeText (y cambiar cx.font) por cada número es de lo más caro en el canvas de un celular.
-         Los números se arman con un atlas de dígitos: una sola imagen por color y tamaño, horneada a la escala real de
+         Los números se arman con un atlas de dígitos (uno solo para todos los colores y tamaños), horneado a la escala real de
          pantalla (DPR · ZOOM), con los contornos en una fila y los rellenos en otra para que un contorno no pise el dígito
          de al lado. Los textos sueltos (+30, ¡Combo 50!) se cachean ya rasterizados. Hasta que carga Pixelify se usa texto normal. */
       const TXT_F = [[600, 13], [700, 16], [700, 19], [700, 24]], NUM_RE = /^[+-]?\d+$/, GLYPHS = '0123456789+-';
       let fontOK = false, TXT_K = 2, TXT_KEY = 0;
       function fontReady() { if (!fontOK) { try { fontOK = document.fonts.check(`600 13px "Pixelify Sans"`); } catch (e) { fontOK = true; } } return fontOK; }
-      const DIGITS = new Map(), STR_SPR = new Map();
+      /* Todos los juegos de dígitos (cada color y tamaño) viven en UN solo atlas: en el celular la placa de video agrupa
+         todos los drawImage que salen de la misma textura, así que 500 dígitos cuestan casi como uno. Antes cada número
+         tenía su propio canvas (una textura distinta que además se volvía a subir a la GPU cada vez que el número cambiaba):
+         en un celular eso solo costaba ~30 fps. El atlas crece de a filas cuando aparece un color/tamaño nuevo (pasa pocas
+         veces por partida) y se rearma entero solo si cambia la escala de pantalla. */
+      const DIGITS = new Map(), STR_SPR = new Map(), NUM_AT = { c: null, w: 0, h: 0 };
       function txtScale() {
         // escala de horneado = píxeles de pantalla por unidad de mundo, redondeada para no rehornear con cada cambio chico
         const k = Math.max(1, Math.round(DPR * ZOOM * 4) / 4);
-        if (k !== TXT_KEY) { TXT_KEY = TXT_K = k; DIGITS.clear(); STR_SPR.clear(); }
+        if (k !== TXT_KEY) { TXT_KEY = TXT_K = k; DIGITS.clear(); STR_SPR.clear(); NUM_AT.c = null; NUM_AT.w = NUM_AT.h = 0; }
       }
       function digitSet(col, fi) {
         const key = col + fi; let d = DIGITS.get(key); if (d) return d;
-        const [wt, px] = TXT_F[fi], K = TXT_K, f = `${wt} ${px * K}px ${FONT}`, pad = Math.ceil(2 * K), c = document.createElement('canvas'), g = c.getContext('2d');
-        g.font = f; const adv = {}, sx = {}; let x = 0;
-        for (const ch of GLYPHS) { adv[ch] = g.measureText(ch).width; sx[ch] = x; x += Math.ceil(adv[ch]) + pad * 2; }
-        const h = Math.ceil(px * 1.5 * K), by = Math.round(px * 1.1 * K);
-        c.width = x; c.height = h * 2; g.font = f; g.textAlign = 'left'; g.lineWidth = 3 * K; g.strokeStyle = 'rgba(0,0,0,.75)'; g.fillStyle = col;
-        for (const ch of GLYPHS) { g.strokeText(ch, sx[ch] + pad, by); g.fillText(ch, sx[ch] + pad, by + h); }
-        d = { c, adv, sx, pad, h, by }; DIGITS.set(key, d); return d;
+        const [wt, px] = TXT_F[fi], K = TXT_K, f = `${wt} ${px * K}px ${FONT}`, pad = Math.ceil(2 * K);
+        const mg = document.createElement('canvas').getContext('2d'); mg.font = f;
+        const adv = {}, sx = {}; let x = 0;
+        for (const ch of GLYPHS) { adv[ch] = mg.measureText(ch).width; sx[ch] = x; x += Math.ceil(adv[ch]) + pad * 2; }
+        const h = Math.ceil(px * 1.5 * K), by = Math.round(px * 1.1 * K), oy = NUM_AT.h;
+        // atlas nuevo con lugar para este juego (contorno + relleno), copiando lo que ya había
+        const c = document.createElement('canvas'); c.width = Math.max(NUM_AT.w, x); c.height = oy + h * 2;
+        const g = c.getContext('2d'); if (NUM_AT.c) g.drawImage(NUM_AT.c, 0, 0);
+        g.font = f; g.textAlign = 'left'; g.lineWidth = 3 * K; g.strokeStyle = 'rgba(0,0,0,.75)'; g.fillStyle = col;
+        for (const ch of GLYPHS) { g.strokeText(ch, sx[ch] + pad, oy + by); g.fillText(ch, sx[ch] + pad, oy + by + h); }
+        NUM_AT.c = c; NUM_AT.w = c.width; NUM_AT.h = c.height;
+        d = { adv, sx, pad, h, by, oy }; DIGITS.set(key, d); return d;
       }
-      // número completo horneado en un canvas propio del texto (contornos y rellenos en una pasada):
-      // se rearma solo si cambia el valor, el tamaño, el color o la escala; dibujarlo es un solo drawImage
-      // los canvas de los números se reciclan: crear uno nuevo por golpe en el celular es caro (contexto + textura nueva)
-      const NUM_POOL = [];
-      function numSpr(h, str, col, fi) {
-        const key = TXT_KEY + '|' + fi + '|' + col + '|' + str;
-        let c = h._c; if (c && c.key === key) return c;
-        const D = digitSet(col, fi); let w = 0; for (let i = 0; i < str.length; i++) w += D.adv[str[i]];
-        if (!c) { c = h._c = NUM_POOL.pop() || document.createElement('canvas'); c.key = null; }
-        c.width = Math.ceil(w) + D.pad * 2 + 1; c.height = D.h; // reasignar el tamaño también limpia
-        const g = c.getContext('2d');
-        for (let row = 0; row < 2; row++) {
-          let gx = 0;
-          for (let i = 0; i < str.length; i++) { const ch = str[i], sw = Math.ceil(D.adv[ch]) + D.pad * 2; g.drawImage(D.c, D.sx[ch], row * D.h, sw, D.h, gx, 0, sw, D.h); gx += D.adv[ch]; }
-        }
-        c.key = key; c.ox = w / 2 + D.pad; c.by = D.by; return c;
-      }
-      function drawTxt(str, x, y, col, fi, h) {
+      function drawTxt(str, x, y, col, fi) {
         const K = TXT_K;
         if (NUM_RE.test(str)) {
-          if (h) { const c = numSpr(h, str, col, fi); cx.drawImage(c, x - c.ox / K, y - c.by / K, c.width / K, c.height / K); return; }
-          const D = digitSet(col, fi); let w = 0; for (let i = 0; i < str.length; i++) w += D.adv[str[i]];
+          const D = digitSet(col, fi), A = NUM_AT.c; let w = 0; for (let i = 0; i < str.length; i++) w += D.adv[str[i]];
           for (let row = 0; row < 2; row++) {
-            let gx = x - w / 2 / K;
+            let gx = x - w / 2 / K; const sy = D.oy + row * D.h;
             for (let i = 0; i < str.length; i++) {
               const ch = str[i], sw = Math.ceil(D.adv[ch]) + D.pad * 2;
-              cx.drawImage(D.c, D.sx[ch], row * D.h, sw, D.h, gx - D.pad / K, y - D.by / K, sw / K, D.h / K);
+              cx.drawImage(A, D.sx[ch], sy, sw, D.h, gx - D.pad / K, y - D.by / K, sw / K, D.h / K);
               gx += D.adv[ch] / K;
             }
           }
@@ -533,7 +525,7 @@
         for (const t of S.texts) {
           const fi = t.tier !== undefined ? Math.min(3, t.tier + (t.pop > 0 ? 1 : 0)) : t.big ? 2 : 0, a = clamp(t.life / .3, 0, 1);
           if (a !== ga) cx.globalAlpha = ga = a;
-          drawTxt(String(t.txt), t.x, t.y, t.col, fi, t);
+          drawTxt(String(t.txt), t.x, t.y, t.col, fi);
         }
         cx.globalAlpha = 1;
       }
