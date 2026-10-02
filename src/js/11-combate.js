@@ -1,13 +1,14 @@
       /* ---------------- combat ---------------- */
       function hurt(e, dmg, w, kb, sx, sy) {
         if (e.dead) return;
-        if (e.type === 'mandinga') { e.flash = .05; return; }
+        if (e.type === 'mandinga' && (!e.fight || e.jph === 'air')) { e.flash = .05; return; }
         dmg *= ST.might * rnd(.92, 1.08);
         const wb = CHARS[S.char].wdmg; if (wb && wb[w.id]) dmg *= wb[w.id];
         if (e.elite && AURA.has(w.id)) dmg *= BAL.auraVsElite;
         let crit = false; if (S.arc.has('sieteEspadas') && Math.random() < .15) { dmg *= 2.5; crit = true; } else if (NI('c1') && Math.random() < .05) { dmg *= 2; crit = true; }
         if (e.elite && ST.eliteDmg) dmg *= 1 + ST.eliteDmg;
         if (!e.prop) S.dmgFrame = (S.dmgFrame || 0) + dmg;
+        if (e.fight) e.rawIn += dmg;  // daño real antes del tope, para calibrar la vida del Mandinga
         // tope de daño por segundo en élites y jefes: la pelea dura al menos capT segundos, sin importar el build
         let resist = false;
         if (e.capT) {
@@ -51,13 +52,14 @@
       }
       function ashBomb() {
         const P = S.player, hw = W / 2 / ZOOM, hh = H / 2 / ZOOM, pw = { id: 'bomba', evo: false }, dmg = 60 + 35 * minute();
-        for (const e of S.enemies) if (!e.dead && !e.prop && e.type !== 'mandinga' && Math.abs(e.x - P.x) < hw && Math.abs(e.y - P.y) < hh) hurt(e, dmg, pw, 10);
+        for (const e of S.enemies) if (!e.dead && !e.prop && !mHunter(e) && Math.abs(e.x - P.x) < hw && Math.abs(e.y - P.y) < hh) hurt(e, dmg, pw, 10);
         clearBullets(() => true, true);
         S.whiteFlash = .35; S.shake = 1; S.hitstop = Math.max(S.hitstop, .08);
         S.fx.push({ type: 'ring', x: P.x, y: P.y, life: .6, max: .6, col: '#fff3d0', R: Math.max(hw, hh) });
         sfx(80, .7, 'sawtooth', .08, .3);
       }
       function kill(e) {
+        if (e.fight) { mandingaDown(e); return; }
         if (e.prop) {
           e.dead = true; propDrop(e); burst(e.x, e.y, 10, '#ffcf6a', 120);
           if (S.fx.length < 320) S.fx.push({ type: 'death', x: e.x, y: e.y, etype: e.type, scale: 1, frame: 0, tilt: 0, life: .26, max: .26, vx: 0, vy: 0, spin: 0, rot: 0 });

@@ -82,7 +82,7 @@
         puma: { where: 'Bosque andino', desc: 'El león de la cordillera. Acecha quieto y salta de golpe, corto y rápido.' },
         jabali: { where: 'Bosque andino', desc: 'Lo trajeron para cazar y se adueñó del bosque. Se frena, raspa la tierra y embiste en línea recta.' },
         cuchivilu: { where: 'Bosque andino (jefe)', desc: 'Mitad chancho, mitad serpiente, de los mitos mapuches de lagos y mallines. Llama a la piara cuando lo apuran.' },
-        mandinga: { where: 'Cualquier mapa, después del amanecer', desc: 'El diablo del campo, que ofrece pactos a los paisanos. No se lo puede vencer: solo huir.' }
+        mandinga: { where: 'Cualquier mapa, al llegar el amanecer', desc: 'El diablo del campo, que ofrece pactos a los paisanos. Antes del amanecer sale a cobrarse la noche; si lo tumbás, los que vienen después no se dejan vencer: solo queda huirles.' }
       };
       const hasAch = id => !!SAVE.ach[id];
       const unlocked = lock => !lock || hasAch(lock);

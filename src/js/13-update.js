@@ -65,6 +65,7 @@
 
         const tm = S.timers;
         for (let i = tm.length - 1; i >= 0; i--) { const t = tm[i]; t.t -= dt; if (t.t <= 0) { tm[i] = tm[tm.length - 1]; tm.pop(); t.fn(); } }
+        if (S.state !== 'play') return;
 
         if (CHARS[S.char].aviso) for (const ev of S.events) if (!ev.done && !ev.warned && AVISOS[ev.type] && S.t >= ev.t - 5) { ev.warned = true; banner(AVISOS[ev.type]); sfx(330, .2, 'triangle', .03); }
         for (const ev of S.events) if (!ev.done && S.t >= ev.t) {
@@ -160,6 +161,11 @@
               if (fo > 0) { const tx = P.x + Math.cos(e.oa) * e.orad * fo - e.x, ty = P.y + Math.sin(e.oa) * e.orad * fo - e.y, td = Math.hypot(tx, ty) || 1; dx = tx / td; dy = ty / td; }
             }
             let sp = e.spd * sl * clamp(1 - Math.hypot(e.kx, e.ky) / 220, 0, 1);
+            if (e.fight) {
+              if (!e.enr && e.hp < e.maxHp * .5) { e.enr = true; e.spd *= 1.15; banner('El Mandinga se enfurece'); sfx(60, 1, 'sawtooth', .08, .35); S.shake = Math.min(1, S.shake + .5); }
+              mandingaCalib(e, dt);
+              if (mandingaJump(e, dt)) sp = 0;
+            }
             if (!ETYPES[e.type].fly && !e.boss && e.type !== 'mandinga') {
               e._wtT -= dt; if (e._wtT <= 0) { e._wtT = .18 + Math.random() * .1; e._wet = terrWet(e.x, e.y); }
               if (e._wet) { sp *= .75; if (ETYPES[e.type].w >= 1.3 && Math.abs(e.x - P.x) < hwS && Math.abs(e.y - P.y) < hhS) { e._md += sp * dt; if (e._md > 24) { e._md = 0; addMark(e.x, e.y + e.r * .8, Math.atan2(dy, dx), 'paw', 10); } } }
@@ -249,7 +255,8 @@
           }
           if (!ETYPES[e.type].fly && e.type !== 'mandinga') pushOut(e, e.r * .9, 90 * dt);
           const cdx = P.x - e.x, cdy = P.y - e.y, rr = e.r + P.r * .8;
-          if (e.type === 'mandinga') { if (cdx * cdx + cdy * cdy < rr * rr && P.iframe <= 0) { P.hp -= ST.maxHp * 1.5; S.hurtFlash = .4; S.shake = 1; } }
+          if (e.z > 0 || e.jph) { /* el Mandinga agachado o en el aire no pega por contacto */ }
+          else if (mHunter(e)) { if (cdx * cdx + cdy * cdy < rr * rr && P.iframe <= 0) { P.hp -= ST.maxHp * 1.5; S.hurtFlash = .4; S.shake = 1; } }
           else if (cdx * cdx + cdy * cdy < rr * rr && P.iframe <= 0 && P.touchIF <= 0 && canHit(e, 'touch', CONTACT_CD)) hurtPlayer(e.dmg * (e.phase === 'dash' ? 1.6 : 1), true);
         }
         S.aimN = aimCount + aimNew;
@@ -311,7 +318,7 @@
           if (S.revives > 0) {
             S.revives--; P.hp = ST.maxHp * .5; P.iframe = 2.5;
             const pw = { id: 'revive', evo: false };
-            forNear(P.x, P.y, 260, e => { if (!e.prop && e.type !== 'mandinga' && dist2(e, P.x, P.y) < 260 * 260) hurt(e, 200 + 40 * minute(), pw, 18); });
+            forNear(P.x, P.y, 260, e => { if (!e.prop && !mHunter(e) && dist2(e, P.x, P.y) < 260 * 260) hurt(e, 200 + 40 * minute(), pw, 18); });
             S.whiteFlash = .4; S.fx.push({ type: 'ring', x: P.x, y: P.y, life: .7, max: .7, col: '#ffd98a', R: 260 });
             banner('¡Segunda vida!'); sfx(523, .3, 'triangle', .06, 2);
           } else { P.hp = 0; if (S.mode === 'campo') { endCampo('desmayo'); return; } endGame(false); return; }

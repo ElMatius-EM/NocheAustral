@@ -322,6 +322,14 @@
           else dimg(ITEM[pk.type] || ITEM.iman, pk.x, pk.y + b);
         }
 
+        // aviso del salto del Mandinga: se agacha (anillo que se cierra) y marca dónde va a caer
+        { const m = S.bossRef; if (m && m.fight && !m.dead && m.jph) {
+          wReset(); cx.lineWidth = 3;
+          if (m.jph === 'wind') { const k = 1 - m.jk / MF.wind; cx.strokeStyle = 'rgba(255,60,60,.8)'; cx.beginPath(); cx.arc(m.x, m.y, m.r + 40 * (1 - k) + 6, 0, TAU); cx.stroke(); }
+          else { const k = clamp(1 - m.jk / MF.air, 0, 1);
+            cx.globalAlpha = .18 + .3 * k; cx.fillStyle = '#ff3c3c'; cx.beginPath(); cx.arc(m.jtx, m.jty, MF.R * k, 0, TAU); cx.fill();
+            cx.globalAlpha = .55 + .35 * Math.sin(S.t * 20) * k; cx.strokeStyle = '#ff5a3c'; cx.beginPath(); cx.arc(m.jtx, m.jty, MF.R, 0, TAU); cx.stroke(); cx.globalAlpha = 1; }
+        } }
         drawMounts();
         cx.fillStyle = 'rgba(0,0,0,.25)'; cx.beginPath();
         for (const e of S.enemies) { if (ETYPES[e.type].fly || !vis(e.x, e.y)) continue; cx.moveTo(e.x + e.r, e.y + e.r * .9); cx.ellipse(e.x, e.y + e.r * .9, e.r, e.r * .35, 0, 0, TAU); }
@@ -342,7 +350,8 @@
           if (e.phase === 'aim') { wSet(e.x, e.y, 1, 1, Math.atan2(e.cdy, e.cdx)); gA(.25 + .25 * Math.sin(S.t * 30)); cx.fillStyle = '#ff3c3c'; cx.fillRect(0, -e.r * .8, e.dashLen || (560 * .55 + e.r), e.r * 1.6); gA(1); }
           if (e.elite) { wReset(); cx.strokeStyle = e.type === 'mandinga' ? 'rgba(255,60,60,.7)' : 'rgba(224,183,90,.75)'; cx.lineWidth = 2; cx.beginPath(); cx.arc(e.x, e.y, e.r + 5 + Math.sin(S.t * 6) * 1.5, 0, TAU); cx.stroke(); }
           gSm(!e.elite);
-          blitEnemy(e, sp, sz, bob);
+          if (e.z > 0) { const y0 = e.y; e.y -= e.z; blitEnemy(e, sp, sz, bob); e.y = y0; }
+          else blitEnemy(e, sp, sz, bob);
           if (S.freezeT > 0 && e.type !== 'mandinga' && !e.prop) { wReset(); cx.fillStyle = 'rgba(160,220,255,.4)'; cx.beginPath(); cx.arc(e.x, e.y, e.r * 1.05, 0, TAU); cx.fill(); }
           if (e.elite && e.type !== 'mandinga') {
             wReset(); const bw = Math.min(e.r * 2, 90), f = clamp(e.hp / e.maxHp, 0, 1);
@@ -552,7 +561,7 @@
         if (S.whiteFlash > 0) { cx.fillStyle = `rgba(255,250,235,${Math.min(.6, S.whiteFlash * 1.6)})`; cx.fillRect(0, 0, W, H); }
         if (S.hurtFlash > 0) { cx.fillStyle = `rgba(194,58,74,${S.hurtFlash * .9})`; cx.fillRect(0, 0, W, H); }
         const br = S.bossRef;
-        if (br && !br.dead && br.elite && br.type !== 'mandinga') {
+        if (br && !br.dead && br.elite && !mHunter(br)) {
           const dx = (br.x - P.x) * ZOOM, dy = (br.y - P.y) * ZOOM;
           if (Math.abs(dx) > W / 2 - 20 || Math.abs(dy) > H / 2 - 20) {
             const a = Math.atan2(dy, dx), m = 40, ex = clamp(W / 2 + dx, m, W - m), ey = clamp(H / 2 + dy, m + 90, H - m - 40);

@@ -43,7 +43,7 @@
         const f = runFama() - S.famaGiven; if (f > 0) { SAVE.fama += f; S.famaGiven += f; }
         rows.push(['Fama', famaIco + ' ' + S.famaGiven]);
         if (S.won) SAVE.trophies.amanecer = 1;
-        if (S.endless && S.t - 900 >= 120) SAVE.trophies.mandinga = 1;
+        if (S.endless && S.t - (S.dawnT || 900) >= 120) SAVE.trophies.mandinga = 1;
         if (S.tamed && !S.horseKept) {
           if (S.t < 300) rows.push(['Caballo', 'Se te escapó: aguantá 5 minutos para arriarlo']);
           else if (!corralCap()) rows.push(['Caballo', 'Construí el corral en el Puesto para quedártelo']);

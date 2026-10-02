@@ -80,13 +80,13 @@
         SAVE.gold += S.gold - S.goldBanked; S.goldBanked = S.gold;
         if (!S.counted) { S.counted = true; SAVE.stats.runs++; }
         const bk = S.map + (S.hyper ? '-h' : ''); SAVE.stats.best[bk] = Math.max(SAVE.stats.best[bk] || 0, Math.floor(S.t));
-        const post = S.endless ? Math.floor(S.t - 900) : 0; if (post > 0) SAVE.stats.best[bk + '-post'] = Math.max(SAVE.stats.best[bk + '-post'] || 0, post);
+        const post = S.endless ? Math.floor(S.t - (S.dawnT || 900)) : 0; if (post > 0) SAVE.stats.best[bk + '-post'] = Math.max(SAVE.stats.best[bk + '-post'] || 0, post);
         checkAch(); writeSave();
         if (!win) musicStop();
-        $('endTitle').textContent = win ? M.txt.win : quit ? 'Partida abandonada' : 'La noche te ganó';
-        $('endSub').textContent = win ? 'Aguantaste los quince minutos. Podés seguir, pero el Mandinga sale a cazarte.' :
+        $('endTitle').textContent = win ? '¡Aguantaste la noche!' : quit ? 'Partida abandonada' : 'La noche te ganó';
+        $('endSub').textContent = win ? M.txt.win + ' y el Mandinga quedó tendido. Podés seguir, pero vienen otros a cazarte.' :
           (S.endless ? 'El Mandinga te alcanzó.' : 'El oro, los materiales y la fama quedan guardados para el Puesto.');
-        $('estats').innerHTML = [['Mapa', M.name + (S.hyper ? ' (Noche cerrada)' : '')], ['Tiempo', fmt(S.t)], ['Nivel', S.level], ['Enemigos', S.kills], ['Mejor combo', S.comboBest], ...(S.endless ? [['Después del amanecer', fmt(Math.max(0, S.t - 900)) + ' (récord ' + fmt(SAVE.stats.best[bk + '-post'] || 0) + ')']] : []), ['Oro juntado', '+' + S.gold], ['Oro total', SAVE.gold]].map(([a, b]) => `<span>${a}</span><span>${b}</span>`).join('');
+        $('estats').innerHTML = [['Mapa', M.name + (S.hyper ? ' (Noche cerrada)' : '')], ['Tiempo', fmt(S.t)], ['Nivel', S.level], ['Enemigos', S.kills], ['Mejor combo', S.comboBest], ...(S.endless ? [['Después del amanecer', fmt(Math.max(0, S.t - (S.dawnT || 900))) + ' (récord ' + fmt(SAVE.stats.best[bk + '-post'] || 0) + ')']] : []), ['Oro juntado', '+' + S.gold], ['Oro total', SAVE.gold]].map(([a, b]) => `<span>${a}</span><span>${b}</span>`).join('');
         const rows = S.weapons.map(w => ({ w, d: S.dmgBy[w.id] || 0 })).sort((a, b) => b.d - a.d);
         $('estats').innerHTML += bankRun().map(([a, b]) => `<span>${a}</span><span>${b}</span>`).join(''); writeSave();
         $('etable').innerHTML = rows.map(({ w, d }) => { const W_ = WEAPONS[w.id]; return `<tr><td>${w.evo ? W_.evoIcon : W_.icon} ${w.evo ? W_.evoName : W_.name}</td><td>${w.evo ? '★' : 'Nv ' + w.lvl}</td><td>${Math.round(d).toLocaleString('es-AR')}</td></tr>`; }).join('')
@@ -97,7 +97,7 @@
         show('endOv');
         if (!win) sfx(160, .8, 'sawtooth', .06, .3);
       }
-      $('cont').addEventListener('click', () => { hide('endOv'); S.endless = true; S.state = 'play'; S.nextMandinga = S.t; });
+      $('cont').addEventListener('click', () => { hide('endOv'); S.endless = true; S.finale = false; S.state = 'play'; S.nextMandinga = S.t; });
       function backToMenu(view) {
         if (!S || S.state !== 'end') return;
         hide('endOv'); $('hud').classList.remove('on'); $('dashBtn').classList.remove('on'); $('whBtn').classList.remove('on'); $('combo').classList.remove('on'); hud.comboOn = false; hud.bossOn = false; $('bossbar').classList.remove('on');

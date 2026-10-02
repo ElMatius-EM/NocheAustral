@@ -300,7 +300,7 @@
         if (sp > 60 && !air) {
           const dmg = rideDmg(.25, M.trample) * (R.trK || 1) * clamp(sp / (ST.speed * M.spd), .4, 1.3);
           forNear(P.x, P.y, M.r + 6, e => {
-            if (e.type === 'mandinga') return;
+            if (mHunter(e)) return;
             const rr = M.r + e.r + 4; if (dist2(e, P.x, P.y) > rr * rr || !canHit(e, 'pisada', .4)) return;
             const heavy = !e.prop && (e.elite || ETYPES[e.type].w > M.heavy);
             hurt(e, dmg, PJ, heavy ? 1 : M.kb, P.x - P.vx * .05, P.y - P.vy * .05);
@@ -313,7 +313,7 @@
         // la coz golpea fuerte a lo que tenga atrás
         if (R.mv && R.mv.type === 'coz' && !R.mv.hit && R.mv.t / R.mv.T > .4) {
           R.mv.hit = true; const bx = P.x - P.face * 30, by = P.y + 8, pw = rideDmg(.3, M.trample * 1.5);
-          forNear(bx, by, 30, e => { if (e.type !== 'mandinga' && dist2(e, bx, by) < (30 + e.r) ** 2) hurt(e, pw, PJ, M.kb * 1.2, P.x, P.y); });
+          forNear(bx, by, 30, e => { if (!mHunter(e) && dist2(e, bx, by) < (30 + e.r) ** 2) hurt(e, pw, PJ, M.kb * 1.2, P.x, P.y); });
         }
       }
       function riderSwing(s, dir) {
