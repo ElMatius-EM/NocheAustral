@@ -28,7 +28,7 @@
           each(fn) { for (const g of used) { fn(g); g.l.length = 0; } used.length = 0; }
         };
       }
-      const PART_B = mkBatch(), MARK_B = mkBatch();
+      const PART_B = mkBatch(), MARK_B = mkBatch(), GLOW_B = mkBatch(), RING_B = mkBatch();
       // punto con resplandor pre-horneado (reemplaza dos arc + dos fill por partícula)
       const DOT_SPR = new Map();
       function dotSpr(col) {
@@ -80,9 +80,25 @@
         for (const ch of GLYPHS) { g.strokeText(ch, sx[ch] + pad, by); g.fillText(ch, sx[ch] + pad, by + h); }
         d = { c, adv, sx, pad, h, by }; DIGITS.set(key, d); return d;
       }
-      function drawTxt(str, x, y, col, fi) {
+      // número completo horneado en un canvas propio del texto (contornos y rellenos en una pasada):
+      // se rearma solo si cambia el valor, el tamaño, el color o la escala; dibujarlo es un solo drawImage
+      function numSpr(h, str, col, fi) {
+        const key = TXT_KEY + '|' + fi + '|' + col + '|' + str;
+        let c = h._c; if (c && c.key === key) return c;
+        const D = digitSet(col, fi); let w = 0; for (let i = 0; i < str.length; i++) w += D.adv[str[i]];
+        if (!c) c = h._c = document.createElement('canvas');
+        c.width = Math.ceil(w) + D.pad * 2 + 1; c.height = D.h; // reasignar el tamaño también limpia
+        const g = c.getContext('2d');
+        for (let row = 0; row < 2; row++) {
+          let gx = 0;
+          for (let i = 0; i < str.length; i++) { const ch = str[i], sw = Math.ceil(D.adv[ch]) + D.pad * 2; g.drawImage(D.c, D.sx[ch], row * D.h, sw, D.h, gx, 0, sw, D.h); gx += D.adv[ch]; }
+        }
+        c.key = key; c.ox = w / 2 + D.pad; c.by = D.by; return c;
+      }
+      function drawTxt(str, x, y, col, fi, h) {
         const K = TXT_K;
         if (NUM_RE.test(str)) {
+          if (h) { const c = numSpr(h, str, col, fi); cx.drawImage(c, x - c.ox / K, y - c.by / K, c.width / K, c.height / K); return; }
           const D = digitSet(col, fi); let w = 0; for (let i = 0; i < str.length; i++) w += D.adv[str[i]];
           for (let row = 0; row < 2; row++) {
             let gx = x - w / 2 / K;
@@ -412,7 +428,11 @@
         }
 
         for (const f of S.fx) {
+          // culling: el rayo baja desde 360 arriba y los anillos pueden ser enormes, así que se mira su alcance
+          const ext = f.type === 'ring' ? f.R + 8 : f.type === 'bolt' ? 360 : f.type === 'slash' ? 80 : 0;
+          if (Math.abs(f.x - P.x) > hw + ext || Math.abs(f.y - P.y) > hh + ext) continue;
           const a = f.life / f.max;
+          if (f.type === 'ring') { const q = Math.ceil(a * 6); if (q > 0) RING_B.add(f.col + q, f.col, q / 6, f); continue; }
           if (f.type !== 'death') wReset();
           if (f.type === 'slash') {
             const p = 1 - a, dir = f.dir, L = f.w, H = f.h, ox = f.ox, oy = f.oy;
@@ -465,20 +485,24 @@
               wSet(f.x, f.y + k * sz * .2, 1 + k * .35, 1 - k * .75, f.rot);
               cx.globalAlpha = a; cx.drawImage(k < .35 ? fr.flash : fr.img, -sz / 2, -sz / 2, sz, sz);
             }
-            cx.globalAlpha = 1;
-          } else if (f.type === 'ring') {
-            cx.globalAlpha = a; cx.strokeStyle = f.col; cx.lineWidth = 3; cx.beginPath(); cx.arc(f.x, f.y, f.R * (1 - a) + 8, 0, TAU); cx.stroke(); cx.globalAlpha = 1;
+            // sin volver a 1: las demás ramas ponen su alfa antes de dibujar
           }
         }
+        wReset();
+        // anillos: un stroke por color y opacidad cuantizada
+        cx.lineWidth = 3;
+        RING_B.each(g => { cx.globalAlpha = g.a; cx.strokeStyle = g.col; cx.beginPath(); for (const f of g.l) { const r = f.R * (1 - f.life / f.max) + 8; cx.moveTo(f.x + r, f.y); cx.arc(f.x, f.y, r, 0, TAU); } cx.stroke(); });
+        cx.globalAlpha = 1;
 
         wReset();
         // partículas: las comunes van en lotes por color y opacidad (un fill por lote); las que brillan, un drawImage cada una
         for (const p of S.parts) {
           if (!vis(p.x, p.y)) continue;
           const a = clamp(p.life / p.max, 0, 1);
-          if (p.glow) { const R = p.size * 2.2; cx.globalAlpha = a; cx.drawImage(dotSpr(p.col), p.x - R, p.y - R, R * 2, R * 2); continue; }
+          if (p.glow) { const q = Math.ceil(a * 6); if (q > 0) GLOW_B.add(p.col + q, p.col, q / 6, p); continue; }
           const q = Math.ceil(a * 5); if (q > 0) PART_B.add(p.col + q, p.col, q / 5, p);
         }
+        GLOW_B.each(g => { cx.globalAlpha = g.a; const sp = dotSpr(g.col); for (const p of g.l) { const R = p.size * 2.2; cx.drawImage(sp, p.x - R, p.y - R, R * 2, R * 2); } });
         PART_B.each(g => { cx.globalAlpha = g.a; cx.fillStyle = g.col; cx.beginPath(); for (const p of g.l) cx.rect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size); cx.fill(); });
         cx.globalAlpha = 1;
         BM = null;
@@ -490,11 +514,11 @@
           for (const t of S.texts) { const fi = t.tier !== undefined ? Math.min(3, t.tier + (t.pop > 0 ? 1 : 0)) : t.big ? 2 : 0; cx.font = `${TXT_F[fi][0]} ${TXT_F[fi][1]}px ${FONT}`; cx.globalAlpha = clamp(t.life / .3, 0, 1); cx.strokeText(t.txt, t.x, t.y); cx.fillStyle = t.col; cx.fillText(t.txt, t.x, t.y); }
           cx.globalAlpha = 1; return;
         }
-        txtScale();
+        txtScale(); let ga = 1;
         for (const t of S.texts) {
-          const fi = t.tier !== undefined ? Math.min(3, t.tier + (t.pop > 0 ? 1 : 0)) : t.big ? 2 : 0;
-          cx.globalAlpha = clamp(t.life / .3, 0, 1);
-          drawTxt(String(t.txt), t.x, t.y, t.col, fi);
+          const fi = t.tier !== undefined ? Math.min(3, t.tier + (t.pop > 0 ? 1 : 0)) : t.big ? 2 : 0, a = clamp(t.life / .3, 0, 1);
+          if (a !== ga) cx.globalAlpha = ga = a;
+          drawTxt(String(t.txt), t.x, t.y, t.col, fi, t);
         }
         cx.globalAlpha = 1;
       }

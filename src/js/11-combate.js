@@ -84,7 +84,7 @@
           });
         }
         if (e.type === 'anima') {
-          for (let i = 0; i < 10 && S.parts.length < 600 * PART_K; i++) S.parts.push({ x: e.x + rnd(-8, 8), y: e.y + rnd(-8, 6), vx: rnd(-30, 30) + e.kx * .5, vy: rnd(-90, -35) + e.ky * .5, life: rnd(.5, .9), max: .9, col: i % 3 ? '#dbe8ff' : '#8fb8f5', size: rnd(3, 5), glow: true });
+          for (let i = 0; i < 5 && S.parts.length < 600 * PART_K; i++) S.parts.push({ x: e.x + rnd(-8, 8), y: e.y + rnd(-8, 6), vx: rnd(-30, 30) + e.kx * .5, vy: rnd(-90, -35) + e.ky * .5, life: rnd(.5, .9), max: .9, col: i % 3 ? '#dbe8ff' : '#8fb8f5', size: rnd(3.5, 5.5), glow: true });
           if (S.fx.length < 320) S.fx.push({ type: 'ring', x: e.x, y: e.y, life: .35, max: .35, col: 'rgba(200,222,255,.7)', R: 26 });
         } else burst(e.x, e.y, e.elite ? 22 : 6, T.col, e.elite ? 160 : 90, e.kx, e.ky);
         if (e.xp > 0) spawnGem(e.x, e.y, e.xp);
