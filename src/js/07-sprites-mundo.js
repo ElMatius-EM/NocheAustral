@@ -2,7 +2,7 @@
       // crea un sprite a partir de una función de dibujo; unit = unidades de mundo por "unidad de dibujo"
       function pixSprite(worldSize, unit, draw, oy) {
         const G = Math.max(4, Math.round(worldSize / PXS)), b = PixBuf(G, unit / PXS, oy); draw(b); const r = pixFinish(b);
-        return { img: r.img, flash: r.flash, size: G * PXS };
+        return { img: r.img, get flash() { return r.flash; }, size: G * PXS };
       }
       const dimg = (s, x, y, sc) => { const z = s.size * (sc || 1); cx.drawImage(s.img, x - z / 2, y - z / 2, z, z); };
 
@@ -62,8 +62,15 @@
         }
       };
       const OBS_SPR = new Map();
+      const obsKey = o => o.kind + Math.max(16, Math.round(o.r / 4) * 4) + '_' + (o.seed % 5);
+      // crea por adelantado (como mucho uno por frame) los sprites de obstáculos que están por entrar en pantalla:
+      // armar uno cuesta varios ms y si entraban varios juntos el frame se trababa
+      function prewarmObs(px, py, R) {
+        const x0 = Math.floor((px - R) / OBS_CELL), x1 = Math.floor((px + R) / OBS_CELL), y0 = Math.floor((py - R) / OBS_CELL), y1 = Math.floor((py + R) / OBS_CELL);
+        for (let ix = x0; ix <= x1; ix++) for (let iy = y0; iy <= y1; iy++) for (const o of obsChunk(ix, iy)) if (!OBS_SPR.has(obsKey(o))) { obsSprite(o); return; }
+      }
       function obsSprite(o) {
-        const rb = Math.max(16, Math.round(o.r / 4) * 4), v = o.seed % 5, key = o.kind + rb + '_' + v;
+        const rb = Math.max(16, Math.round(o.r / 4) * 4), v = o.seed % 5, key = obsKey(o);
         let s = OBS_SPR.get(key);
         if (!s) { s = pixSprite(rb * 3.6, rb, b => OBS_DRAW[o.kind](b, v * 37 + 11)); OBS_SPR.set(key, s); }
         return s;

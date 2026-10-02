@@ -34,7 +34,7 @@
         if (S.mode !== 'campo' && viaPuesto && SAVE.comida && FOGON_REC[SAVE.comida]) { S.comida = { id: SAVE.comida, until: CHARS[charId].fogon ? 900 : COMIDA_T, done: false }; SAVE.comida = null; writeSave(); }
         S.rerolls = Math.max(0, S.rerolls + (CHARS[charId].rerolls || 0)); S.rideCD = 0;
         { const R = MAPS[S.map].region; S.bio = R ? R.biomes[0] : S.map; S.iceK = MAPS[S.bio].ice ? 1 : 0; }
-        ST = null; obsCache.clear(); TCACHE.clear();
+        ST = null; obsCache.clear(); TCACHE.clear(); DCACHE.clear();
         for (const e of freeE) e.dead = true;
         addWeapon(CHARS[charId].weapon);
         recompute(); S.player.hp = ST.maxHp;

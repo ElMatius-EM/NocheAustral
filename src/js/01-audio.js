@@ -1,14 +1,22 @@
       /* ---------------- audio ---------------- */
       let AC = null, muted = false, lastGemSfx = 0;
       function initAudio() { if (AC) return; try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { AC = null; } }
+      // con muchas armas el mismo efecto se dispara decenas de veces por segundo: cada uno crea dos nodos de audio.
+      // Se descarta si el mismo tono sonó hace menos de 35 ms (no se oye la diferencia) y hay un tope de voces simultáneas.
+      const SFX_LAST = new Map(); let sfxVoices = 0;
       function sfx(f, d, type, vol, slide) {
         if (!AC || muted) return;
+        const now = performance.now(), lt = SFX_LAST.get(f);
+        if (lt !== undefined && now - lt < 35) return;
+        if (sfxVoices >= 24) return;
+        SFX_LAST.set(f, now); if (SFX_LAST.size > 400) SFX_LAST.clear();
         try {
           const t = AC.currentTime, o = AC.createOscillator(), g = AC.createGain();
           o.type = type || 'square'; o.frequency.setValueAtTime(f, t);
           if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, f * slide), t + d);
           g.gain.setValueAtTime(Math.max(.0002, (vol || .05) * SAVE.opts.sfx), t); g.gain.exponentialRampToValueAtTime(.0001, t + d);
           o.connect(g); g.connect(AC.destination); o.start(t); o.stop(t + d + .02);
+          sfxVoices++; o.onended = () => { sfxVoices--; o.disconnect(); g.disconnect(); };
         } catch (e) { }
       }
 

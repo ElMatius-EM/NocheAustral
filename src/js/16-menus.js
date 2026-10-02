@@ -62,7 +62,7 @@
       }
       function renderOpts() {
         $('optMusic').value = SAVE.opts.music; $('optSfx').value = SAVE.opts.sfx;
-        $('optNums').checked = !!SAVE.opts.nums; $('optShake').checked = !!SAVE.opts.shake; $('optDark').checked = SAVE.opts.dark !== false; $('optLow').checked = SAVE.opts.gfx === 'bajo'; $('optFps').checked = !!SAVE.opts.fps; $('optFastChest').checked = !!SAVE.opts.fastChest; $('optGlass').checked = SAVE.opts.clearUI !== false;
+        $('optNums').checked = !!SAVE.opts.nums; $('optShake').checked = !!SAVE.opts.shake; $('optLow').checked = SAVE.opts.gfx === 'bajo'; $('optFps').checked = !!SAVE.opts.fps; $('optFastChest').checked = !!SAVE.opts.fastChest; $('optGlass').checked = SAVE.opts.clearUI !== false;
         $('resetSave').textContent = 'Borrar todo el progreso'; resetArm = false;
       }
       let resetArm = false, refundArm = false;
@@ -97,8 +97,7 @@
       $('optSfx').addEventListener('input', () => { SAVE.opts.sfx = +$('optSfx').value; writeSave(); initAudio(); sfx(880, .08, 'triangle', .05); });
       $('optNums').addEventListener('change', () => { SAVE.opts.nums = $('optNums').checked; writeSave(); });
       $('optShake').addEventListener('change', () => { SAVE.opts.shake = $('optShake').checked; writeSave(); });
-      $('optDark').addEventListener('change', () => { SAVE.opts.dark = $('optDark').checked; writeSave(); });
-      $('optLow').addEventListener('change', () => { SAVE.opts.gfx = $('optLow').checked ? 'bajo' : 'alto'; GFX_LOW = SAVE.opts.gfx === 'bajo'; writeSave(); resize(); });
+      $('optLow').addEventListener('change', () => { SAVE.opts.gfx = $('optLow').checked ? 'bajo' : 'alto'; GFX_LOW = SAVE.opts.gfx === 'bajo'; RES_K = 1; writeSave(); resize(); });
       $('optFps').addEventListener('change', () => { SAVE.opts.fps = $('optFps').checked; writeSave(); $('fpsMeter').classList.toggle('on', SAVE.opts.fps); });
       $('optFastChest').addEventListener('change', () => { SAVE.opts.fastChest = $('optFastChest').checked; writeSave(); });
       $('optGlass').addEventListener('change', () => { SAVE.opts.clearUI = $('optGlass').checked; document.documentElement.classList.toggle('clear', SAVE.opts.clearUI); writeSave(); });

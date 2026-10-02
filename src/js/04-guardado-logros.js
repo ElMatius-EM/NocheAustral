@@ -2,7 +2,7 @@
       const SAVE_KEY = 'noche-austral-v1';
       const DEF_SAVE = () => ({
         gold: 0, spent: 0, shop: {}, ach: {}, hyper: false,
-        bestiary: {}, stats: { kills: 0, runs: 0, chests: 0, evos: 0, bosses: 0, best: {} }, opts: { music: .6, sfx: .8, nums: true, shake: true, fastChest: false, clearUI: true, dark: true, gfx: 'alto', fps: false }
+        bestiary: {}, stats: { kills: 0, runs: 0, chests: 0, evos: 0, bosses: 0, best: {} }, opts: { music: .6, sfx: .8, nums: true, shake: true, fastChest: false, clearUI: true, gfx: 'alto', fps: false }
       });
       let SAVE = DEF_SAVE();
       function loadSave() {

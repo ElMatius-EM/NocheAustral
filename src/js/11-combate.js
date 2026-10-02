@@ -16,7 +16,7 @@
         }
         e.hp -= dmg; e.flash = .09;
         if (NI('c3') && !e.elite && !e.prop && e.hp > 0 && e.hp < e.maxHp * .12) e.hp = 0;
-        if (!e.prop && S.parts.length < 450 && Math.random() < .6) { const sx = e.x - S.player.x, sy = e.y - S.player.y, sl = Math.hypot(sx, sy) || 1; for (let i = 0; i < 2; i++) S.parts.push({ x: e.x - sx / sl * e.r * .6, y: e.y - sy / sl * e.r * .6, vx: sx / sl * rnd(60, 140) + rnd(-40, 40), vy: sy / sl * rnd(60, 140) + rnd(-40, 40), life: rnd(.12, .22), max: .22, col: crit ? '#ffd23c' : '#fff4d8', size: rnd(1.5, 2.5) }); }
+        if (!e.prop && S.parts.length < 450 * PART_K && Math.random() < .6) { const sx = e.x - S.player.x, sy = e.y - S.player.y, sl = Math.hypot(sx, sy) || 1; for (let i = 0; i < 2; i++) S.parts.push({ x: e.x - sx / sl * e.r * .6, y: e.y - sy / sl * e.r * .6, vx: sx / sl * rnd(60, 140) + rnd(-40, 40), vy: sy / sl * rnd(60, 140) + rnd(-40, 40), life: rnd(.12, .22), max: .22, col: crit ? '#ffd23c' : '#fff4d8', size: rnd(1.5, 2.5) }); }
         S.dmgBy[w.id] = (S.dmgBy[w.id] || 0) + dmg;
         if (!e.prop && SAVE.opts.nums) dmgNum(e, dmg, w, crit, resist);
         if (kb && !e.boss) {
@@ -46,7 +46,7 @@
       const HARD_GLOW = 'rgba(255,70,70,.5)';
       function clearBullets(test, force) {
         let n = 0;
-        for (const b of S.ebul) { if (!b.dead && (force || !b.hard) && test(b)) { b.dead = true; n++; if (S.parts.length < 600) for (let i = 0; i < 4; i++) { const a = Math.random() * TAU; S.parts.push({ x: b.x, y: b.y, vx: Math.cos(a) * 70, vy: Math.sin(a) * 70, life: .25, max: .25, col: b.col || '#e2b6ff', size: 2.5 }); } } }
+        for (const b of S.ebul) { if (!b.dead && (force || !b.hard) && test(b)) { b.dead = true; n++; if (S.parts.length < 600 * PART_K) for (let i = 0; i < 4; i++) { const a = Math.random() * TAU; S.parts.push({ x: b.x, y: b.y, vx: Math.cos(a) * 70, vy: Math.sin(a) * 70, life: .25, max: .25, col: b.col || '#e2b6ff', size: 2.5 }); } } }
         if (n) sfx(1500, .04, 'square', .015, .5);
       }
       function ashBomb() {
@@ -84,7 +84,7 @@
           });
         }
         if (e.type === 'anima') {
-          for (let i = 0; i < 10 && S.parts.length < 600; i++) S.parts.push({ x: e.x + rnd(-8, 8), y: e.y + rnd(-8, 6), vx: rnd(-30, 30) + e.kx * .5, vy: rnd(-90, -35) + e.ky * .5, life: rnd(.5, .9), max: .9, col: i % 3 ? '#dbe8ff' : '#8fb8f5', size: rnd(3, 5), glow: true });
+          for (let i = 0; i < 10 && S.parts.length < 600 * PART_K; i++) S.parts.push({ x: e.x + rnd(-8, 8), y: e.y + rnd(-8, 6), vx: rnd(-30, 30) + e.kx * .5, vy: rnd(-90, -35) + e.ky * .5, life: rnd(.5, .9), max: .9, col: i % 3 ? '#dbe8ff' : '#8fb8f5', size: rnd(3, 5), glow: true });
           if (S.fx.length < 320) S.fx.push({ type: 'ring', x: e.x, y: e.y, life: .35, max: .35, col: 'rgba(200,222,255,.7)', R: 26 });
         } else burst(e.x, e.y, e.elite ? 22 : 6, T.col, e.elite ? 160 : 90, e.kx, e.ky);
         if (e.xp > 0) spawnGem(e.x, e.y, e.xp);
@@ -152,7 +152,7 @@
       }
       function burst(x, y, n, col, sp, bx, by) {
         if (GFX_LOW) n = Math.ceil(n / 2);
-        for (let i = 0; i < n && S.parts.length < 600; i++) {
+        for (let i = 0; i < n && S.parts.length < 600 * PART_K; i++) {
           const a = Math.random() * TAU, v = rnd(.3, 1) * sp;
           S.parts.push({ x, y, vx: Math.cos(a) * v + (bx || 0) * .45, vy: Math.sin(a) * v + (by || 0) * .45, life: rnd(.25, .5), max: .5, col, size: rnd(2, 4) });
         }

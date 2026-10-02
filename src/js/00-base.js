@@ -7,9 +7,12 @@
       const FONT = '"Pixelify Sans","Trebuchet MS",sans-serif';
 
       let W = 0, H = 0, DPR = 1, ZOOM = 1, vignette = null, GFX_LOW = false;
+      // RES_K: resolución dinámica (31-loop la baja si el equipo no sostiene ~48 fps). PART_K: tope de partículas según la calidad
+      let RES_K = 1, PART_K = 1;
       function resize() {
         // en gráficos bajos se dibuja a 1 píxel por píxel CSS: en pantallas de alta densidad es 4 veces menos trabajo
-        DPR = GFX_LOW ? 1 : Math.min(window.devicePixelRatio || 1, 2);
+        DPR = GFX_LOW ? 1 : Math.max(1, Math.min(window.devicePixelRatio || 1, 2) * RES_K);
+        PART_K = GFX_LOW ? .45 : RES_K < 1 ? .7 : 1;
         W = window.innerWidth; H = window.innerHeight;
         cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
         ZOOM = clamp(Math.min(W, H) / 620, 0.62, 1.1);

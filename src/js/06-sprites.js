@@ -99,7 +99,10 @@
           const s = document.createElement('canvas'); s.width = W; s.height = H; s.getContext('2d').putImageData(im, 0, 0);
           const c = document.createElement('canvas'); c.width = W * PX_UP; c.height = H * PX_UP; const g = c.getContext('2d'); g.imageSmoothingEnabled = false; g.drawImage(s, 0, 0, c.width, c.height); return c;
         };
-        return { img: up(img), flash: up(fl) };
+        // la versión blanca (destello al recibir un golpe) se arma recién la primera vez que se pide:
+        // obstáculos, pickups y decoración nunca la usan y era la mitad del costo de crear cada sprite
+        let flash = null;
+        return { img: up(img), get flash() { return flash || (flash = up(fl)); } };
       }
 
       // patitas de caminante: s=-1/1, devuelve [x,y] del pie

@@ -305,10 +305,10 @@
             const heavy = !e.prop && (e.elite || ETYPES[e.type].w > M.heavy);
             hurt(e, dmg, PJ, heavy ? 1 : M.kb, P.x - P.vx * .05, P.y - P.vy * .05);
             if (heavy) { P.vx *= -.3; P.vy *= -.3; rideHurt(e.dmg * .7); S.shake = Math.min(1, S.shake + .25); sfx(70, .2, 'square', .05, .5); }
-            else if (S.parts.length < 520) burst(e.x, e.y, 3, '#c9b894', 80);
+            else if (S.parts.length < 520 * PART_K) burst(e.x, e.y, 3, '#c9b894', 80);
           });
           R.dustT -= dt;
-          if (R.dustT <= 0 && S.parts.length < 500) { R.dustT = .05; S.parts.push({ x: P.x - P.face * 16 + rnd(-4, 4), y: P.y + 22, vx: -P.vx * .2 + rnd(-20, 20), vy: rnd(-30, -10), life: .4, max: .4, col: MAP().ice ? '#dbe8f2' : '#8a7b5a', size: rnd(2, 3.5) }); }
+          if (R.dustT <= 0 && S.parts.length < 500 * PART_K) { R.dustT = .05; S.parts.push({ x: P.x - P.face * 16 + rnd(-4, 4), y: P.y + 22, vx: -P.vx * .2 + rnd(-20, 20), vy: rnd(-30, -10), life: .4, max: .4, col: MAP().ice ? '#dbe8f2' : '#8a7b5a', size: rnd(2, 3.5) }); }
         }
         // la coz golpea fuerte a lo que tenga atrás
         if (R.mv && R.mv.type === 'coz' && !R.mv.hit && R.mv.t / R.mv.T > .4) {
