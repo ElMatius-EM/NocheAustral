@@ -78,7 +78,7 @@
         }
         if (e.elite) { S.hitstop = Math.max(S.hitstop, e.boss ? .18 : .09); S.shake = Math.min(1, S.shake + (e.boss ? .8 : .4)); }
         const T = ETYPES[e.type];
-        if (S.fx.length < 320) {
+        if (FX_ON && S.fx.length < 320) {
           const isA = e.type === 'anima', sp = SPR[e.type];
           S.fx.push({
             type: 'death', x: e.x, y: e.y, etype: e.type, scale: e.r / T.r, frame: isA ? ((S.t * 9 + e.wob * 4) | 0) % sp.frames.length : 0,
@@ -165,14 +165,17 @@
          y sigue al enemigo. Las auras pegan cada 0,35-0,55 s, así que usan una ventana más larga. AGG_MAX evita que
          un enemigo metido en varias fuentes tenga un número abierto para siempre. */
       const AGG_GAP = .2, AGG_GAP_AURA = .6, AGG_MAX = 1.2, AGG_TIER = [60, 250];
+      // con mucha gente en pantalla solo se marcan los números de los enemigos con más vida (élites siempre): S.numCut lo
+      // recalcula 13-update cada medio segundo; con pocos enemigos es 0 y se ven todos
       function dmgNum(e, dmg, w, crit, resist) {
+        if (!e.elite && e.maxHp < (S.numCut || 0)) return;
         const gap = AURA.has(w.id) ? AGG_GAP_AURA : AGG_GAP, t = e.dmgTxt;
         if (t && !t.dead && S.t - t.last < gap && S.t - t.born < AGG_MAX) {
           t.val += dmg; t.hits++; t.last = S.t; t.life = Math.max(t.life, .5);
           if (crit && !resist) t.crit = true; if (!resist) t.res = false;
           aggStyle(t); return;
         }
-        if (S.texts.length >= 90) return;
+        if (S.texts.length >= 24) return;
         const n = { x: e.x + rnd(-4, 4), y: e.y - e.r - 4, val: dmg, hits: 1, born: S.t, last: S.t, crit: crit && !resist, res: resist, life: .6, e };
         aggStyle(n); S.texts.push(n); e.dmgTxt = n;
       }

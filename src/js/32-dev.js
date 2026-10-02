@@ -58,7 +58,7 @@
         const NOOP = { blitEnemy: () => { }, drawGround: () => { cx.fillStyle = MAP().bg; cx.fillRect(S.player.x - 2000, S.player.y - 2000, 4000, 4000); }, drawTexts: () => { }, updateHUD: () => { }, drawMarks: () => { } };
         const setFn = (k, on) => { const f = on ? ORIG[k] : NOOP[k]; if (k === 'blitEnemy') blitEnemy = f; else if (k === 'drawGround') drawGround = f; else if (k === 'drawTexts') drawTexts = f; else if (k === 'updateHUD') updateHUD = f; else drawMarks = f; };
         const sw = document.createElement('div'); sw.style.cssText = 'display:flex;flex-wrap:wrap;gap:4px;max-width:46vw';
-        for (const [name, fn] of [['enemigos', 'blitEnemy'], ['suelo', 'drawGround'], ['números', 'drawTexts'], ['HUD', 'updateHUD'], ['marcas', 'drawMarks'], ['sombras'], ['efectos'], ['partículas']]) {
+        for (const [name, fn] of [['enemigos', 'blitEnemy'], ['suelo', 'drawGround'], ['números', 'drawTexts'], ['HUD', 'updateHUD'], ['marcas', 'drawMarks']]) {
           const b = document.createElement('button'); b.textContent = name; b.style.cssText = 'padding:5px 7px;background:#0c1120cc;color:#9fe08a;border:1px solid #5a7a4a;border-radius:4px;font:11px monospace';
           b.addEventListener('pointerdown', e => e.stopPropagation());
           b.addEventListener('click', e => {

@@ -4847,7 +4847,7 @@
         }
         if (e.elite) { S.hitstop = Math.max(S.hitstop, e.boss ? .18 : .09); S.shake = Math.min(1, S.shake + (e.boss ? .8 : .4)); }
         const T = ETYPES[e.type];
-        if (S.fx.length < 320) {
+        if (FX_ON && S.fx.length < 320) {
           const isA = e.type === 'anima', sp = SPR[e.type];
           S.fx.push({
             type: 'death', x: e.x, y: e.y, etype: e.type, scale: e.r / T.r, frame: isA ? ((S.t * 9 + e.wob * 4) | 0) % sp.frames.length : 0,
@@ -4934,14 +4934,17 @@
          y sigue al enemigo. Las auras pegan cada 0,35-0,55 s, así que usan una ventana más larga. AGG_MAX evita que
          un enemigo metido en varias fuentes tenga un número abierto para siempre. */
       const AGG_GAP = .2, AGG_GAP_AURA = .6, AGG_MAX = 1.2, AGG_TIER = [60, 250];
+      // con mucha gente en pantalla solo se marcan los números de los enemigos con más vida (élites siempre): S.numCut lo
+      // recalcula 13-update cada medio segundo; con pocos enemigos es 0 y se ven todos
       function dmgNum(e, dmg, w, crit, resist) {
+        if (!e.elite && e.maxHp < (S.numCut || 0)) return;
         const gap = AURA.has(w.id) ? AGG_GAP_AURA : AGG_GAP, t = e.dmgTxt;
         if (t && !t.dead && S.t - t.last < gap && S.t - t.born < AGG_MAX) {
           t.val += dmg; t.hits++; t.last = S.t; t.life = Math.max(t.life, .5);
           if (crit && !resist) t.crit = true; if (!resist) t.res = false;
           aggStyle(t); return;
         }
-        if (S.texts.length >= 90) return;
+        if (S.texts.length >= 24) return;
         const n = { x: e.x + rnd(-4, 4), y: e.y - e.r - 4, val: dmg, hits: 1, born: S.t, last: S.t, crit: crit && !resist, res: resist, life: .6, e };
         aggStyle(n); S.texts.push(n); e.dmgTxt = n;
       }
@@ -5448,6 +5451,7 @@
         }
         compact(S.picks);
 
+        S.parts.length = 0;  // partículas desactivadas: lo que se crea se descarta antes de simular o dibujar
         for (const p of S.parts) { p.life -= dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= .92; p.vy *= .92; if (p.life <= 0) p.dead = true; }
         compact(S.parts);
         for (const t of S.texts) {
@@ -5457,6 +5461,12 @@
           if (t.life <= 0) t.dead = true;
         }
         compact(S.texts);
+        S.numCutT = (S.numCutT || 0) - dt;
+        if (S.numCutT <= 0) {
+          S.numCutT = .5; const hs = [], hwN = W / 2 / ZOOM, hhN = H / 2 / ZOOM;
+          for (const e of S.enemies) if (!e.dead && !e.prop && !e.elite && Math.abs(e.x - P.x) < hwN && Math.abs(e.y - P.y) < hhN) hs.push(e.maxHp);
+          if (hs.length <= 40) S.numCut = 0; else { hs.sort((a, b) => b - a); S.numCut = hs[11]; }  // los 12 más duros de la pantalla
+        }
         for (const f of S.fx) { f.life -= dt; if (f.life <= 0) f.dead = true; else if (f.type === 'death') { f.x += f.vx * dt; f.y += f.vy * dt; const d = Math.max(0, 1 - dt * 5); f.vx *= d; f.vy *= d; f.rot += f.spin * dt; } }
         compact(S.fx);
 
@@ -5507,6 +5517,7 @@
           each(fn) { for (const g of used) { fn(g); g.l.length = 0; } used.length = 0; }
         };
       }
+      const FX_ON = false, NO_FX = [];  // partículas apagadas y efectos reducidos a latigazo y rayo (rendimiento en celular)
       const PART_B = mkBatch(), MARK_B = mkBatch(), GLOW_B = mkBatch(), RING_B = mkBatch();
       // punto con resplandor pre-horneado (reemplaza dos arc + dos fill por partícula)
       const DOT_SPR = new Map();
@@ -5804,11 +5815,7 @@
             cx.globalAlpha = .55 + .35 * Math.sin(S.t * 20) * k; cx.strokeStyle = '#ff5a3c'; cx.beginPath(); cx.arc(m.jtx, m.jty, MF.R, 0, TAU); cx.stroke(); cx.globalAlpha = 1; }
         } }
         drawMounts();
-        if (!(DEV && DEV.off.has('sombras'))) {
-          cx.fillStyle = 'rgba(0,0,0,.25)'; cx.beginPath();
-          for (const e of S.enemies) { if (ETYPES[e.type].fly || !vis(e.x, e.y)) continue; cx.moveTo(e.x + e.r, e.y + e.r * .9); cx.ellipse(e.x, e.y + e.r * .9, e.r, e.r * .35, 0, 0, TAU); }
-          cx.fill();
-        }
+        // sin sombras de enemigos: en el celular eran parte de lo que tiraba los fps (un trazado con cientos de elipses por frame)
         gSync();
         for (const e of S.enemies) {
           if (!vis(e.x, e.y)) continue;
@@ -5911,8 +5918,10 @@
           cx.globalAlpha = 1;
         }
 
+        // efectos: por rendimiento en celular solo se dibujan el latigazo del Rebenque y el rayo del Relámpago (son pocos a la vez
+        // y son la única forma de ver hacia dónde pegan esas armas); muertes y anillos, que se acumulaban por cientos, no
         for (const f of S.fx) {
-          if (DEV && DEV.off.has('efectos')) break;
+          if (!FX_ON && f.type !== 'slash' && f.type !== 'bolt') continue;
           // culling: el rayo baja desde 360 arriba y los anillos pueden ser enormes, así que se mira su alcance
           const ext = f.type === 'ring' ? f.R + 8 : f.type === 'bolt' ? 360 : f.type === 'slash' ? 80 : 0;
           if (Math.abs(f.x - P.x) > hw + ext || Math.abs(f.y - P.y) > hh + ext) continue;
@@ -5981,8 +5990,8 @@
 
         wReset();
         // partículas: las comunes van en lotes por color y opacidad (un fill por lote); las que brillan, un drawImage cada una
-        for (const p of S.parts) {
-          if (DEV && DEV.off.has('partículas')) break;
+        // partículas desactivadas por rendimiento (ver 13-update: se vacían cada frame)
+        for (const p of NO_FX) {
           if (!vis(p.x, p.y)) continue;
           const a = clamp(p.life / p.max, 0, 1);
           if (p.glow) { const q = Math.ceil(a * 6); if (q > 0) GLOW_B.add(p.col + q, p.col, q / 6, p); continue; }
@@ -9224,18 +9233,29 @@
       }
 
       // dibuja un enemigo con su animación. Dentro de drawWorld (BM) usa setTransform directo: sin save/translate/scale/restore
+      // destello al recibir un golpe: los comunes no cambian de imagen (el destello blanco de cientos de enemigos era muy
+      // caro en el celular); élites y jefes muestran un tinte rojo corto, horneado una vez por cuadro de animación
+      function hitImg(e, fr) {
+        if (!(e.elite && e.flash > .045)) return fr.img;
+        if (!fr.red) {
+          const c = document.createElement('canvas'); c.width = fr.img.width; c.height = fr.img.height; const g = c.getContext('2d');
+          g.drawImage(fr.img, 0, 0); g.globalCompositeOperation = 'source-atop'; g.fillStyle = 'rgba(255,40,40,.5)'; g.fillRect(0, 0, c.width, c.height);
+          fr.red = c;
+        }
+        return fr.red;
+      }
       function blitEnemy(e, sp, sz, bob) {
         const T = ETYPES[e.type];
         if (sp.frames.length > 1 && T.fly) {
           const fr = sp.frames[((S.t * 9 + e.wob * 4) | 0) % sp.frames.length], rot = clamp((e.mvx || 0) / 140, -1, 1) * .28;
-          if (BM) { wSet(e.x, e.y + bob, 1, 1, rot); gA(.9); cx.drawImage(e.flash > 0 ? fr.flash : fr.img, -sz / 2, -sz / 2, sz, sz); gA(1); return; }
+          if (BM) { wSet(e.x, e.y + bob, 1, 1, rot); gA(.9); cx.drawImage(hitImg(e, fr), -sz / 2, -sz / 2, sz, sz); gA(1); return; }
           cx.save(); cx.translate(e.x, e.y + bob); cx.rotate(rot);
-          cx.globalAlpha = .9; cx.drawImage(e.flash > 0 ? fr.flash : fr.img, -sz / 2, -sz / 2, sz, sz); cx.globalAlpha = 1; cx.restore();
+          cx.globalAlpha = .9; cx.drawImage(hitImg(e, fr), -sz / 2, -sz / 2, sz, sz); cx.globalAlpha = 1; cx.restore();
         } else if (sp.frames.length > 1) {
           const fz = S.freezeT > 0, fr = sp.frames[fz ? 0 : ((S.t * 8 + e.wob * 3) | 0) % sp.frames.length], sq = fz ? 0 : Math.sin(S.t * 16 + e.wob) * .02, fl = (e.mvx || 0) < -5 ? -1 : 1;
-          if (BM) { wSet(e.x, e.y, fl * (1 - sq), 1 + sq, 0); cx.drawImage(e.flash > 0 ? fr.flash : fr.img, -sz / 2, -sz / 2, sz, sz); return; }
-          cx.save(); cx.translate(e.x, e.y); cx.scale(fl * (1 - sq), 1 + sq); cx.drawImage(e.flash > 0 ? fr.flash : fr.img, -sz / 2, -sz / 2, sz, sz); cx.restore();
-        } else { if (BM) wReset(); cx.drawImage(e.flash > 0 ? sp.flash : sp.img, e.x - sz / 2, e.y - sz / 2 + bob, sz, sz); }
+          if (BM) { wSet(e.x, e.y, fl * (1 - sq), 1 + sq, 0); cx.drawImage(hitImg(e, fr), -sz / 2, -sz / 2, sz, sz); return; }
+          cx.save(); cx.translate(e.x, e.y); cx.scale(fl * (1 - sq), 1 + sq); cx.drawImage(hitImg(e, fr), -sz / 2, -sz / 2, sz, sz); cx.restore();
+        } else { if (BM) wReset(); cx.drawImage(hitImg(e, sp), e.x - sz / 2, e.y - sz / 2 + bob, sz, sz); }
       }
       // capa sobre la oscuridad: números de daño y textos flotantes
       function drawOverlay(sx, sy) {
@@ -9675,7 +9695,7 @@
         const NOOP = { blitEnemy: () => { }, drawGround: () => { cx.fillStyle = MAP().bg; cx.fillRect(S.player.x - 2000, S.player.y - 2000, 4000, 4000); }, drawTexts: () => { }, updateHUD: () => { }, drawMarks: () => { } };
         const setFn = (k, on) => { const f = on ? ORIG[k] : NOOP[k]; if (k === 'blitEnemy') blitEnemy = f; else if (k === 'drawGround') drawGround = f; else if (k === 'drawTexts') drawTexts = f; else if (k === 'updateHUD') updateHUD = f; else drawMarks = f; };
         const sw = document.createElement('div'); sw.style.cssText = 'display:flex;flex-wrap:wrap;gap:4px;max-width:46vw';
-        for (const [name, fn] of [['enemigos', 'blitEnemy'], ['suelo', 'drawGround'], ['números', 'drawTexts'], ['HUD', 'updateHUD'], ['marcas', 'drawMarks'], ['sombras'], ['efectos'], ['partículas']]) {
+        for (const [name, fn] of [['enemigos', 'blitEnemy'], ['suelo', 'drawGround'], ['números', 'drawTexts'], ['HUD', 'updateHUD'], ['marcas', 'drawMarks']]) {
           const b = document.createElement('button'); b.textContent = name; b.style.cssText = 'padding:5px 7px;background:#0c1120cc;color:#9fe08a;border:1px solid #5a7a4a;border-radius:4px;font:11px monospace';
           b.addEventListener('pointerdown', e => e.stopPropagation());
           b.addEventListener('click', e => {

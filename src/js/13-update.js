@@ -306,6 +306,7 @@
         }
         compact(S.picks);
 
+        S.parts.length = 0;  // partículas desactivadas: lo que se crea se descarta antes de simular o dibujar
         for (const p of S.parts) { p.life -= dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= .92; p.vy *= .92; if (p.life <= 0) p.dead = true; }
         compact(S.parts);
         for (const t of S.texts) {
@@ -315,6 +316,12 @@
           if (t.life <= 0) t.dead = true;
         }
         compact(S.texts);
+        S.numCutT = (S.numCutT || 0) - dt;
+        if (S.numCutT <= 0) {
+          S.numCutT = .5; const hs = [], hwN = W / 2 / ZOOM, hhN = H / 2 / ZOOM;
+          for (const e of S.enemies) if (!e.dead && !e.prop && !e.elite && Math.abs(e.x - P.x) < hwN && Math.abs(e.y - P.y) < hhN) hs.push(e.maxHp);
+          if (hs.length <= 40) S.numCut = 0; else { hs.sort((a, b) => b - a); S.numCut = hs[11]; }  // los 12 más duros de la pantalla
+        }
         for (const f of S.fx) { f.life -= dt; if (f.life <= 0) f.dead = true; else if (f.type === 'death') { f.x += f.vx * dt; f.y += f.vy * dt; const d = Math.max(0, 1 - dt * 5); f.vx *= d; f.vy *= d; f.rot += f.spin * dt; } }
         compact(S.fx);
 
